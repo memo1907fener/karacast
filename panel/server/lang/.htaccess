@@ -1,0 +1,10 @@
+# Diese Dateien werden eingebunden, nie direkt aufgerufen. Ein Direktaufruf
+# richtet zwar nichts an — sie definieren nur Funktionen —, aber was niemand
+# braucht, muss auch nicht erreichbar sein.
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>

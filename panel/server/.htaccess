@@ -1,0 +1,40 @@
+# config.php enthält das Datenbankpasswort und darf nie ausgeliefert werden —
+# auch dann nicht, wenn PHP auf dem Server einmal nicht läuft.
+#
+# Das Muster ist absichtlich weit gefasst. Gefährlich ist nicht config.php selbst,
+# sondern was drumherum liegen bleibt: config.php.bak vom FTP-Programm, config.php~
+# vom Editor, ein .swp einer abgebrochenen Sitzung, eine datenbank.sql vom Umzug.
+# Keine dieser Dateien endet auf .php, Apache liefert sie also im Klartext aus.
+<FilesMatch "^config.*|.*\.(pem|key|bak|save|swp|swo|orig|dist|sql|log|lock)$|^\.">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Ein per git ausgerolltes Verzeichnis gibt sonst die ganze Quelle her.
+RedirectMatch 404 /\.git
+
+# Kein Verzeichnislisting.
+Options -Indexes
+
+# Immer über HTTPS. Über http:// ginge das Panel-Passwort im Klartext durchs Netz,
+# und das Sitzungscookie ließe sich unterwegs mitlesen und weiterverwenden.
+#
+# WENN DAS PANEL NACH DEM HOCHLADEN NICHT MEHR ERREICHBAR IST (Endlosschleife oder
+# Fehler 500), hat deine Domain noch kein SSL: dann diese vier Zeilen mit einem #
+# am Zeilenanfang ausklammern, das Zertifikat einrichten und sie wieder aktivieren.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+</IfModule>
+
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set Referrer-Policy "same-origin"
+</IfModule>

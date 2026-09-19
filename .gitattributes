@@ -1,0 +1,18 @@
+# Zeilenenden: Windows hier, Linux auf dem Bau-Rechner bei GitHub.
+# Git gleicht das normalerweise selbst ab — für die Startskripte wird es hier
+# aber festgeschrieben, weil ein einziges Windows-Zeilenende in gradlew reicht,
+# damit Linux sagt "bad interpreter" und der ganze Lauf scheitert.
+* text=auto
+
+gradlew     text eol=lf
+*.sh        text eol=lf
+gradlew.bat text eol=crlf
+*.bat       text eol=crlf
+
+# Binärdateien nicht anfassen.
+*.png  binary
+*.jpg  binary
+*.woff2 binary
+*.jar  binary
+*.apk  binary
+*.jks  binary

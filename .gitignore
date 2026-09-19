@@ -1,0 +1,35 @@
+# Android Studio / Gradle
+*.iml
+.gradle/
+/.kotlin/
+/.idea/
+/build
+/app/build
+/captures
+.externalNativeBuild
+.cxx
+.DS_Store
+
+# Rechnerspezifisch — gehört niemandem sonst
+/local.properties
+local.properties
+
+# ---------------------------------------------------------------- Geheimnisse
+# Der Signaturschlüssel und sein Passwort. Wer die Datei hat, kann Updates unter
+# deinem App-Namen veröffentlichen. Sie liegt nur auf diesem Rechner und (als
+# Secret) bei GitHub — nie im Repository.
+/keystore.properties
+*.jks
+*.keystore
+
+# Panel: die Zugangsdaten und der Lizenzschlüssel des Servers.
+/panel/server/config.php
+/panel/server/keys/*.pem
+/licensing/
+
+# ------------------------------------------------------------------- Ballast
+# Gebaute APKs gehören an ein Release, nicht in die Versionsgeschichte: sie
+# ändern sich bei jedem Bau vollständig und blähen das Repository dauerhaft auf.
+*.apk
+*.aab
+/karacast-panel.zip

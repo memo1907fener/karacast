@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The one folder this app is willing to hand a file out of: the cache directory
+    where a downloaded update lands. Nothing else is shared, and a FileProvider that
+    exposes only what it must is the difference between a convenience and a hole.
+-->
+<paths>
+    <cache-path
+        name="updates"
+        path="updates/" />
+</paths>

@@ -1,0 +1,232 @@
+#
+# ►► Diese Datei gehört nach  .github/workflows/release.yml  im Projektordner.
+#    (Sie liegt hier unter update/, weil Ordner mit einem Punkt am Anfang von
+#     außen nicht beschrieben werden dürfen — einfach dorthin verschieben und
+#     in "release.yml" umbenennen.)
+#
+# Veröffentlichen: APK bauen, signieren, als Release anhängen und die
+# Update-Datei umschreiben — in einem Durchgang.
+#
+# Bisher waren das vier Handgriffe von Hand (bauen, Release anlegen, APK
+# hochladen, update/karacast.json nachziehen), und der vierte wurde gern
+# vergessen. Dann lag das neue APK zwar auf GitHub, aber kein Fernseher hat je
+# davon erfahren, weil die Fernseher nur diese eine kleine Datei lesen.
+#
+# Auslöser, zwei Wege:
+#   * Auf GitHub unter "Actions" → "Veröffentlichen" → "Run workflow".
+#     Bequemer Weg: Version in app/build.gradle.kts hochzählen, pushen, Knopf.
+#   * Oder ein Tag `v1.9.3` pushen. Dann muss der Tag zur versionName passen,
+#     sonst bricht der Lauf mit einer deutlichen Meldung ab.
+#
+# Einmalig einzurichten (Settings → Secrets and variables → Actions):
+#   KEYSTORE_BASE64    der Signaturschlüssel, base64-kodiert
+#   KEYSTORE_PASSWORD  storePassword
+#   KEY_ALIAS          keyAlias   (bei uns: safir)
+#   KEY_PASSWORD       keyPassword
+# Siehe update/README.md, dort steht der Befehl zum Kodieren.
+#
+name: Veröffentlichen
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      notes:
+        description: 'Was ist neu? (wird am Fernseher angezeigt)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Version aus build.gradle.kts lesen
+        id: version
+        run: |
+          set -euo pipefail
+          file=app/build.gradle.kts
+          name=$(grep -m1 -E '^\s*versionName\s*=' "$file" | sed -E 's/.*"([^"]+)".*/\1/')
+          code=$(grep -m1 -E '^\s*versionCode\s*=' "$file" | sed -E 's/[^0-9]*([0-9]+).*/\1/')
+          if [ -z "$name" ] || [ -z "$code" ]; then
+            echo "::error::versionName/versionCode nicht gefunden in $file"
+            exit 1
+          fi
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "tag=v$name"  >> "$GITHUB_OUTPUT"
+          echo "Version $name ($code)"
+
+      - name: Tag und Version müssen zusammenpassen
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF#refs/tags/}"
+          want="${{ steps.version.outputs.tag }}"
+          if [ "$tag" != "$want" ]; then
+            echo "::error::Tag $tag, aber app/build.gradle.kts sagt $want. Erst die Version hochzählen, dann taggen."
+            exit 1
+          fi
+
+      - name: Ist die Version überhaupt neuer?
+        run: |
+          set -euo pipefail
+          alt=$(python3 -c "import json;print(json.load(open('update/karacast.json'))['versionCode'])" 2>/dev/null || echo 0)
+          neu=${{ steps.version.outputs.code }}
+          if [ "$neu" -le "$alt" ]; then
+            echo "::error::versionCode $neu ist nicht größer als der veröffentlichte ($alt). Kein Fernseher würde das Update sehen."
+            exit 1
+          fi
+
+      - name: Signaturschlüssel bereitlegen
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${KEYSTORE_BASE64:-}" ]; then
+            echo "::error::Das Secret KEYSTORE_BASE64 fehlt. Ohne den eigenen Schlüssel würde das APK mit dem Debug-Schlüssel signiert — solche Updates lassen sich nicht über eine bestehende Installation legen."
+            exit 1
+          fi
+          mkdir -p keystore
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > keystore/safir-release.jks
+          # Die Properties-Datei entsteht hier und nur hier; im Repository hat
+          # sie nichts verloren und steht deshalb in .gitignore.
+          {
+            printf 'storeFile=keystore/safir-release.jks\n'
+            printf 'storePassword=%s\n' "$KEYSTORE_PASSWORD"
+            printf 'keyAlias=%s\n' "$KEY_ALIAS"
+            printf 'keyPassword=%s\n' "$KEY_PASSWORD"
+          } > keystore.properties
+          echo "Schlüssel liegt bereit ($(stat -c%s keystore/safir-release.jks) Bytes)."
+
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Release-APK bauen
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: APK prüfen und benennen
+        id: apk
+        run: |
+          set -euo pipefail
+          src=app/build/outputs/apk/release/app-release.apk
+          if [ ! -f "$src" ]; then
+            echo "::error::$src wurde nicht gebaut."
+            exit 1
+          fi
+
+          # Zwei Prüfungen, beide schon einmal teuer bezahlt:
+          # 1. testOnly — so ein APK lässt sich von Hand nicht installieren
+          #    ("Paket ungültig"). Gradle setzt das nicht, Android Studio beim
+          #    Ausführen schon; wenn es hier auftaucht, stimmt etwas nicht.
+          unzip -p "$src" AndroidManifest.xml > /tmp/manifest.bin
+          # Der Name steht im Zeichenvorrat der Binärdatei — je nach Werkzeug
+          # als ASCII oder als UTF-16, deshalb beide Lesarten.
+          if { strings -a /tmp/manifest.bin; strings -a -el /tmp/manifest.bin; } | grep -q 'testOnly'; then
+            echo "::error::Das APK ist als testOnly markiert und wäre nicht installierbar."
+            exit 1
+          fi
+          # 2. Wer hat signiert? Der Debug-Schlüssel heißt immer "Android Debug".
+          unzip -p "$src" META-INF/'*.RSA' > /tmp/sig.rsa 2>/dev/null || true
+          if keytool -printcert -file /tmp/sig.rsa 2>/dev/null | grep -q 'Android Debug'; then
+            echo "::error::Mit dem Debug-Schlüssel signiert — das wäre kein gültiges Update."
+            exit 1
+          fi
+
+          mkdir -p dist
+          out="dist/KaracastIPTV-${{ steps.version.outputs.name }}.apk"
+          cp "$src" "$out"
+          echo "path=$out" >> "$GITHUB_OUTPUT"
+          echo "name=$(basename "$out")" >> "$GITHUB_OUTPUT"
+          ls -lh "$out"
+
+      - name: Was ist neu?
+        id: notes
+        env:
+          NOTES: ${{ github.event.inputs.notes }}
+        run: |
+          set -euo pipefail
+          text="${NOTES:-}"
+          if [ -z "$text" ] && [ "${GITHUB_REF#refs/tags/}" != "$GITHUB_REF" ]; then
+            # Bei einem beschrifteten Tag steht der Text im Tag selbst.
+            text=$(git tag -l --format='%(contents:subject)' "${GITHUB_REF#refs/tags/}")
+          fi
+          [ -n "$text" ] || text="Version ${{ steps.version.outputs.name }}"
+          # Über eine Datei, damit Zeilenumbrüche und Anführungszeichen überleben.
+          printf '%s' "$text" > /tmp/notes.txt
+          echo "Notiz: $text"
+
+      - name: Release anlegen und APK anhängen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${{ steps.version.outputs.tag }}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "${{ steps.apk.outputs.path }}" --clobber
+          else
+            gh release create "$tag" "${{ steps.apk.outputs.path }}" \
+              --target "${{ github.sha }}" \
+              --title "Karacast ${{ steps.version.outputs.name }}" \
+              --notes-file /tmp/notes.txt
+          fi
+
+      - name: Update-Datei auf main umschreiben
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${{ steps.version.outputs.tag }}"
+          url="https://github.com/${{ github.repository }}/releases/download/$tag/${{ steps.apk.outputs.name }}"
+
+          python3 - "$url" > /tmp/karacast.json <<'PY'
+          import json, sys, pathlib
+          notes = pathlib.Path('/tmp/notes.txt').read_text(encoding='utf-8').strip()
+          print(json.dumps({
+              "versionCode": int("${{ steps.version.outputs.code }}"),
+              "versionName": "${{ steps.version.outputs.name }}",
+              "url": sys.argv[1],
+              "notes": notes,
+          }, ensure_ascii=False, indent=2))
+          PY
+
+          # Die Datei liegt auf main, gebaut wurde eventuell aus einem Tag: der
+          # Weg über die API schreibt genau dorthin, ohne zweites Auschecken.
+          sha=$(gh api "repos/${{ github.repository }}/contents/update/karacast.json?ref=main" --jq .sha 2>/dev/null || true)
+          args=(-X PUT "repos/${{ github.repository }}/contents/update/karacast.json"
+                -f message="Update auf ${{ steps.version.outputs.name }}"
+                -f branch=main
+                -f content="$(base64 -w0 /tmp/karacast.json)")
+          if [ -n "$sha" ]; then args+=(-f sha="$sha"); fi
+          gh api "${args[@]}" --jq '.commit.html_url'
+
+          echo "### Karacast ${{ steps.version.outputs.name }} ist draußen" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "APK: $url" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Die Fernseher melden das Update beim nächsten *Jetzt prüfen*." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Schlüssel wieder wegräumen
+        if: always()
+        run: rm -f keystore/safir-release.jks keystore.properties /tmp/sig.rsa /tmp/manifest.bin
