@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -107,9 +108,19 @@ fun PlayerOptionsPanel(
         runCatching { focusRequester.requestFocus() }
     }
 
+    // Die Breite war einmal fest: 420dp. Auf einem Fernseher ist das fast die
+    // halbe Bildbreite — man stellt das Bildformat ein und sieht dabei kaum noch
+    // Bild. Jetzt wird sie aus der Bildschirmbreite gerechnet und bleibt in
+    // vernünftigen Grenzen: gut ein Drittel auf dem Fernseher, auf einem
+    // schmalen Telefon höchstens zwei Drittel, nie breiter als 360dp.
+    val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+    val panelWidth = (screenWidth * 0.34f)
+        .coerceIn(200.dp, 360.dp)
+        .coerceAtMost(screenWidth * 0.7f)
+
     Column(
         Modifier
-            .width(420.dp)
+            .width(panelWidth)
             .fillMaxHeight()
             .background(Color.Black.copy(alpha = 0.9f))
             .padding(horizontal = 20.dp, vertical = 28.dp)

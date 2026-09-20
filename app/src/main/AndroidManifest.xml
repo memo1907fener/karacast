@@ -37,13 +37,22 @@
         android:theme="@style/Theme.SafirIPTV"
         android:usesCleartextTraffic="true">
 
+        <!--
+            screenOrientation: hier stand einmal "landscape", festgenagelt. Das war
+            für den Fernseher gedacht, wo es ohnehin keine andere Lage gibt — auf
+            einem Telefon hieß es aber: quer, ganz gleich wie man das Gerät hält.
+            "fullUser" überlässt die Entscheidung dem Gerät und der Drehsperre des
+            Nutzers: das Telefon dreht mit, der Fernseher bleibt quer, weil er sich
+            nicht drehen lässt. Die Lage steht schon in configChanges, die App wird
+            beim Drehen also nicht neu gestartet, sondern nur neu vermessen.
+        -->
         <activity
             android:name=".MainActivity"
             android:banner="@drawable/app_banner"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
             android:exported="true"
             android:launchMode="singleTask"
-            android:screenOrientation="landscape"
+            android:screenOrientation="fullUser"
             android:theme="@style/Theme.SafirIPTV">
 
             <intent-filter>

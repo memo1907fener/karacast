@@ -2,6 +2,7 @@ package com.safir.iptv.data.remote
 
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
+import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.Response
 import java.io.File
@@ -69,7 +70,10 @@ object Http {
     @Throws(IOException::class)
     fun <T> getStream(url: String, block: (InputStream) -> T): T {
         val request = Request.Builder().url(url).get().build()
-        client.newCall(request).execute().use { response ->
+        // Über [downloadClient], weil hier gelesen *und* ausgewertet wird: eine
+        // große Senderliste kann länger dauern als das Gesamtlimit des normalen
+        // Drahts, und dann bricht mitten im Lesen die Verbindung weg.
+        downloadClient.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
                 throw IOException("HTTP ${response.code} for ${url.redactCredentials()}")
             }
@@ -96,7 +100,33 @@ object Http {
     }
 
     /**
-     * Lädt [url] am Stück in [target].
+     * Der Draht für große Dateien.
+     *
+     * Der gewöhnliche [client] hat ein Gesamtlimit von drei Minuten pro Aufruf —
+     * richtig für eine Senderliste, tödlich für einen Programmführer: ein
+     * 80-MB-Paket über eine müde Leitung braucht länger, OkHttp bricht mitten im
+     * Strom ab, und was beim Leser ankommt, heißt „unexpected end of stream". Das
+     * sah nach einem Fehler der Gegenstelle aus und war einer von uns.
+     *
+     * Hier gibt es deshalb kein Gesamtlimit, sondern nur eines pro Lesevorgang:
+     * solange Daten fließen, darf es dauern; bleibt zwei Minuten lang alles
+     * still, ist die Leitung tot und wir merken es trotzdem. Dazu HTTP/1.1 —
+     * manche Anbieterserver sprechen ein unsauberes HTTP/2 und lassen genau bei
+     * langen Antworten die Verbindung fallen.
+     */
+    private val downloadClient: OkHttpClient by lazy {
+        client.newBuilder()
+            .callTimeout(0, TimeUnit.MILLISECONDS)
+            .readTimeout(120, TimeUnit.SECONDS)
+            .protocols(listOf(Protocol.HTTP_1_1))
+            .build()
+    }
+
+    /** Weniger als das ist kein halber Programmführer, sondern Schrott. */
+    private const val SALVAGE_MIN_BYTES = 64L * 1024L
+
+    /**
+     * Lädt [url] am Stück in [target] und gibt die Anzahl Bytes zurück.
      *
      * Warum überhaupt erst in eine Datei? Weil die Gegenstelle die Verbindung
      * zumacht, wenn zwischen zwei Lesevorgängen zu viel Zeit vergeht. Wer einen
@@ -105,18 +135,31 @@ object Http {
      * mitten im Text ein „unexpected end of stream". Herunterladen und Auswerten
      * müssen also zwei Schritte sein, nicht einer.
      *
-     * Abgerissene Downloads werden bis zu [attempts] Mal neu begonnen; ein „das
-     * gibt es nicht" (4xx) wird nicht wiederholt, das wird beim zweiten Mal auch
-     * nicht wahrer.
+     * Drei Vorkehrungen gegen Abbrüche, in dieser Reihenfolge:
+     *
+     *  1. **Fortsetzen statt neu anfangen.** Bricht die Leitung nach 40 MB ab,
+     *     wird mit `Range: bytes=40000000-` weitergemacht. Kann der Server das
+     *     nicht, fängt er von vorn an — dann merken wir es an seiner Antwort und
+     *     werfen das Bisherige weg, statt zwei Anfänge aneinanderzukleben.
+     *  2. **Keine durchsichtige Entpackung.** Mit `identity` kommt an, was
+     *     dasteht. Sonst entpackt OkHttp unterwegs, und ein abgerissener
+     *     gzip-Strom ist nicht fortsetzbar — die Bytezahl stimmt dann mit nichts
+     *     mehr überein.
+     *  3. **Retten, was da ist.** Wenn nach allen Versuchen ein brauchbares Stück
+     *     auf der Platte liegt, wird es zurückgegeben statt weggeworfen. Ein
+     *     Programmführer bis Donnerstag ist mehr wert als gar keiner.
      */
     @Throws(IOException::class)
     fun downloadToFile(
         url: String,
         target: File,
-        attempts: Int = 3,
+        attempts: Int = 4,
         onBytes: (Long) -> Unit = {}
     ): Long {
+        target.delete()
+        var have = 0L
         var last: IOException? = null
+
         for (attempt in 0 until attempts) {
             if (attempt > 0) {
                 try {
@@ -127,45 +170,64 @@ object Http {
                 }
             }
             try {
-                val request = Request.Builder().url(url).get().build()
-                client.newCall(request).execute().use { response ->
+                val request = Request.Builder().url(url).get()
+                    .header("Accept-Encoding", "identity")
+                    .apply { if (have > 0) header("Range", "bytes=$have-") }
+                    .build()
+
+                downloadClient.newCall(request).execute().use { response ->
+                    // 416 heißt „so weit reicht die Datei nicht" — bei einem
+                    // Fortsetzungsversuch bedeutet das schlicht: sie ist fertig.
+                    if (response.code == 416 && have > 0) return have
                     if (response.code in 400..499) {
-                        // Kein Wiederholen: das ist eine Antwort, kein Unfall.
                         throw NotRetryable("HTTP ${response.code} for ${url.redactCredentials()}")
                     }
                     if (!response.isSuccessful) {
                         throw IOException("HTTP ${response.code} for ${url.redactCredentials()}")
                     }
+
+                    // 206 = der Server setzt fort. Alles andere heißt: er fängt
+                    // von vorn an, also muss auch die Datei von vorn anfangen.
+                    val resuming = response.code == 206 && have > 0
+                    if (!resuming) have = 0L
+
                     val body = response.body ?: throw IOException("Leere Antwort")
-                    val expected = body.contentLength()
-                    var written = 0L
+                    val remaining = body.contentLength()
+                    val expected = if (remaining > 0) have + remaining else -1L
+
                     body.byteStream().use { input ->
-                        FileOutputStream(target).use { output ->
+                        FileOutputStream(target, resuming).use { output ->
                             val buffer = ByteArray(64 * 1024)
                             while (true) {
                                 val read = input.read(buffer)
                                 if (read < 0) break
                                 output.write(buffer, 0, read)
-                                written += read
-                                onBytes(written)
+                                have += read
+                                onBytes(have)
                             }
                             output.flush()
                         }
                     }
-                    if (written == 0L) throw IOException("Keine Daten empfangen")
-                    if (expected > 0 && written < expected) {
-                        throw IOException("Nur $written von $expected Bytes empfangen")
+
+                    if (have == 0L) throw IOException("Keine Daten empfangen")
+                    if (expected > 0 && have < expected) {
+                        throw IOException("Nur $have von $expected Bytes empfangen")
                     }
-                    return written
+                    return have
                 }
             } catch (stop: NotRetryable) {
                 target.delete()
                 throw IOException(stop.message)
             } catch (error: IOException) {
                 last = error
-                target.delete()
+                // Nichts löschen: das Bisherige ist der Anfang des nächsten
+                // Versuchs — und notfalls das, was gerettet wird.
+                have = target.length()
             }
         }
+
+        if (have >= SALVAGE_MIN_BYTES) return have
+        target.delete()
         throw last ?: IOException("Download fehlgeschlagen")
     }
 
