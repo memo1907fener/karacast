@@ -60,6 +60,7 @@
             android:exported="true"
             android:launchMode="singleTask"
             android:screenOrientation="fullUser"
+            android:supportsPictureInPicture="true"
             android:theme="@style/Theme.SafirIPTV">
 
             <intent-filter>

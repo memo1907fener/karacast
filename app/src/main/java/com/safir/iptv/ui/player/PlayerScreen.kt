@@ -1,5 +1,6 @@
 package com.safir.iptv.ui.player
 
+import com.safir.iptv.util.PictureInPicture
 import android.view.ViewGroup
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -137,8 +138,13 @@ fun PlayerScreen(
     // Staying awake is handled once for the whole app by the activity window,
     // so there is nothing to do here but hand the decoder back.
     DisposableEffect(Unit) {
-        onDispose { runCatching { exoPlayer.release() } }
+        PictureInPicture.setPlaying(true)
+        onDispose {
+            PictureInPicture.setPlaying(false)
+            runCatching { exoPlayer.release() }
+        }
     }
+    val inPip by PictureInPicture.active.collectAsStateWithLifecycle()
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -415,6 +421,9 @@ fun PlayerScreen(
             update = { it.resizeMode = resize },
             modifier = Modifier.fillMaxSize()
         )
+
+        // In the small window there is room for the picture and nothing else.
+        if (inPip) return@Box
 
         if (state.isBuffering && state.error == null) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

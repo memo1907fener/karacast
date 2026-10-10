@@ -1,5 +1,13 @@
 package com.safir.iptv
 
+import kotlinx.coroutines.launch
+import com.safir.iptv.util.supportsPictureInPicture
+import com.safir.iptv.util.PictureInPicture
+import androidx.lifecycle.lifecycleScope
+import androidx.annotation.RequiresApi
+import android.util.Rational
+import android.os.Build
+import android.app.PictureInPictureParams
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -54,6 +62,7 @@ class MainActivity : ComponentActivity() {
         // whole app; Android clears it by itself once the app leaves the foreground.
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         goImmersive()
+        setUpPictureInPicture()
 
         AppLocale.set(AppLanguage.fromTag((application as IptvApp).container.settings.language))
 
@@ -99,6 +108,56 @@ class MainActivity : ComponentActivity() {
         WindowCompat.getInsetsController(window, window.decorView).apply {
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             hide(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+
+    private val canPip by lazy { supportsPictureInPicture(this) }
+
+    private val settings get() = (application as IptvApp).container.settings
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun pipParams(autoEnter: Boolean): PictureInPictureParams =
+        PictureInPictureParams.Builder()
+            .setAspectRatio(Rational(16, 9))
+            .apply {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    // Android 12 on: the system shrinks the app as it leaves, which
+                    // animates far better than asking for it afterwards.
+                    setAutoEnterEnabled(autoEnter)
+                    setSeamlessResizeEnabled(true)
+                }
+            }
+            .build()
+
+    /**
+     * A phone that leaves the app mid-programme keeps the picture in a corner.
+     * Only while a player is on screen — shrinking the channel list into a stamp
+     * would help nobody — and never on a television (see [supportsPictureInPicture]).
+     */
+    private fun setUpPictureInPicture() {
+        if (!canPip) return
+        addOnPictureInPictureModeChangedListener { info ->
+            PictureInPicture.setActive(info.isInPictureInPictureMode)
+        }
+        lifecycleScope.launch {
+            PictureInPicture.playing.collect { playing ->
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    runCatching { setPictureInPictureParams(pipParams(playing && settings.pictureInPicture)) }
+                }
+            }
+        }
+    }
+
+    // Before Android 12 there is no automatic entry: the app has to ask at the
+    // moment the viewer presses Home.
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (canPip &&
+            Build.VERSION.SDK_INT in Build.VERSION_CODES.O until Build.VERSION_CODES.S &&
+            PictureInPicture.playing.value &&
+            settings.pictureInPicture
+        ) {
+            runCatching { enterPictureInPictureMode(pipParams(autoEnter = false)) }
         }
     }
 

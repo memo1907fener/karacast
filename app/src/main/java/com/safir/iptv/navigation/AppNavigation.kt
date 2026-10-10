@@ -1,5 +1,7 @@
 package com.safir.iptv.navigation
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.safir.iptv.util.PictureInPicture
 import android.net.Uri
 import com.safir.iptv.ui.reminders.rememberReminderNotice
 import com.safir.iptv.ui.reminders.ReminderNotice
@@ -106,6 +108,7 @@ fun AppNavigation(
     var resumeHandled by rememberSaveable { mutableStateOf(false) }
 
     val container = (LocalContext.current.applicationContext as IptvApp).container
+    val inPip by PictureInPicture.active.collectAsStateWithLifecycle()
     val notice = rememberReminderNotice(container.reminders) { reminder ->
         // From one channel to the next rather than a player on top of a player,
         // so Back still leads to where the viewer was before.
@@ -342,7 +345,7 @@ fun AppNavigation(
         }
 
         // Below the clock the player keeps in that corner, not on top of it.
-        ReminderNotice(
+        if (!inPip) ReminderNotice(
             notice,
             Modifier.align(Alignment.TopEnd).padding(top = 96.dp, end = 24.dp)
         )

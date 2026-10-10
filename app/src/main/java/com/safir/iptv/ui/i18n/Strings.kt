@@ -331,7 +331,15 @@ data class Strings(
     val panel: PanelStrings = PanelStrings(),
     val license: LicenseStrings = LicenseStrings(),
     val play: PlayStrings = PlayStrings(),
-    val reminders: ReminderStrings = ReminderStrings()
+    val reminders: ReminderStrings = ReminderStrings(),
+    val pip: PipStrings = PipStrings()
+)
+
+/** The phone's small floating window. */
+data class PipStrings(
+    val title: String = "Bild-in-Bild",
+    val hint: String = "Wer die App verlässt, während ein Sender oder Film läuft, " +
+        "sieht ihn in einem kleinen Fenster weiter."
 )
 
 /** "Tell me when it starts", from the programme guide. */
@@ -1145,6 +1153,10 @@ private val Turkish = Strings(
         connected = { "Bağlandı — $it" },
         sourceReceived = { "„$it“ hesabı alındı" }
     ),
+    pip = PipStrings(
+        title = "Resim içinde resim",
+        hint = "Bir kanal ya da film oynarken uygulamadan çıkarsan küçük bir pencerede izlemeye devam edersin."
+    ),
     reminders = ReminderStrings(
         set = "Hatırlatıcı kuruldu",
         soon = "Birazdan başlıyor",
@@ -1673,6 +1685,10 @@ private val English = Strings(
         connected = { "Connected — $it" },
         sourceReceived = { "Account “$it” taken over" }
     ),
+    pip = PipStrings(
+        title = "Picture-in-picture",
+        hint = "Leave the app while a channel or film is playing and it carries on in a small window."
+    ),
     reminders = ReminderStrings(
         set = "Reminder set",
         soon = "Starting soon",
@@ -2186,6 +2202,10 @@ private val Arabic = Strings(
         failed = "تعذّر الوصول إلى اللوحة",
         connected = { "متّصل — $it" },
         sourceReceived = { "تمّ استلام اشتراك «$it»" }
+    ),
+    pip = PipStrings(
+        title = "صورة داخل صورة",
+        hint = "إذا غادرت التطبيق أثناء تشغيل قناة أو فيلم، يستمر العرض في نافذة صغيرة."
     ),
     reminders = ReminderStrings(
         set = "تم ضبط التذكير",

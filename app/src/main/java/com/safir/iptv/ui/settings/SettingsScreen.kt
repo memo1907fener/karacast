@@ -1,5 +1,6 @@
 package com.safir.iptv.ui.settings
 
+import com.safir.iptv.util.supportsPictureInPicture
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -472,6 +473,17 @@ private fun PlaybackSection(state: SettingsUiState, viewModel: SettingsViewModel
             checked = state.autoRecover,
             onToggle = { viewModel.setAutoRecover(!state.autoRecover) }
         )
+        // A television has no home screen to shrink into, so the switch would
+        // promise something that never happens there.
+        if (supportsPictureInPicture(LocalContext.current)) {
+            Spacer(Modifier.height(12.dp))
+            ToggleRow(
+                title = t.pip.title,
+                subtitle = t.pip.hint,
+                checked = state.pictureInPicture,
+                onToggle = { viewModel.setPictureInPicture(!state.pictureInPicture) }
+            )
+        }
         Spacer(Modifier.height(12.dp))
         InfoLine(t.userAgent, state.userAgent)
         Spacer(Modifier.height(8.dp))

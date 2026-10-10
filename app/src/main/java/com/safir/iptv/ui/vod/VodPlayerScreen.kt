@@ -1,5 +1,7 @@
 package com.safir.iptv.ui.vod
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.safir.iptv.util.PictureInPicture
 import android.view.ViewGroup
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -163,11 +165,14 @@ fun VodPlayerScreen(onExit: () -> Unit) {
     }
 
     DisposableEffect(Unit) {
+        PictureInPicture.setPlaying(true)
         onDispose {
+            PictureInPicture.setPlaying(false)
             runCatching { rememberPosition() }
             runCatching { exoPlayer.release() }
         }
     }
+    val inPip by PictureInPicture.active.collectAsStateWithLifecycle()
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -451,6 +456,9 @@ fun VodPlayerScreen(onExit: () -> Unit) {
             update = { it.resizeMode = resize },
             modifier = Modifier.fillMaxSize()
         )
+
+        // In the small window there is room for the picture and nothing else.
+        if (inPip) return@Box
 
         if (buffering && failure == null) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

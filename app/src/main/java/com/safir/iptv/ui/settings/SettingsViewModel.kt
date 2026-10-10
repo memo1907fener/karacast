@@ -41,6 +41,7 @@ data class SettingsUiState(
     val preferHls: Boolean = false,
     val bufferSeconds: Int = 8,
     val autoRecover: Boolean = true,
+    val pictureInPicture: Boolean = true,
     val audioLanguage: TrackLanguage = TrackLanguage.AUTO,
     val subtitleLanguage: TrackLanguage = TrackLanguage.AUTO,
     val userAgent: String = "",
@@ -229,6 +230,7 @@ class SettingsViewModel(
                     preferHls = settings.preferHls,
                     bufferSeconds = settings.bufferSeconds,
                     autoRecover = settings.autoRecover,
+                    pictureInPicture = settings.pictureInPicture,
                     audioLanguage = settings.audioLanguage,
                     subtitleLanguage = settings.subtitleLanguage,
                     userAgent = settings.userAgent,
@@ -493,6 +495,11 @@ class SettingsViewModel(
     fun setAutoRecover(value: Boolean) {
         settings.autoRecover = value
         _state.update { it.copy(autoRecover = value) }
+    }
+
+    fun setPictureInPicture(value: Boolean) {
+        settings.pictureInPicture = value
+        _state.update { it.copy(pictureInPicture = value) }
     }
 
     fun setPreferHls(value: Boolean) {

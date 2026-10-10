@@ -128,6 +128,11 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean(KEY_AUTO_RECOVER, true)
         set(value) = prefs.edit { putBoolean(KEY_AUTO_RECOVER, value) }
 
+    /** Phones only: leaving the app while something plays keeps it in a small window. */
+    var pictureInPicture: Boolean
+        get() = prefs.getBoolean(KEY_PIP, true)
+        set(value) = prefs.edit { putBoolean(KEY_PIP, value) }
+
     // --------------------------------------------------- the language of a track
 
     /**
@@ -517,6 +522,7 @@ class SettingsStore(context: Context) {
         const val KEY_ASPECT = "aspect_mode"
         const val KEY_AUTOSTART = "auto_start_on_boot"
         const val KEY_AUTO_RECOVER = "auto_recover"
+        const val KEY_PIP = "picture_in_picture"
         const val KEY_AUDIO_LANGUAGE = "audio_language"
         const val KEY_SUBTITLE_LANGUAGE = "subtitle_language"
         const val KEY_CONTINUE = "continue_watching"
