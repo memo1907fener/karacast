@@ -30,13 +30,16 @@ val hasPlayKeystore = playKeystoreProps.getProperty("storeFile")?.let { rootProj
 
 android {
     namespace = "com.safir.iptv"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.safir.iptv"
         minSdk = 23
         // Google Play nimmt neue Apps und Updates nur mit aktuellem Ziel-API an.
-        targetSdk = 35
+        // Android 16 ändert dabei zweierlei, beides ist abgefangen: das Vollbild
+        // (MainActivity.goImmersive) und die Zurück-Taste (Manifest,
+        // enableOnBackInvokedCallback).
+        targetSdk = 36
         versionCode = 18
         versionName = "1.9.5"
         vectorDrawables.useSupportLibrary = true

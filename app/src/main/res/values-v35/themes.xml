@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!--
+        Nur Android 15: dort lässt sich das erzwungene Zeichnen unter die Leisten noch
+        abschalten (ab Android 16 nicht mehr, dort blendet MainActivity sie aus).
         Ab Android 15 zieht das System jede App bis unter Status- und Navigationsleiste,
         sobald sie auf API 35 zielt. Karacast ist auf ein Bild ohne Leisten ausgelegt
         und kümmert sich nicht um Einzüge — auf einem Telefon lägen sonst Uhr und

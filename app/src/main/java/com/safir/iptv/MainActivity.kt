@@ -6,6 +6,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -17,6 +20,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.safir.iptv.navigation.AppNavigation
 import com.safir.iptv.navigation.Routes
@@ -47,6 +53,7 @@ class MainActivity : ComponentActivity() {
         // guide. Set on the window rather than on single screens, so it covers the
         // whole app; Android clears it by itself once the app leaves the foreground.
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        goImmersive()
 
         AppLocale.set(AppLanguage.fromTag((application as IptvApp).container.settings.language))
 
@@ -60,7 +67,13 @@ class MainActivity : ComponentActivity() {
                     if (language.isRtl) LayoutDirection.Rtl else LayoutDirection.Ltr
             ) {
                 SafirTheme {
-                    Box(Modifier.fillMaxSize().background(Brand.Background)) {
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .background(Brand.Background)
+                            // A camera notch must not cover the clock or a list.
+                            .windowInsetsPadding(WindowInsets.displayCutout)
+                    ) {
                         // Around everything, not around one screen: "resume last
                         // channel" opens the player directly and would otherwise
                         // walk straight past the question.
@@ -70,6 +83,30 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    /**
+     * Picture to every edge, the way a television shows it.
+     *
+     * From Android 15 on, an app is drawn underneath the status and navigation
+     * bars whether it wants to or not (from Android 16 without the opt-out that
+     * the theme still carries for 15). Karacast does not lay itself out around
+     * those bars, so instead they are put away: a swipe from the edge brings them
+     * back for a moment. A television has no such bars, so nothing changes there.
+     */
+    private fun goImmersive() {
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            hide(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+
+    // Android shows the bars again after a dialog, the keyboard or a trip to
+    // another app; coming back into focus puts them away once more.
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) goImmersive()
     }
 
     /**

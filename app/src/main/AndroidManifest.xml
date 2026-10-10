@@ -25,10 +25,17 @@
         android:name="android.hardware.faketouch"
         android:required="false" />
 
+    <!--
+        enableOnBackInvokedCallback="false": Ab Android 16 käme die Zurück-Taste
+        sonst nicht mehr als Tastendruck an, sondern nur noch als Geste an die
+        Navigation. Der Player braucht sie aber als Taste — sie schließt erst die
+        Liste, das Menü, die Infoleiste und verlässt erst dann den Kanal.
+    -->
     <application
         android:name=".IptvApp"
         android:allowBackup="true"
         android:banner="@drawable/app_banner"
+        android:enableOnBackInvokedCallback="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:largeHeap="true"
