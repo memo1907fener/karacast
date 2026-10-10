@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.safir.iptv.BuildConfig
 import com.safir.iptv.IptvApp
 import com.safir.iptv.domain.model.LicenseStatus
 import com.safir.iptv.ui.i18n.LocalStrings
@@ -66,7 +67,10 @@ fun LicenseGate(content: @Composable () -> Unit) {
 
     Box(Modifier.fillMaxSize()) {
         when (state.status) {
-            LicenseStatus.EXPIRED, LicenseStatus.BLOCKED -> ActivationScreen(
+            // The Play version pays through Google Play, on the television itself.
+            LicenseStatus.EXPIRED, LicenseStatus.BLOCKED -> if (BuildConfig.PLAY_STORE) {
+                PlayActivationScreen(licenses)
+            } else ActivationScreen(
                 blocked = state.status == LicenseStatus.BLOCKED,
                 state = state,
                 licenses = licenses

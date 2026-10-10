@@ -328,7 +328,43 @@ data class Strings(
     val info: AboutStrings = AboutStrings(),
     val update: UpdateStrings = UpdateStrings(),
     val panel: PanelStrings = PanelStrings(),
-    val license: LicenseStrings = LicenseStrings()
+    val license: LicenseStrings = LicenseStrings(),
+    val play: PlayStrings = PlayStrings()
+)
+
+/**
+ * The Play version's side of the licence: buying through Google Play.
+ *
+ * No prices in here — they come from the Play Console, formatted by Google for
+ * the viewer's country. Only the words around them.
+ */
+data class PlayStrings(
+    val expiredBody: String = "Vierzehn Tage kostenlos sind um. Wenn Karacast dir " +
+        "gefallen hat, schalte es frei — einmalig für immer oder als Abo. Bezahlt " +
+        "wird sicher über Google Play.",
+    val lifetime: String = "Für immer freischalten",
+    val lifetimeNote: String = "Einmal zahlen, kein Abo",
+    val monthly: String = "Monatsabo",
+    val yearly: String = "Jahresabo",
+    val weekly: String = "Wochenabo",
+    val everyMonths: (Int) -> String = { "Abo für $it Monate" },
+    val perMonth: String = "/ Monat",
+    val perYear: String = "/ Jahr",
+    val perWeek: String = "/ Woche",
+    val perMonths: (Int) -> String = { "/ $it Monate" },
+    val cancelAnytime: String = "Jederzeit kündbar",
+    val withTrial: String = "Mit kostenloser Testphase",
+    val sameAccount: String = "Gilt auf allen Geräten mit demselben Google-Konto.",
+    val restore: String = "Käufe wiederherstellen",
+    val manage: String = "Abo verwalten",
+    val loading: String = "Angebote werden geladen …",
+    val pending: String = "Die Zahlung ist noch nicht da. Sobald sie eingeht, " +
+        "schaltet sich Karacast von selbst frei.",
+    val unavailable: String = "Google Play ist gerade nicht erreichbar. Prüfe die " +
+        "Internetverbindung und ob auf diesem Gerät ein Google-Konto angemeldet ist.",
+    val failed: (String) -> String = { "Der Kauf hat nicht geklappt (Fehler $it)." },
+    val buyEarly: String = "Schon jetzt freischalten",
+    val viaPlay: String = "Über Google Play freigeschaltet"
 )
 
 /**
@@ -1093,6 +1129,33 @@ private val Turkish = Strings(
         connected = { "Bağlandı — $it" },
         sourceReceived = { "„$it“ hesabı alındı" }
     ),
+    play = PlayStrings(
+        expiredBody = "On dört günlük ücretsiz süre doldu. Karacast'i beğendiysen " +
+            "kilidini aç — bir kerelik ömür boyu ya da abonelikle. Ödeme güvenle " +
+            "Google Play üzerinden yapılır.",
+        lifetime = "Ömür boyu aç",
+        lifetimeNote = "Tek ödeme, abonelik yok",
+        monthly = "Aylık abonelik",
+        yearly = "Yıllık abonelik",
+        weekly = "Haftalık abonelik",
+        everyMonths = { "$it aylık abonelik" },
+        perMonth = "/ ay",
+        perYear = "/ yıl",
+        perWeek = "/ hafta",
+        perMonths = { "/ $it ay" },
+        cancelAnytime = "İstediğin zaman iptal edilebilir",
+        withTrial = "Ücretsiz deneme süresiyle",
+        sameAccount = "Aynı Google hesabındaki tüm cihazlarda geçerlidir.",
+        restore = "Satın alımları geri yükle",
+        manage = "Aboneliği yönet",
+        loading = "Teklifler yükleniyor …",
+        pending = "Ödeme henüz ulaşmadı. Ulaştığı anda Karacast kendiliğinden açılır.",
+        unavailable = "Google Play'e şu an ulaşılamıyor. İnternet bağlantısını ve bu " +
+            "cihazda bir Google hesabının açık olup olmadığını kontrol et.",
+        failed = { "Satın alma başarısız oldu (hata $it)." },
+        buyEarly = "Şimdiden aç",
+        viaPlay = "Google Play üzerinden açıldı"
+    ),
     license = LicenseStrings(
         section = "Lisans",
         tileHint = "Deneme süresi, etkinleştirme, cihaz kodu",
@@ -1584,6 +1647,34 @@ private val English = Strings(
         connected = { "Connected — $it" },
         sourceReceived = { "Account “$it” taken over" }
     ),
+    play = PlayStrings(
+        expiredBody = "Your fourteen free days are over. If you liked Karacast, " +
+            "unlock it — once and for good, or as a subscription. Payment is handled " +
+            "securely by Google Play.",
+        lifetime = "Unlock for good",
+        lifetimeNote = "Pay once, no subscription",
+        monthly = "Monthly subscription",
+        yearly = "Yearly subscription",
+        weekly = "Weekly subscription",
+        everyMonths = { "$it-month subscription" },
+        perMonth = "/ month",
+        perYear = "/ year",
+        perWeek = "/ week",
+        perMonths = { "/ $it months" },
+        cancelAnytime = "Cancel anytime",
+        withTrial = "Includes a free trial",
+        sameAccount = "Valid on every device signed in with the same Google account.",
+        restore = "Restore purchases",
+        manage = "Manage subscription",
+        loading = "Loading offers …",
+        pending = "The payment has not arrived yet. Karacast unlocks itself as soon " +
+            "as it does.",
+        unavailable = "Google Play cannot be reached right now. Check the internet " +
+            "connection and that a Google account is signed in on this device.",
+        failed = { "The purchase did not go through (error $it)." },
+        buyEarly = "Unlock now",
+        viaPlay = "Unlocked through Google Play"
+    ),
     license = LicenseStrings(
         section = "Licence",
         tileHint = "Trial, activation, device code",
@@ -2059,6 +2150,32 @@ private val Arabic = Strings(
         failed = "تعذّر الوصول إلى اللوحة",
         connected = { "متّصل — $it" },
         sourceReceived = { "تمّ استلام اشتراك «$it»" }
+    ),
+    play = PlayStrings(
+        expiredBody = "انتهت الأيام الأربعة عشر المجانية. إن أعجبك Karacast فافتحه — " +
+            "مرة واحدة إلى الأبد أو باشتراك. يتم الدفع بأمان عبر Google Play.",
+        lifetime = "فتح دائم",
+        lifetimeNote = "دفعة واحدة، بلا اشتراك",
+        monthly = "اشتراك شهري",
+        yearly = "اشتراك سنوي",
+        weekly = "اشتراك أسبوعي",
+        everyMonths = { "اشتراك لمدة $it أشهر" },
+        perMonth = "/ شهر",
+        perYear = "/ سنة",
+        perWeek = "/ أسبوع",
+        perMonths = { "/ $it أشهر" },
+        cancelAnytime = "يمكن الإلغاء في أي وقت",
+        withTrial = "مع فترة تجريبية مجانية",
+        sameAccount = "صالح على كل الأجهزة المسجلة بحساب Google نفسه.",
+        restore = "استعادة المشتريات",
+        manage = "إدارة الاشتراك",
+        loading = "جارٍ تحميل العروض …",
+        pending = "لم تصل الدفعة بعد. سيُفتح Karacast تلقائياً فور وصولها.",
+        unavailable = "تعذّر الوصول إلى Google Play الآن. تحقق من الاتصال بالإنترنت " +
+            "ومن تسجيل الدخول بحساب Google على هذا الجهاز.",
+        failed = { "لم تتم عملية الشراء (خطأ $it)." },
+        buyEarly = "افتح الآن",
+        viaPlay = "مفتوح عبر Google Play"
     ),
     license = LicenseStrings(
         section = "الترخيص",

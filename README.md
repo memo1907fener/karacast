@@ -32,15 +32,20 @@ Mehrbenutzer-Profile, Kindersicherung, Catch-up/Archiv, Aufnahme.
 Die APK liegt danach hier:
 
 ```
-app/build/outputs/apk/debug/app-debug.apk
-app/build/outputs/apk/release/app-release.apk
+app/build/outputs/apk/direct/debug/app-direct-debug.apk
+app/build/outputs/apk/direct/release/app-direct-release.apk
 ```
+
+Es gibt zwei Fassungen: **direct** (diese APK, mit eigenen Updates) und
+**play** (für den Google Play Store). Alles zur Play-Fassung steht in
+[`play/README.md`](play/README.md).
 
 ### Auf der Kommandozeile
 
 ```bash
-./gradlew assembleDebug      # zum Testen
-./gradlew assembleRelease    # signiert, für den Dauereinsatz
+./gradlew assembleDirectDebug      # zum Testen
+./gradlew assembleDirectRelease    # signiert, für den Dauereinsatz
+./gradlew bundlePlayRelease        # App-Bundle für Google Play
 ```
 
 Voraussetzung: JDK 17 und ein Android SDK mit API 35

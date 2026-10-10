@@ -33,3 +33,6 @@ local.properties
 *.apk
 *.aab
 /karacast-panel.zip
+
+# Upload-Schlüssel für Google Play (siehe play/README.md)
+/keystore-play.properties

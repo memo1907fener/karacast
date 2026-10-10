@@ -58,6 +58,11 @@ import kotlinx.coroutines.launch
  */
 @Composable
 fun UpdateGate(content: @Composable () -> Unit) {
+    // The Play version is updated by the Play Store, and must not even ask.
+    if (BuildConfig.PLAY_STORE) {
+        content()
+        return
+    }
     val t = LocalStrings.current
     val context = LocalContext.current
     val settings = remember { (context.applicationContext as IptvApp).container.settings }

@@ -3,6 +3,8 @@ package com.safir.iptv.data.repository
 import android.content.Context
 import android.os.Build
 import com.safir.iptv.BuildConfig
+import com.safir.iptv.data.billing.Billing
+import com.safir.iptv.data.billing.BillingFactory
 import com.safir.iptv.data.prefs.LicenseStore
 import com.safir.iptv.data.prefs.TRIAL_LENGTH_MS
 import com.safir.iptv.data.remote.LicenseClient
@@ -28,6 +30,10 @@ import kotlinx.coroutines.flow.asStateFlow
  * takes anything away.** A failed request leaves the state exactly as it was. The
  * alternative — locking a family out because a certificate expired overnight — is
  * how a small paid app earns a reputation it never recovers from.
+ *
+ * In the Play version the panel is out of the picture altogether: the trial is
+ * counted here as before, and what ends it is a purchase in Google Play — see
+ * [billing]. Google, not this class, decides what an account owns.
  */
 class LicenseRepository(
     private val context: Context,
@@ -36,6 +42,18 @@ class LicenseRepository(
 
     private val _state = MutableStateFlow(LicenseState())
     val state: StateFlow<LicenseState> = _state.asStateFlow()
+
+    /**
+     * The store's payment, in the Play version; a silent stand-in in the APK.
+     * Every definite answer about ownership lands in [LicenseStore.playOwned] and
+     * redraws the state at once — a purchase unlocks the television while the
+     * payment sheet is still closing.
+     */
+    val billing: Billing = BillingFactory.create(context) { owned ->
+        if (!BuildConfig.PLAY_STORE) return@create
+        store.playOwned = owned
+        refresh()
+    }
 
     val parts: DeviceParts
         get() = DeviceIdentity.parts(context, store.installId)
@@ -68,6 +86,14 @@ class LicenseRepository(
         if (store.trialStartedAt == 0L) store.trialStartedAt = now
 
         val status = when {
+            BuildConfig.PLAY_STORE && store.playOwned -> LicenseStatus.ACTIVE
+            // Google takes a refunded purchase back by itself; the panel's
+            // "blocked" belongs to the APK and means nothing here.
+            BuildConfig.PLAY_STORE -> if (now < store.trialStartedAt + TRIAL_LENGTH_MS) {
+                LicenseStatus.TRIAL
+            } else {
+                LicenseStatus.EXPIRED
+            }
             store.blocked -> LicenseStatus.BLOCKED
             hasValidTicket() -> LicenseStatus.ACTIVE
             now < store.trialStartedAt + TRIAL_LENGTH_MS -> LicenseStatus.TRIAL
@@ -102,6 +128,11 @@ class LicenseRepository(
      * @return true when something changed and the caller should redraw.
      */
     suspend fun sync(): Boolean {
+        if (BuildConfig.PLAY_STORE) {
+            // The answer arrives through the ownership listener, not as a return value.
+            billing.refresh()
+            return false
+        }
         val url = store.licenseUrl
         if (url.isBlank()) return false
 
@@ -127,6 +158,7 @@ class LicenseRepository(
 
     /** The eight characters somebody was sent when scanning the code was not an option. */
     suspend fun redeem(code: String): Boolean {
+        if (BuildConfig.PLAY_STORE) return false
         val url = store.licenseUrl
         if (url.isBlank() || code.isBlank()) return false
 
@@ -187,6 +219,7 @@ class LicenseRepository(
     fun debugExpireTrial() {
         if (!BuildConfig.DEBUG) return
         store.ticket = ""
+        store.playOwned = false
         store.trialStartedAt = System.currentTimeMillis() - TRIAL_LENGTH_MS - DAY_MS
         refresh()
     }

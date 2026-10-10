@@ -124,13 +124,14 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Release-APK bauen
-        run: ./gradlew assembleRelease --no-daemon --stacktrace
+        run: ./gradlew assembleDirectRelease --no-daemon --stacktrace
 
       - name: APK prüfen und benennen
         id: apk
         run: |
           set -euo pipefail
-          src=app/build/outputs/apk/release/app-release.apk
+          # Die APK-Fassung ("direct"); die Play-Fassung geht als Bundle an Google.
+          src=app/build/outputs/apk/direct/release/app-direct-release.apk
           if [ ! -f "$src" ]; then
             echo "::error::$src wurde nicht gebaut."
             exit 1

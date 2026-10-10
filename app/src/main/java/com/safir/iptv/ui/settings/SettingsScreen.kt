@@ -258,15 +258,21 @@ private fun SettingsHub(
             add(HubEntry(t.hub.order, t.hub.orderHint, Icons.Default.SwapVert) {
                 onOpen(SettingsPage.ORDER)
             })
-            add(HubEntry(t.hub.updates, t.hub.updatesHint, Icons.Default.Refresh) {
-                onOpen(SettingsPage.UPDATES)
-            })
+            // The Play version is updated by the store and has no panel: both
+            // pages would only offer something Google does not allow there.
+            if (!BuildConfig.PLAY_STORE) {
+                add(HubEntry(t.hub.updates, t.hub.updatesHint, Icons.Default.Refresh) {
+                    onOpen(SettingsPage.UPDATES)
+                })
+            }
             add(HubEntry(t.license.section, t.license.tileHint, Icons.Default.VerifiedUser) {
                 onOpen(SettingsPage.LICENSE)
             })
-            add(HubEntry(t.panel.title, t.panel.tileHint, Icons.Default.Cloud) {
-                onOpen(SettingsPage.PANEL)
-            })
+            if (!BuildConfig.PLAY_STORE) {
+                add(HubEntry(t.panel.title, t.panel.tileHint, Icons.Default.Cloud) {
+                    onOpen(SettingsPage.PANEL)
+                })
+            }
             add(HubEntry(t.hub.account, t.hub.accountHint, Icons.Default.AccountCircle) {
                 onOpen(SettingsPage.ACCOUNT)
             })
@@ -966,7 +972,9 @@ private fun LicenseSection() {
 
     var address by remember { mutableStateOf(store.licenseUrl) }
 
-    SettingsCard(title = t.license.section) {
+    if (BuildConfig.PLAY_STORE) {
+        PlayLicenseCard(state.status, state.daysLeft, licenses)
+    } else SettingsCard(title = t.license.section) {
         InfoLine(
             t.license.status,
             when (state.status) {
@@ -1017,6 +1025,48 @@ private fun LicenseSection() {
                 TvButton(onClick = licenses::debugExpireTrial) { Text(t.license.expireTrial) }
                 TvButton(onClick = licenses::debugActivate) { Text(t.license.simulateActive) }
             }
+        }
+    }
+}
+
+/**
+ * The licence page of the Play version: no device code and no server address —
+ * just where things stand, and the offers for anybody who wants to buy before
+ * the trial is over.
+ */
+@Composable
+private fun PlayLicenseCard(
+    status: LicenseStatus,
+    daysLeft: Int,
+    licenses: com.safir.iptv.data.repository.LicenseRepository
+) {
+    val t = LocalStrings.current
+    SettingsCard(title = t.license.section) {
+        InfoLine(
+            t.license.status,
+            when (status) {
+                LicenseStatus.TRIAL -> "${t.license.statusTrial} · ${t.license.daysLeft(daysLeft)}"
+                LicenseStatus.ACTIVE -> t.play.viaPlay
+                else -> t.license.statusExpired
+            }
+        )
+        Spacer(Modifier.height(14.dp))
+        if (status == LicenseStatus.ACTIVE) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                val context = LocalContext.current
+                TvButton(onClick = licenses.billing::refresh) { Text(t.play.restore) }
+                TvButton(onClick = { licenses.billing.manageSubscriptions(context) }) {
+                    Text(t.play.manage)
+                }
+            }
+        } else {
+            Text(
+                t.play.buyEarly,
+                style = MaterialTheme.typography.titleSmall,
+                color = Brand.TextPrimary
+            )
+            Spacer(Modifier.height(10.dp))
+            com.safir.iptv.ui.license.PlayOffers(billing = licenses.billing)
         }
     }
 }

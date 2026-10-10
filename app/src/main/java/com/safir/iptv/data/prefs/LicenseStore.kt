@@ -63,6 +63,16 @@ class LicenseStore(context: Context) {
             if (value > lastServerTime) prefs.edit { putLong(KEY_SERVER_TIME, value) }
         }
 
+    /**
+     * Play version only: what Google Play last said about this account — a
+     * one-time purchase or a running subscription. Kept so that a television
+     * without network still opens; it is overwritten with every definite answer
+     * from the store, including a "no" after a refund or a lapsed subscription.
+     */
+    var playOwned: Boolean
+        get() = prefs.getBoolean(KEY_PLAY_OWNED, false)
+        set(value) = prefs.edit { putBoolean(KEY_PLAY_OWNED, value) }
+
     var lastCheckAt: Long
         get() = prefs.getLong(KEY_CHECKED_AT, 0L)
         set(value) = prefs.edit { putLong(KEY_CHECKED_AT, value) }
@@ -97,6 +107,7 @@ class LicenseStore(context: Context) {
         remove(KEY_BLOCKED)
         remove(KEY_SERVER_TIME)
         remove(KEY_CHECKED_AT)
+        remove(KEY_PLAY_OWNED)
     }
 
     private companion object {
@@ -107,6 +118,7 @@ class LicenseStore(context: Context) {
         const val KEY_SERVER_TIME = "server_time"
         const val KEY_CHECKED_AT = "checked_at"
         const val KEY_URL = "license_url"
+        const val KEY_PLAY_OWNED = "play_owned"
 
         const val DEFAULT_LICENSE_URL = "https://karacast.de/api"
 

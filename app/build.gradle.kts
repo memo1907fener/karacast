@@ -17,6 +17,17 @@ val keystoreProps = Properties().apply {
 }
 val hasReleaseKeystore = keystoreProps.getProperty("storeFile")?.let { rootProject.file(it).exists() } == true
 
+// Der Upload-Schlüssel für Google Play — ein eigener, nicht der der APK-Version.
+// Google signiert die App für die Kunden selbst neu (Play App Signing); dieser
+// Schlüssel weist nur nach, dass ein Upload von uns kommt, und lässt sich bei
+// Verlust über die Play Console zurücksetzen. Fehlt die Datei, bleibt das Bundle
+// unsigniert: dann wird es zwar gebaut, aber Google nimmt es nicht an.
+val playKeystorePropsFile = rootProject.file("keystore-play.properties")
+val playKeystoreProps = Properties().apply {
+    if (playKeystorePropsFile.exists()) playKeystorePropsFile.inputStream().use { load(it) }
+}
+val hasPlayKeystore = playKeystoreProps.getProperty("storeFile")?.let { rootProject.file(it).exists() } == true
+
 android {
     namespace = "com.safir.iptv"
     compileSdk = 35
@@ -24,7 +35,8 @@ android {
     defaultConfig {
         applicationId = "com.safir.iptv"
         minSdk = 23
-        targetSdk = 34
+        // Google Play nimmt neue Apps und Updates nur mit aktuellem Ziel-API an.
+        targetSdk = 35
         versionCode = 18
         versionName = "1.9.5"
         vectorDrawables.useSupportLibrary = true
@@ -45,6 +57,46 @@ android {
                 keyPassword = keystoreProps.getProperty("keyPassword")
             }
         }
+        if (hasPlayKeystore) {
+            create("playUpload") {
+                storeFile = rootProject.file(playKeystoreProps.getProperty("storeFile"))
+                storePassword = playKeystoreProps.getProperty("storePassword")
+                keyAlias = playKeystoreProps.getProperty("keyAlias")
+                keyPassword = playKeystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
+
+    // Zwei Fassungen derselben App:
+    //
+    //  * direct — die APK, wie sie bisher verteilt wird: eigene Updates über
+    //    GitHub, Lizenz über karacast.de. Paketname und Schlüssel bleiben, damit
+    //    jede bestehende Installation weiter Updates bekommt.
+    //  * play   — für Google Play: Updates kommen vom Play Store, bezahlt wird über
+    //    Google Play Billing (Einmalkauf oder Abo), und nichts spricht mit einem
+    //    eigenen Server. Eigener Paketname, damit sich beide nie in die Quere
+    //    kommen.
+    //
+    // Der Code fragt BuildConfig.PLAY_STORE; nur das Billing selbst liegt getrennt
+    // unter src/play und src/direct, weil die Bibliothek nur in die Play-Fassung
+    // gehört.
+    flavorDimensions += "store"
+    productFlavors {
+        create("direct") {
+            dimension = "store"
+            buildConfigField("boolean", "PLAY_STORE", "false")
+            signingConfig = if (hasReleaseKeystore) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
+        }
+        create("play") {
+            dimension = "store"
+            applicationId = "com.sternweb.karacast"
+            buildConfigField("boolean", "PLAY_STORE", "true")
+            if (hasPlayKeystore) signingConfig = signingConfigs.getByName("playUpload")
+        }
     }
 
     buildTypes {
@@ -56,11 +108,9 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = if (hasReleaseKeystore) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
-            }
+            // Den Schlüssel bestimmt die Fassung (siehe productFlavors), nicht der
+            // Build-Typ: ein hier gesetzter Schlüssel würde den der Fassung
+            // überstimmen.
         }
     }
 
@@ -155,4 +205,6 @@ dependencies {
     implementation(libs.coil.compose)
     // Erzeugt den QR-Code, den der Käufer mit dem Handy scannt.
     implementation(libs.zxing.core)
+
+    "playImplementation"(libs.google.billing)
 }
