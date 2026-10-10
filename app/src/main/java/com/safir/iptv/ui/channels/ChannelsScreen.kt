@@ -41,6 +41,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -144,8 +145,20 @@ fun ChannelsScreen(
     var levelChangedAt by remember { mutableLongStateOf(0L) }
     LaunchedEffect(inCategory) { levelChangedAt = System.currentTimeMillis() }
 
-    LaunchedEffect(startInSearch) {
-        if (startInSearch) viewModel.enterSearch()
+    // Runs every time this screen is composed again — and it is, each time Back
+    // leaves the player, because the navigation drops the screen's UI while the
+    // player is on top (the ViewModel survives, the list's focus does not).
+    //
+    // The search tile, though, must open the search only once: run again on the
+    // way back from the player, it would wipe the query the viewer had typed.
+    var searchOpened by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (startInSearch && !searchOpened) {
+            searchOpened = true
+            viewModel.enterSearch()
+        } else {
+            viewModel.focusLastWatched()
+        }
     }
 
     // One step out, wherever that leads: search → the list, the list → the category
@@ -771,19 +784,32 @@ private fun ChannelList(
     val listState = rememberLazyListState()
     val jumpRequester = remember { FocusRequester() }
 
+    // A different list starts at its top — unless a channel is about to be focused,
+    // in which case scrolling to 0 first would only fight with that.
     LaunchedEffect(channels.firstOrNull()?.id) {
-        listState.scrollToItem(0)
+        if (focusTargetId == null) listState.scrollToItem(0)
     }
 
-    // Number entry lands here: scroll the row into view, then hand it the focus so
-    // the D-pad carries on from that channel.
-    LaunchedEffect(focusTargetId) {
+    // Number entry and the return from the player land here: scroll the row into
+    // view, then hand it the focus so the D-pad carries on from that channel.
+    // Keyed on the list as well, because on the way back from the player the
+    // target can arrive before the channels have — it must wait for them, not
+    // give up. A target that is not in this list is simply dropped.
+    LaunchedEffect(focusTargetId, channels.isEmpty()) {
         val id = focusTargetId ?: return@LaunchedEffect
+        if (channels.isEmpty()) return@LaunchedEffect
         val index = channels.indexOfFirst { it.id == id }
-        if (index < 0) return@LaunchedEffect
+        if (index < 0) {
+            onFocusConsumed()
+            return@LaunchedEffect
+        }
         listState.scrollToItem(index)
-        delay(80)
-        runCatching { jumpRequester.requestFocus() }
+        // The row has to be laid out before it can take focus; a slow box needs
+        // more than one frame for that, so try a few times rather than once.
+        for (attempt in 0 until 10) {
+            delay(50)
+            if (runCatching { jumpRequester.requestFocus() }.isSuccess) break
+        }
         delay(500)
         onFocusConsumed()
     }

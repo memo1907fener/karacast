@@ -450,14 +450,20 @@ class PlayerViewModel(
         val channel = _state.value.channel ?: return
         viewModelScope.launch {
             playlists.toggleFavorite(channel.id)
-            val updated = playlists.channelById(channel.id)
-            if (updated != null) {
-                _state.update { current ->
-                    current.copy(
-                        channel = updated,
-                        playlist = current.playlist.map { if (it.id == updated.id) updated else it }
-                    )
-                }
+            val favorite = playlists.channelById(channel.id)?.isFavorite ?: return@launch
+            // Only the star is taken over from the database. The rest of the row
+            // there is the provider's: its number would undo the renumbering of a
+            // group (the bar would jump from 001 to 817), and its URL would undo a
+            // repair that had switched the stream to the other container.
+            _state.update { current ->
+                current.copy(
+                    channel = current.channel?.let {
+                        if (it.id == channel.id) it.copy(isFavorite = favorite) else it
+                    },
+                    playlist = current.playlist.map {
+                        if (it.id == channel.id) it.copy(isFavorite = favorite) else it
+                    }
+                )
             }
         }
     }

@@ -25,8 +25,8 @@ android {
         applicationId = "com.safir.iptv"
         minSdk = 23
         targetSdk = 34
-        versionCode = 17
-        versionName = "1.9.4"
+        versionCode = 18
+        versionName = "1.9.5"
         vectorDrawables.useSupportLibrary = true
 
         // The FFmpeg decoders ship a native library per processor type, and each

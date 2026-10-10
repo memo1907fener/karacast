@@ -175,6 +175,20 @@ class ChannelsViewModel(
         _focusTargetId.value = target.id
     }
 
+    /**
+     * Back from the player, the list should stand on the channel that was playing
+     * last — not on the one that was clicked, because the viewer may have zapped
+     * on from there, and certainly not on channel 1. The player writes every
+     * channel it shows into [SettingsStore.lastChannelId], so that is the truth.
+     * If that channel is not in this list (zapped by number into another one,
+     * say), the list simply stays where it was.
+     */
+    fun focusLastWatched() {
+        if (!_inCategory.value || _searchMode.value) return
+        val id = settings.lastChannelId ?: return
+        _focusTargetId.value = id
+    }
+
     fun consumeFocusTarget() {
         _focusTargetId.value = null
     }

@@ -209,8 +209,10 @@ class PlaylistRepository(
     }
 
     suspend fun markWatched(channelId: String) {
-        recentDao.mark(RecentEntity(channelId, System.currentTimeMillis()))
+        // The setting first: the channel list reads it the moment Back leaves the
+        // player, and a quick Back right after zapping must not beat the database.
         settings.lastChannelId = channelId
+        recentDao.mark(RecentEntity(channelId, System.currentTimeMillis()))
     }
 
     // -------------------------------------------------------------------- sync
