@@ -94,6 +94,9 @@ android {
         create("play") {
             dimension = "store"
             applicationId = "com.sternweb.karacast"
+            // Googles automatischer Schutz (Play Integrity) setzt Android 7 voraus.
+            // Die APK-Fassung bleibt bei 23, für ältere Boxen, die nur sie bekommen.
+            minSdk = 24
             buildConfigField("boolean", "PLAY_STORE", "true")
             if (hasPlayKeystore) signingConfig = signingConfigs.getByName("playUpload")
         }
