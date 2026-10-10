@@ -2,12 +2,12 @@
 #
 # Test-Playlist für die Prüfer von Google Play (Play Console → App-Inhalte →
 # App-Zugriff). Nur frei verfügbare Test-Streams, die ihre Betreiber genau dafür
-# veröffentlichen: Apples HLS-Beispiel, die Test-Streams von Mux, die Demo von
-# Unified Streaming (Blender-Film "Tears of Steel", CC BY 3.0) und Akamais
-# Live-Teststream. Keine Fernsehsender, keine geschützten Inhalte.
+# veröffentlichen: Apples HLS-Beispiel, die Test-Streams von Mux und die Demos
+# von Unified Streaming (Live-Teststream und der Blender-Film "Tears of Steel",
+# CC BY 3.0). Keine Fernsehsender, keine geschützten Inhalte.
 #
 #EXTINF:-1 tvg-id="test1" group-title="Live",Live-Test 1
-https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8
+https://demo.unified-streaming.com/k8s/live/stable/live.isml/.m3u8
 #EXTINF:-1 tvg-id="test2" group-title="Test",Testbild 1
 https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_ts/master.m3u8
 #EXTINF:-1 tvg-id="test3" group-title="Test",Testbild 2

@@ -3,6 +3,7 @@ package com.safir.iptv.ui.login
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -68,132 +69,149 @@ fun LoginScreen(
         return
     }
 
-    Row(
+    // Two columns on a television or a phone held sideways; one on a phone held
+    // upright, where two columns leave each about 180dp and the "M3U" button
+    // breaks into one letter per line.
+    BoxWithConstraints(
         Modifier
             .fillMaxSize()
             .background(
                 Brush.horizontalGradient(listOf(Brand.Background, Brand.Surface))
             )
     ) {
-        BrandPanel(t, Modifier.weight(1f).fillMaxHeight())
+        val narrow = maxWidth < 600.dp
+        Row(Modifier.fillMaxSize()) {
+            if (!narrow) BrandPanel(t, Modifier.weight(1f).fillMaxHeight())
 
-        Column(
-            modifier = Modifier
-                .weight(1.2f)
-                .fillMaxHeight()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 56.dp, vertical = 48.dp),
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = t.connectProvider,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = Brand.TextPrimary
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                text = t.connectProviderHint,
-                style = MaterialTheme.typography.bodyMedium,
-                color = Brand.TextSecondary
-            )
-
-            Spacer(Modifier.height(24.dp))
-            SourceTypeSelector(
-                m3uLabel = t.m3uPlaylist,
-                selected = state.type,
-                onSelect = viewModel::setType
-            )
-
-            Spacer(Modifier.height(20.dp))
-
-            when (state.type) {
-                SourceType.XTREAM -> {
-                    TvTextField(
-                        value = state.serverUrl,
-                        onValueChange = viewModel::setServerUrl,
-                        label = t.serverUrl,
-                        placeholder = "http://server.beispiel.tv:8080",
-                        kind = TvFieldKind.URL,
-                        autoFocus = true
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    TvTextField(
-                        value = state.username,
-                        onValueChange = viewModel::setUsername,
-                        label = t.username
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    TvTextField(
-                        value = state.password,
-                        onValueChange = viewModel::setPassword,
-                        label = t.password,
-                        kind = TvFieldKind.PASSWORD
-                    )
-                }
-
-                SourceType.M3U -> {
-                    TvTextField(
-                        value = state.m3uUrl,
-                        onValueChange = viewModel::setM3uUrl,
-                        label = t.m3uUrlLabel,
-                        placeholder = "http://server.beispiel.tv/get.php?username=…",
-                        kind = TvFieldKind.URL,
-                        autoFocus = true
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    TvTextField(
-                        value = state.epgUrl,
-                        onValueChange = viewModel::setEpgUrl,
-                        label = t.epgUrlLabel,
-                        placeholder = "http://server.beispiel.tv/xmltv.php?…",
-                        kind = TvFieldKind.URL
-                    )
-                }
-            }
-
-            val failure = state.sync as? SyncState.Failed
-            if (failure != null) {
-                Spacer(Modifier.height(16.dp))
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Brand.Danger.copy(alpha = 0.12f))
-                        .padding(14.dp)
-                ) {
-                    Text(
-                        text = failure.message,
-                        color = Brand.Danger,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(24.dp))
-            TvButton(
-                onClick = { viewModel.connect(onConnected) },
-                // Never disabled. A disabled Button on TV cannot take focus at all,
-                // so the D-pad silently skips it and an unfilled form looks like a
-                // broken remote. Missing fields are reported on press instead.
-                colors = ButtonDefaults.colors(
-                    containerColor = Brand.Accent,
-                    contentColor = Brand.Background,
-                    focusedContainerColor = Brand.AccentSoft,
-                    focusedContentColor = Brand.Background,
-                    pressedContainerColor = Brand.AccentSoft,
-                    pressedContentColor = Brand.Background
-                )
+            Column(
+                modifier = Modifier
+                    .weight(1.2f)
+                    .fillMaxHeight()
+                    .verticalScroll(rememberScrollState())
+                    .padding(
+                        horizontal = if (narrow) 24.dp else 56.dp,
+                        vertical = if (narrow) 32.dp else 48.dp
+                    ),
+                verticalArrangement = Arrangement.Center
             ) {
-                Text(t.connectAndLoad, fontWeight = FontWeight.SemiBold)
-            }
+                if (narrow) {
+                    Image(
+                        painter = painterResource(R.drawable.app_banner),
+                        contentDescription = null,
+                        modifier = Modifier.width(200.dp).clip(RoundedCornerShape(12.dp))
+                    )
+                    Spacer(Modifier.height(24.dp))
+                }
+                Text(
+                    text = t.connectProvider,
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Brand.TextPrimary
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = t.connectProviderHint,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Brand.TextSecondary
+                )
 
-            Spacer(Modifier.height(14.dp))
-            Text(
-                text = t.loginNote,
-                style = MaterialTheme.typography.bodySmall,
-                color = Brand.TextSecondary
-            )
+                Spacer(Modifier.height(24.dp))
+                SourceTypeSelector(
+                    m3uLabel = t.m3uPlaylist,
+                    selected = state.type,
+                    onSelect = viewModel::setType
+                )
+
+                Spacer(Modifier.height(20.dp))
+
+                when (state.type) {
+                    SourceType.XTREAM -> {
+                        TvTextField(
+                            value = state.serverUrl,
+                            onValueChange = viewModel::setServerUrl,
+                            label = t.serverUrl,
+                            placeholder = "http://server.beispiel.tv:8080",
+                            kind = TvFieldKind.URL,
+                            autoFocus = true
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        TvTextField(
+                            value = state.username,
+                            onValueChange = viewModel::setUsername,
+                            label = t.username
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        TvTextField(
+                            value = state.password,
+                            onValueChange = viewModel::setPassword,
+                            label = t.password,
+                            kind = TvFieldKind.PASSWORD
+                        )
+                    }
+
+                    SourceType.M3U -> {
+                        TvTextField(
+                            value = state.m3uUrl,
+                            onValueChange = viewModel::setM3uUrl,
+                            label = t.m3uUrlLabel,
+                            placeholder = "http://server.beispiel.tv/get.php?username=…",
+                            kind = TvFieldKind.URL,
+                            autoFocus = true
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        TvTextField(
+                            value = state.epgUrl,
+                            onValueChange = viewModel::setEpgUrl,
+                            label = t.epgUrlLabel,
+                            placeholder = "http://server.beispiel.tv/xmltv.php?…",
+                            kind = TvFieldKind.URL
+                        )
+                    }
+                }
+
+                val failure = state.sync as? SyncState.Failed
+                if (failure != null) {
+                    Spacer(Modifier.height(16.dp))
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Brand.Danger.copy(alpha = 0.12f))
+                            .padding(14.dp)
+                    ) {
+                        Text(
+                            text = failure.message,
+                            color = Brand.Danger,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(24.dp))
+                TvButton(
+                    onClick = { viewModel.connect(onConnected) },
+                    // Never disabled. A disabled Button on TV cannot take focus at all,
+                    // so the D-pad silently skips it and an unfilled form looks like a
+                    // broken remote. Missing fields are reported on press instead.
+                    colors = ButtonDefaults.colors(
+                        containerColor = Brand.Accent,
+                        contentColor = Brand.Background,
+                        focusedContainerColor = Brand.AccentSoft,
+                        focusedContentColor = Brand.Background,
+                        pressedContainerColor = Brand.AccentSoft,
+                        pressedContentColor = Brand.Background
+                    )
+                ) {
+                    Text(t.connectAndLoad, fontWeight = FontWeight.SemiBold)
+                }
+
+                Spacer(Modifier.height(14.dp))
+                Text(
+                    text = t.loginNote,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Brand.TextSecondary
+                )
+            }
         }
     }
 }
