@@ -40,8 +40,8 @@ android {
         // (MainActivity.goImmersive) und die Zurück-Taste (Manifest,
         // enableOnBackInvokedCallback).
         targetSdk = 36
-        versionCode = 19
-        versionName = "1.9.6"
+        versionCode = 20
+        versionName = "1.9.7"
         vectorDrawables.useSupportLibrary = true
 
         // The FFmpeg decoders ship a native library per processor type, and each

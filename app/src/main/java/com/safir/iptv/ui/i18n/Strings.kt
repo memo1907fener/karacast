@@ -116,7 +116,8 @@ data class Strings(
     // ------------------------------------------------------------------ guide
     val tvGuide: String = "TV-Programm",
     val guideHint: String =
-        "OK spielt den Kanal · vergangene Sendung mit Archiv startet die Aufzeichnung",
+        "OK spielt den Kanal · vergangene Sendung mit Archiv startet die Aufzeichnung · " +
+            "künftige Sendung: OK setzt eine Erinnerung",
     val now: String = "Jetzt",
     val noGuideData: String = "keine Programmdaten",
     val loadingGuide: String = "Programm wird geladen …",
@@ -329,7 +330,21 @@ data class Strings(
     val update: UpdateStrings = UpdateStrings(),
     val panel: PanelStrings = PanelStrings(),
     val license: LicenseStrings = LicenseStrings(),
-    val play: PlayStrings = PlayStrings()
+    val play: PlayStrings = PlayStrings(),
+    val reminders: ReminderStrings = ReminderStrings()
+)
+
+/** "Tell me when it starts", from the programme guide. */
+data class ReminderStrings(
+    val set: String = "Erinnerung gesetzt",
+    val soon: String = "Gleich geht's los",
+    val startsAt: (time: String, channel: String) -> String = { time, channel ->
+        "$time auf $channel"
+    },
+    val running: (channel: String) -> String = { "Läuft jetzt auf $it" },
+    val switchNow: String = "Umschalten",
+    val dismiss: String = "Schließen",
+    val keys: String = "OK: umschalten · Zurück: schließen"
 )
 
 /**
@@ -742,7 +757,8 @@ private val Turkish = Strings(
     mono = "Mono",
 
     tvGuide = "Yayın akışı",
-    guideHint = "OK kanalı açar · arşivi olan geçmiş yayın kayıttan başlar",
+    guideHint = "OK kanalı açar · arşivi olan geçmiş yayın kayıttan başlar · " +
+        "gelecek yayın: OK hatırlatıcı kurar",
     now = "Şimdi",
     noGuideData = "yayın bilgisi yok",
     loadingGuide = "Yayın akışı yükleniyor …",
@@ -1129,6 +1145,15 @@ private val Turkish = Strings(
         connected = { "Bağlandı — $it" },
         sourceReceived = { "„$it“ hesabı alındı" }
     ),
+    reminders = ReminderStrings(
+        set = "Hatırlatıcı kuruldu",
+        soon = "Birazdan başlıyor",
+        startsAt = { time, channel -> "$time · $channel" },
+        running = { "Şimdi $it kanalında" },
+        switchNow = "Kanala geç",
+        dismiss = "Kapat",
+        keys = "OK: kanala geç · Geri: kapat"
+    ),
     play = PlayStrings(
         expiredBody = "On dört günlük ücretsiz süre doldu. Karacast'i beğendiysen " +
             "kilidini aç — bir kerelik ömür boyu ya da abonelikle. Ödeme güvenle " +
@@ -1260,7 +1285,8 @@ private val English = Strings(
     mono = "Mono",
 
     tvGuide = "TV guide",
-    guideHint = "OK plays the channel · a past programme with archive starts the recording",
+    guideHint = "OK plays the channel · a past programme with archive starts the recording · " +
+        "an upcoming programme: OK sets a reminder",
     now = "Now",
     noGuideData = "no guide data",
     loadingGuide = "Loading the guide …",
@@ -1647,6 +1673,15 @@ private val English = Strings(
         connected = { "Connected — $it" },
         sourceReceived = { "Account “$it” taken over" }
     ),
+    reminders = ReminderStrings(
+        set = "Reminder set",
+        soon = "Starting soon",
+        startsAt = { time, channel -> "$time on $channel" },
+        running = { "On now on $it" },
+        switchNow = "Switch",
+        dismiss = "Close",
+        keys = "OK: switch · Back: close"
+    ),
     play = PlayStrings(
         expiredBody = "Your fourteen free days are over. If you liked Karacast, " +
             "unlock it — once and for good, or as a subscription. Payment is handled " +
@@ -1779,7 +1814,8 @@ private val Arabic = Strings(
     mono = "أحادي",
 
     tvGuide = "دليل البرامج",
-    guideHint = "OK يشغّل القناة · برنامج سابق مع أرشيف يبدأ التسجيل",
+    guideHint = "OK يشغّل القناة · برنامج سابق مع أرشيف يبدأ التسجيل · " +
+        "برنامج قادم: OK يضبط تذكيراً",
     now = "الآن",
     noGuideData = "لا توجد بيانات برامج",
     loadingGuide = "جارٍ تحميل دليل البرامج …",
@@ -2150,6 +2186,15 @@ private val Arabic = Strings(
         failed = "تعذّر الوصول إلى اللوحة",
         connected = { "متّصل — $it" },
         sourceReceived = { "تمّ استلام اشتراك «$it»" }
+    ),
+    reminders = ReminderStrings(
+        set = "تم ضبط التذكير",
+        soon = "يبدأ بعد قليل",
+        startsAt = { time, channel -> "$time على $channel" },
+        running = { "يُعرض الآن على $it" },
+        switchNow = "انتقل",
+        dismiss = "إغلاق",
+        keys = "OK: انتقل · رجوع: إغلاق"
     ),
     play = PlayStrings(
         expiredBody = "انتهت الأيام الأربعة عشر المجانية. إن أعجبك Karacast فافتحه — " +

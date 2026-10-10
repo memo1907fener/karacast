@@ -2,6 +2,8 @@ package com.safir.iptv.ui.guide
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.safir.iptv.data.prefs.Reminder
+import com.safir.iptv.data.prefs.ReminderStore
 import com.safir.iptv.data.prefs.SettingsStore
 import com.safir.iptv.data.repository.EpgRepository
 import com.safir.iptv.data.repository.PlaylistRepository
@@ -23,8 +25,27 @@ import kotlinx.coroutines.launch
 class GuideViewModel(
     playlists: PlaylistRepository,
     private val epg: EpgRepository,
-    settings: SettingsStore
+    settings: SettingsStore,
+    private val reminderStore: ReminderStore
 ) : ViewModel() {
+
+    /** Programmes with a bell on them, keyed as [Reminder.key]. */
+    val reminders: StateFlow<Set<String>> = reminderStore.reminders
+        .map { list -> list.map { it.key }.toSet() }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
+
+    /** Bell on, bell off — for a programme that has not started yet. */
+    fun toggleReminder(channel: Channel, program: Program) {
+        reminderStore.toggle(
+            Reminder(
+                channelId = channel.id,
+                channelName = channel.name,
+                title = program.title,
+                startMs = program.startMs,
+                endMs = program.endMs
+            )
+        )
+    }
 
     val windowStartMs: Long = run {
         val half = 30 * 60 * 1000L

@@ -1,5 +1,7 @@
 package com.safir.iptv.ui.guide
 
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -15,6 +17,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.tv.material3.Icon
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -70,11 +75,20 @@ fun GuideScreen(
     val channels by viewModel.channels.collectAsStateWithLifecycle()
     val programs by viewModel.programs.collectAsStateWithLifecycle()
     val loading by viewModel.loading.collectAsStateWithLifecycle()
+    val reminders by viewModel.reminders.collectAsStateWithLifecycle()
 
     val scroll = rememberScrollState()
     val windowStart = viewModel.windowStartMs
     val windowEnd = viewModel.windowEndMs
     val now = remember { System.currentTimeMillis() }
+
+    // The grid starts two hours back so catch-up is in reach, but it opens on
+    // the present: half an hour of what just ran, then what is on now.
+    val density = LocalDensity.current
+    LaunchedEffect(Unit) {
+        val offset = (now - 30 * 60 * 1000L - windowStart).coerceAtLeast(0L)
+        scroll.scrollTo(with(density) { offset.toWidth().roundToPx() })
+    }
 
     Column(Modifier.fillMaxSize().background(Brand.Background)) {
 
@@ -126,8 +140,10 @@ fun GuideScreen(
                     windowEnd = windowEnd,
                     nowMs = now,
                     scroll = scroll,
+                    reminders = reminders,
                     onPlayLive = { onPlayLive(channel, viewModel.categoryId) },
-                    onPlayArchive = { program -> onPlayArchive(channel, program) }
+                    onPlayArchive = { program -> onPlayArchive(channel, program) },
+                    onToggleReminder = { program -> viewModel.toggleReminder(channel, program) }
                 )
             }
         }
@@ -198,8 +214,10 @@ private fun GuideRow(
     windowEnd: Long,
     nowMs: Long,
     scroll: ScrollState,
+    reminders: Set<String>,
     onPlayLive: () -> Unit,
-    onPlayArchive: (Program) -> Unit
+    onPlayArchive: (Program) -> Unit,
+    onToggleReminder: (Program) -> Unit
 ) {
     val s = LocalStrings.current
     Row(Modifier.height(ROW_HEIGHT)) {
@@ -285,6 +303,9 @@ private fun GuideRow(
                 val isPast = program.endMs <= nowMs
                 val isLive = program.isLiveAt(nowMs)
                 val replayable = isPast && channel.hasArchive
+                // Still to come: OK sets a reminder instead of tuning in to
+                // whatever happens to be on the channel right now.
+                val upcoming = program.startMs > nowMs
 
                 ProgramBlock(
                     program = program,
@@ -292,8 +313,13 @@ private fun GuideRow(
                     isLive = isLive,
                     isPast = isPast,
                     replayable = replayable,
+                    reminded = upcoming && "${channel.id}@${program.startMs}" in reminders,
                     onClick = {
-                        if (replayable) onPlayArchive(program) else onPlayLive()
+                        when {
+                            upcoming -> onToggleReminder(program)
+                            replayable -> onPlayArchive(program)
+                            else -> onPlayLive()
+                        }
                     }
                 )
             }
@@ -308,6 +334,7 @@ private fun ProgramBlock(
     isLive: Boolean,
     isPast: Boolean,
     replayable: Boolean,
+    reminded: Boolean,
     onClick: () -> Unit
 ) {
     val s = LocalStrings.current
@@ -346,15 +373,25 @@ private fun ProgramBlock(
                 overflow = TextOverflow.Ellipsis
             )
             Spacer(Modifier.height(2.dp))
-            Text(
-                text = if (replayable) {
-                    "${program.startMs.asClock()} · ↺ ${s.archive}"
-                } else {
-                    program.startMs.asClock()
-                },
-                style = MaterialTheme.typography.labelSmall,
-                maxLines = 1
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (reminded) {
+                    Icon(
+                        Icons.Default.NotificationsActive,
+                        contentDescription = s.reminders.set,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                }
+                Text(
+                    text = if (replayable) {
+                        "${program.startMs.asClock()} · ↺ ${s.archive}"
+                    } else {
+                        program.startMs.asClock()
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1
+                )
+            }
         }
     }
 }

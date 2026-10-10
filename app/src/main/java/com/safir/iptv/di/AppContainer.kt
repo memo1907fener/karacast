@@ -3,6 +3,7 @@ package com.safir.iptv.di
 import android.content.Context
 import com.safir.iptv.data.local.AppDatabase
 import com.safir.iptv.data.prefs.LicenseStore
+import com.safir.iptv.data.prefs.ReminderStore
 import com.safir.iptv.data.prefs.SettingsStore
 import com.safir.iptv.data.repository.LicenseRepository
 import com.safir.iptv.data.repository.EpgRepository
@@ -28,6 +29,9 @@ class AppContainer(context: Context) {
     val licenseStore = LicenseStore(context)
 
     val licenses = LicenseRepository(context.applicationContext, licenseStore)
+
+    /** Programmes somebody asked to be told about; see [ReminderStore]. */
+    val reminders = ReminderStore(context)
 
     val playlistRepository = PlaylistRepository(
         database = database,

@@ -47,7 +47,8 @@ val AppViewModelFactory = viewModelFactory {
         GuideViewModel(
             container().playlistRepository,
             container().epgRepository,
-            container().settings
+            container().settings,
+            container().reminders
         )
     }
     initializer { GroupsViewModel(container().playlistRepository, container().settings) }
