@@ -40,7 +40,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
-import coil.compose.SubcomposeAsyncImage
+import coil.compose.AsyncImage
 import com.safir.iptv.domain.model.Category
 import com.safir.iptv.domain.model.ContinueItem
 import com.safir.iptv.domain.model.Movie
@@ -247,7 +247,7 @@ private fun MovieSheet(
             ) {
                 val poster = detail?.posterUrl ?: movie.posterUrl
                 if (!poster.isNullOrBlank()) {
-                    SubcomposeAsyncImage(
+                    AsyncImage(
                         model = poster,
                         contentDescription = null,
                         contentScale = ContentScale.Crop,

@@ -25,6 +25,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,7 +44,8 @@ import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
-import coil.compose.SubcomposeAsyncImage
+import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
 import com.safir.iptv.domain.model.Category
 import com.safir.iptv.domain.model.ContinueItem
 import com.safir.iptv.ui.components.EmptyState
@@ -215,13 +220,17 @@ fun PosterTile(
                 if (posterUrl.isNullOrBlank()) {
                     PosterFallback(title)
                 } else {
-                    SubcomposeAsyncImage(
+                    // The plain image with the title drawn beneath until it lands —
+                    // the slot version composes a whole extra subtree per tile, which
+                    // a cheap box feels in every grid it scrolls.
+                    var shown by remember(posterUrl) { mutableStateOf(false) }
+                    if (!shown) PosterFallback(title)
+                    AsyncImage(
                         model = posterUrl,
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),
-                        loading = { PosterFallback(title) },
-                        error = { PosterFallback(title) }
+                        onState = { shown = it is AsyncImagePainter.State.Success }
                     )
                 }
                 if (!badge.isNullOrBlank()) {
@@ -448,7 +457,7 @@ private fun ContinueCard(item: ContinueItem, onClick: () -> Unit) {
                     .background(Brand.SurfaceHigh)
             ) {
                 item.posterUrl?.takeIf { it.isNotBlank() }?.let { poster ->
-                    SubcomposeAsyncImage(
+                    AsyncImage(
                         model = poster,
                         contentDescription = null,
                         contentScale = ContentScale.Crop,

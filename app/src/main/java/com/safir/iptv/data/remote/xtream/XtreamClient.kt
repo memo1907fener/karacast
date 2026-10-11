@@ -7,6 +7,7 @@ import com.safir.iptv.util.flag
 import com.safir.iptv.util.int
 import com.safir.iptv.util.long
 import com.safir.iptv.util.str
+import com.safir.iptv.util.streamJsonArray
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
@@ -152,22 +153,22 @@ class XtreamClient(
     suspend fun liveStreams(categoryId: String? = null): List<XtreamLiveStream> =
         withContext(Dispatchers.IO) {
             val extra = categoryId?.let { mapOf("category_id" to it) } ?: emptyMap()
-            val array = LenientJson
-                .parseToJsonElement(Http.getString(api("get_live_streams", extra)))
-                .asArrayOrEmpty("streams", "live")
-            array.mapNotNull { element ->
-                val obj = element as? JsonObject ?: return@mapNotNull null
-                val streamId = obj.int("stream_id") ?: return@mapNotNull null
-                XtreamLiveStream(
-                    streamId = streamId,
-                    name = (obj.str("name") ?: "Kanal $streamId").trim(),
-                    icon = obj.str("stream_icon"),
-                    epgChannelId = obj.str("epg_channel_id"),
-                    categoryId = obj.str("category_id") ?: "0",
-                    number = obj.int("num") ?: 0,
-                    hasArchive = obj.flag("tv_archive"),
-                    directSource = obj.str("direct_source")
-                )
+            // Streamed, not read whole: see [streamJsonArray].
+            Http.getStream(api("get_live_streams", extra)) { input ->
+                streamJsonArray(input, "streams", "live") { element ->
+                    val obj = element as? JsonObject ?: return@streamJsonArray null
+                    val streamId = obj.int("stream_id") ?: return@streamJsonArray null
+                    XtreamLiveStream(
+                        streamId = streamId,
+                        name = (obj.str("name") ?: "Kanal $streamId").trim(),
+                        icon = obj.str("stream_icon"),
+                        epgChannelId = obj.str("epg_channel_id"),
+                        categoryId = obj.str("category_id") ?: "0",
+                        number = obj.int("num") ?: 0,
+                        hasArchive = obj.flag("tv_archive"),
+                        directSource = obj.str("direct_source")
+                    )
+                }
             }
         }
 
@@ -200,21 +201,21 @@ class XtreamClient(
     /** @param categoryId null asks for the whole catalogue at once — what search needs. */
     suspend fun vodStreams(categoryId: String?): List<XtreamVod> = withContext(Dispatchers.IO) {
         val extra = categoryId?.let { mapOf("category_id" to it) } ?: emptyMap()
-        val array = LenientJson
-            .parseToJsonElement(Http.getString(api("get_vod_streams", extra)))
-            .asArrayOrEmpty("streams", "movies", "vod")
-        array.mapNotNull { element ->
-            val obj = element as? JsonObject ?: return@mapNotNull null
-            val id = obj.int("stream_id") ?: return@mapNotNull null
-            XtreamVod(
-                streamId = id,
-                name = (obj.str("name", "title") ?: "#$id").trim(),
-                cover = obj.str("stream_icon", "cover", "movie_image"),
-                categoryId = obj.str("category_id") ?: categoryId.orEmpty(),
-                rating = obj.str("rating"),
-                addedMs = obj.long("added")?.times(1000L),
-                extension = obj.str("container_extension")
-            )
+        // The whole catalogue can be tens of MB: streamed, see [streamJsonArray].
+        Http.getStream(api("get_vod_streams", extra)) { input ->
+            streamJsonArray(input, "streams", "movies", "vod") { element ->
+                val obj = element as? JsonObject ?: return@streamJsonArray null
+                val id = obj.int("stream_id") ?: return@streamJsonArray null
+                XtreamVod(
+                    streamId = id,
+                    name = (obj.str("name", "title") ?: "#$id").trim(),
+                    cover = obj.str("stream_icon", "cover", "movie_image"),
+                    categoryId = obj.str("category_id") ?: categoryId.orEmpty(),
+                    rating = obj.str("rating"),
+                    addedMs = obj.long("added")?.times(1000L),
+                    extension = obj.str("container_extension")
+                )
+            }
         }
     }
 
@@ -247,10 +248,9 @@ class XtreamClient(
 
     suspend fun series(categoryId: String?): List<XtreamSeries> = withContext(Dispatchers.IO) {
         val extra = categoryId?.let { mapOf("category_id" to it) } ?: emptyMap()
-        val array = LenientJson
-            .parseToJsonElement(Http.getString(api("get_series", extra)))
-            .asArrayOrEmpty("series")
-        array.mapNotNull { element -> element.toSeries(categoryId.orEmpty()) }
+        Http.getStream(api("get_series", extra)) { input ->
+            streamJsonArray(input, "series") { element -> element.toSeries(categoryId.orEmpty()) }
+        }
     }
 
     /**

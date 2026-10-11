@@ -22,6 +22,9 @@ import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,7 +38,8 @@ import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
-import coil.compose.SubcomposeAsyncImage
+import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
 import com.safir.iptv.ui.i18n.LocalStrings
 import com.safir.iptv.ui.theme.Brand
 
@@ -57,13 +61,16 @@ fun ChannelLogo(
         if (url.isNullOrBlank()) {
             LogoFallback(name)
         } else {
-            SubcomposeAsyncImage(
+            // Initials beneath until the logo lands; see PosterTile for why not
+            // the slot version.
+            var shown by remember(url) { mutableStateOf(false) }
+            if (!shown) LogoFallback(name)
+            AsyncImage(
                 model = url,
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize().padding(4.dp),
-                loading = { LogoFallback(name) },
-                error = { LogoFallback(name) }
+                onState = { shown = it is AsyncImagePainter.State.Success }
             )
         }
     }

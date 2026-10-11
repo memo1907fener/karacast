@@ -30,6 +30,12 @@ class IptvApp : Application(), ImageLoaderFactory {
         container.homeScreen.start(appScope)
     }
 
+    /** Coil trims its own cache; the film catalogue is ours to let go of. */
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (::container.isInitialized) container.vodRepository.trimMemory(level)
+    }
+
     /** Lives as long as the process; for work that belongs to no screen. */
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 

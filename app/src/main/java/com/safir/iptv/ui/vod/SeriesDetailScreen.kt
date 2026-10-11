@@ -35,7 +35,7 @@ import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
-import coil.compose.SubcomposeAsyncImage
+import coil.compose.AsyncImage
 import com.safir.iptv.domain.model.Episode
 import com.safir.iptv.ui.AppViewModelFactory
 import com.safir.iptv.ui.components.EmptyState
@@ -95,7 +95,7 @@ fun SeriesDetailScreen(
                     .background(Brand.SurfaceHigh)
             ) {
                 detail.series.posterUrl?.takeIf { it.isNotBlank() }?.let { poster ->
-                    SubcomposeAsyncImage(
+                    AsyncImage(
                         model = poster,
                         contentDescription = null,
                         contentScale = ContentScale.Crop,

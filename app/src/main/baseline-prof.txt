@@ -1,0 +1,10 @@
+# Karacast — what Android compiles ahead of time instead of while the viewer waits.
+#
+# Compose, Media3 and the other libraries bring their own profiles; this one adds
+# the app's own code. Karacast is small enough to precompile whole, and on a box
+# with a slow processor that is the difference between a list that scrolls from
+# the first second and one that stutters until the JIT has caught up.
+#
+# H = hot, S = run at startup, P = run after startup.
+HSPLcom/safir/iptv/**->**(**)**
+Lcom/safir/iptv/**;

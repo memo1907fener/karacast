@@ -9,6 +9,8 @@ import com.safir.iptv.domain.model.MovieDetail
 import com.safir.iptv.domain.model.Series
 import com.safir.iptv.domain.model.SeriesDetail
 import com.safir.iptv.domain.model.SourceType
+import android.content.ComponentCallbacks2
+import android.util.LruCache
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -38,10 +40,17 @@ class VodRepository(
 
     private val movieCategoryCache = mutableListOf<Category>()
     private val seriesCategoryCache = mutableListOf<Category>()
-    private val moviesByCategory = mutableMapOf<String, List<Movie>>()
-    private val seriesByCategory = mutableMapOf<String, List<Series>>()
-    private val movieDetails = mutableMapOf<Int, MovieDetail>()
-    private val seriesDetails = mutableMapOf<Int, SeriesDetail>()
+
+    /*
+     * Kept, but not without end. On a box with 1 GB of RAM an evening of browsing
+     * used to pile up every category and every detail page ever opened until the
+     * app was killed. Now the most recently used stay — measured in titles, since a
+     * category of 30 and one of 3,000 are not the same weight — and the rest goes.
+     */
+    private val moviesByCategory = itemCache<List<Movie>>()
+    private val seriesByCategory = itemCache<List<Series>>()
+    private val movieDetails = LruCache<Int, MovieDetail>(DETAIL_LIMIT)
+    private val seriesDetails = LruCache<Int, SeriesDetail>(DETAIL_LIMIT)
 
     /**
      * The whole catalogue, fetched once the first time somebody searches.
@@ -51,8 +60,8 @@ class VodRepository(
      * category one by one would be fifty requests; asking without a category is one,
      * and after it the search is instant for the rest of the evening.
      */
-    private var allMovies: List<Movie>? = null
-    private var allSeries: List<Series>? = null
+    @Volatile private var allMovies: List<Movie>? = null
+    @Volatile private var allSeries: List<Series>? = null
 
     /** False for M3U sources and when nothing is set up at all. */
     suspend fun isSupported(): Boolean = playlists.currentSource()?.type == SourceType.XTREAM
@@ -79,7 +88,7 @@ class VodRepository(
      * warning in a log but the app disappearing mid-scroll.
      */
     suspend fun movies(categoryId: String): List<Movie> {
-        moviesByCategory[categoryId]?.let { return it }
+        moviesByCategory.get(categoryId)?.let { return it }
         val api = requireClient()
         val fetched = api.vodStreams(categoryId).distinctBy { it.streamId }.map { vod ->
             Movie(
@@ -91,7 +100,7 @@ class VodRepository(
                 streamUrl = api.vodUrl(vod.streamId, vod.extension)
             )
         }
-        moviesByCategory[categoryId] = fetched
+        moviesByCategory.put(categoryId, fetched)
         return fetched
     }
 
@@ -103,17 +112,20 @@ class VodRepository(
      * here exactly as it does in the sidebar.
      */
     suspend fun searchMovies(query: String): List<Movie> {
-        val needle = query.trim().lowercase()
+        val needle = query.trim()
         if (needle.length < 2) return emptyList()
         val all = allMovies ?: loadAllMovies().also { allMovies = it }
-        return all.filter { it.name.lowercase().contains(needle) }.take(SEARCH_LIMIT)
+        // ignoreCase rather than lowercase(): no copy of 50,000 titles per keystroke.
+        return all.asSequence().filter { it.name.contains(needle, ignoreCase = true) }
+            .take(SEARCH_LIMIT).toList()
     }
 
     suspend fun searchSeries(query: String): List<Series> {
-        val needle = query.trim().lowercase()
+        val needle = query.trim()
         if (needle.length < 2) return emptyList()
         val all = allSeries ?: loadAllSeries().also { allSeries = it }
-        return all.filter { it.name.lowercase().contains(needle) }.take(SEARCH_LIMIT)
+        return all.asSequence().filter { it.name.contains(needle, ignoreCase = true) }
+            .take(SEARCH_LIMIT).toList()
     }
 
     private suspend fun loadAllMovies(): List<Movie> {
@@ -139,7 +151,9 @@ class VodRepository(
         return requireClient().series(null)
             .filterNot { it.categoryId in blocked }
             .distinctBy { it.seriesId }
-            .map { it.toDomain() }
+            // Only what a search hit shows. Plot and cast of 20,000 series are tens
+            // of MB, and the detail page asks the panel for them anyway.
+            .map { it.toDomain().copy(plot = null, cast = null, director = null) }
     }
 
     /** Category ids the lock takes out, resolved once against the provider's names. */
@@ -165,7 +179,7 @@ class VodRepository(
      * requests for text nobody reads.
      */
     suspend fun movieDetail(movieId: Int): MovieDetail {
-        movieDetails[movieId]?.let { return it }
+        movieDetails.get(movieId)?.let { return it }
         val info = requireClient().vodInfo(movieId)
         val detail = MovieDetail(
             plot = info?.plot,
@@ -177,7 +191,7 @@ class VodRepository(
             rating = info?.rating,
             posterUrl = info?.cover
         )
-        movieDetails[movieId] = detail
+        movieDetails.put(movieId, detail)
         return detail
     }
 
@@ -195,19 +209,21 @@ class VodRepository(
     }
 
     suspend fun series(categoryId: String): List<Series> {
-        seriesByCategory[categoryId]?.let { return it }
+        seriesByCategory.get(categoryId)?.let { return it }
         val fetched = requireClient().series(categoryId)
             .distinctBy { it.seriesId }
             .map { it.toDomain() }
-        seriesByCategory[categoryId] = fetched
+        seriesByCategory.put(categoryId, fetched)
         return fetched
     }
 
     suspend fun seriesDetail(seriesId: Int): SeriesDetail {
-        seriesDetails[seriesId]?.let { return it }
+        seriesDetails.get(seriesId)?.let { return it }
         val api = requireClient()
         val (info, rawEpisodes) = api.seriesInfo(seriesId)
-        val known = seriesByCategory.values.asSequence().flatten().firstOrNull { it.id == seriesId }
+        val known = seriesByCategory.snapshot().values.asSequence().flatten()
+            .firstOrNull { it.id == seriesId }
+            ?: allSeries?.firstOrNull { it.id == seriesId }
         val series = info?.toDomain()?.let { fetched ->
             // The listing usually carries a better cover and name than the detail
             // call, so what is already on screen wins where it has something.
@@ -231,7 +247,7 @@ class VodRepository(
             )
         }
         val detail = SeriesDetail(series, episodes)
-        seriesDetails[seriesId] = detail
+        seriesDetails.put(seriesId, detail)
         return detail
     }
 
@@ -243,10 +259,32 @@ class VodRepository(
         clientKey = null
         movieCategoryCache.clear()
         seriesCategoryCache.clear()
-        moviesByCategory.clear()
-        seriesByCategory.clear()
-        movieDetails.clear()
-        seriesDetails.clear()
+        dropCatalogue()
+    }
+
+    /**
+     * Android saying memory is getting short. The search catalogue is by far the
+     * biggest thing held and the cheapest to fetch again, so it goes first; when it
+     * gets serious, everything goes. Not taking the lock: this comes from the main
+     * thread, and the caches are safe to clear from anywhere.
+     */
+    fun trimMemory(level: Int) {
+        if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
+            allMovies = null
+            allSeries = null
+            movieDetails.evictAll()
+            seriesDetails.evictAll()
+        }
+        if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL) dropCatalogue()
+    }
+
+    private fun dropCatalogue() {
+        movieCategoryCache.clear()
+        seriesCategoryCache.clear()
+        moviesByCategory.evictAll()
+        seriesByCategory.evictAll()
+        movieDetails.evictAll()
+        seriesDetails.evictAll()
         allMovies = null
         allSeries = null
     }
@@ -254,6 +292,14 @@ class VodRepository(
     private companion object {
         /** More than this on a television is a wall of posters, not an answer. */
         const val SEARCH_LIMIT = 200
+
+        /** Titles across all cached categories; a handful of shelves' worth. */
+        const val CATEGORY_TITLES = 8_000
+        const val DETAIL_LIMIT = 40
+
+        fun <V : List<*>> itemCache() = object : LruCache<String, V>(CATEGORY_TITLES) {
+            override fun sizeOf(key: String, value: V) = value.size.coerceAtLeast(1)
+        }
     }
 
     private suspend fun requireClient(): XtreamClient = lock.withLock {
