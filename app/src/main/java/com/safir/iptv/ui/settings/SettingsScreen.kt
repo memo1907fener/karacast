@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.SettingsBackupRestore
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.Dns
@@ -93,7 +94,7 @@ import kotlinx.coroutines.launch
  */
 private enum class SettingsPage {
     HUB, SOURCE, PLAYBACK, DISPLAY, PARENTAL, GROUPS, ORDER, UPDATES, PANEL, LICENSE,
-    ACCOUNT, PROBLEMS
+    BACKUP, ACCOUNT, PROBLEMS
 }
 
 @Composable
@@ -148,6 +149,7 @@ fun SettingsScreen(
         SettingsPage.UPDATES -> t.hub.updates
         SettingsPage.PANEL -> t.panel.title
         SettingsPage.LICENSE -> t.license.section
+        SettingsPage.BACKUP -> t.backup.title
         SettingsPage.ACCOUNT -> t.hub.account
         SettingsPage.PROBLEMS -> t.hub.problems
         SettingsPage.HUB -> t.settings
@@ -192,6 +194,7 @@ fun SettingsScreen(
             SettingsPage.UPDATES -> UpdatesSection(state, viewModel)
             SettingsPage.PANEL -> PanelSection(state, viewModel)
             SettingsPage.LICENSE -> LicenseSection()
+            SettingsPage.BACKUP -> BackupPage(onRestored = onSourceSwitched)
             SettingsPage.ACCOUNT -> AccountSection(viewModel, onDisconnected)
             SettingsPage.PROBLEMS -> ProblemsSection(state, viewModel)
             SettingsPage.HUB -> Unit
@@ -288,6 +291,9 @@ private fun SettingsHub(
                     onOpen(SettingsPage.PANEL)
                 })
             }
+            add(HubEntry(t.backup.title, t.backup.tileHint, Icons.Default.SettingsBackupRestore) {
+                onOpen(SettingsPage.BACKUP)
+            })
             add(HubEntry(t.hub.account, t.hub.accountHint, Icons.Default.AccountCircle) {
                 onOpen(SettingsPage.ACCOUNT)
             })
@@ -1307,7 +1313,7 @@ private fun ProblemsSection(state: SettingsUiState, viewModel: SettingsViewModel
 }
 
 @Composable
-private fun SettingsCard(title: String, content: @Composable () -> Unit) {
+internal fun SettingsCard(title: String, content: @Composable () -> Unit) {
     Column(
         Modifier
             .fillMaxWidth()
@@ -1327,7 +1333,7 @@ private fun SettingsCard(title: String, content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun InfoLine(label: String, value: String) {
+internal fun InfoLine(label: String, value: String) {
     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Text(
             label,
@@ -1513,7 +1519,7 @@ private fun ReorderRow(
 }
 
 @Composable
-private fun StatusBanner(message: String, color: androidx.compose.ui.graphics.Color) {
+internal fun StatusBanner(message: String, color: androidx.compose.ui.graphics.Color) {
     Box(
         Modifier
             .fillMaxWidth()

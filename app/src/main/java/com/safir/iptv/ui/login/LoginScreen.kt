@@ -50,7 +50,9 @@ fun LoginScreen(
     onConnected: () -> Unit,
     mode: SetupMode = SetupMode.FIRST,
     /** Null on the very first setup: there is nothing to go back to. */
-    onCancel: (() -> Unit)? = null
+    onCancel: (() -> Unit)? = null,
+    /** Only on the very first setup: take everything over from a box already set up. */
+    onTakeOver: (() -> Unit)? = null
 ) {
     val t = LocalStrings.current
     val viewModel: SetupViewModel = viewModel(factory = AppViewModelFactory)
@@ -218,6 +220,11 @@ fun LoginScreen(
                     if (onCancel != null) {
                         TvButton(onClick = onCancel) { Text(t.sources.cancel) }
                     }
+                }
+
+                if (onTakeOver != null) {
+                    Spacer(Modifier.height(14.dp))
+                    TvButton(onClick = onTakeOver) { Text(t.backup.fromOtherDevice) }
                 }
 
                 Spacer(Modifier.height(14.dp))

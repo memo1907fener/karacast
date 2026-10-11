@@ -1,6 +1,7 @@
 package com.safir.iptv.di
 
 import android.content.Context
+import com.safir.iptv.data.backup.BackupManager
 import com.safir.iptv.data.local.AppDatabase
 import com.safir.iptv.data.prefs.LicenseStore
 import com.safir.iptv.data.prefs.ReminderStore
@@ -60,6 +61,9 @@ class AppContainer(context: Context) {
 
     /** Moving between saved accesses; see [SourceSwitcher]. */
     val sources = SourceSwitcher(playlistRepository, epgRepository, vodRepository)
+
+    /** Everything of this box, onto another one; see [BackupManager]. */
+    val backups = BackupManager(playlistRepository, epgRepository, settings, sources)
 
     init {
         settings.applyToHttp()

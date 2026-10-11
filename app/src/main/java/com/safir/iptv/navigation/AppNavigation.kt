@@ -38,6 +38,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import com.safir.iptv.ui.player.PlayerScreen
 import com.safir.iptv.ui.settings.AboutScreen
+import com.safir.iptv.ui.settings.BackupScreen
 import com.safir.iptv.ui.settings.GroupChannelsScreen
 import com.safir.iptv.ui.settings.GroupsScreen
 import com.safir.iptv.ui.settings.SettingsScreen
@@ -54,6 +55,9 @@ object Routes {
     const val SETUP = "setup?mode=FIRST"
     const val SETUP_EDIT = "setup?mode=EDIT"
     const val SETUP_ADD = "setup?mode=ADD"
+
+    /** Taking over another box's settings before this one has any of its own. */
+    const val TAKE_OVER = "takeover"
     const val DASHBOARD = "dashboard"
 
     /** One screen, two entry points: browsing categories and jumping into search. */
@@ -161,6 +165,22 @@ fun AppNavigation(
                         null
                     } else {
                         { navController.popBackStack() }
+                    },
+                    onTakeOver = if (mode == SetupMode.FIRST) {
+                        { navController.navigate(Routes.TAKE_OVER) }
+                    } else {
+                        null
+                    }
+                )
+            }
+
+            composable(Routes.TAKE_OVER) {
+                BackupScreen(
+                    onBack = { navController.popBackStack() },
+                    onRestored = {
+                        navController.navigate(Routes.DASHBOARD) {
+                            popUpTo(0) { inclusive = true }
+                        }
                     }
                 )
             }

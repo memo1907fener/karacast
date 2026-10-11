@@ -333,7 +333,51 @@ data class Strings(
     val play: PlayStrings = PlayStrings(),
     val reminders: ReminderStrings = ReminderStrings(),
     val pip: PipStrings = PipStrings(),
-    val sources: SourceStrings = SourceStrings()
+    val sources: SourceStrings = SourceStrings(),
+    val backup: BackupStrings = BackupStrings()
+)
+
+/** Settings to another box: over the home network, or as a file. */
+data class BackupStrings(
+    val title: String = "Sichern & Übertragen",
+    val fromOtherDevice: String = "Von einem anderen Gerät übernehmen",
+    val tileHint: String = "Alles auf ein anderes Gerät bringen",
+    val lanTitle: String = "Auf ein anderes Gerät übertragen",
+    val lanHint: String = "Beide Geräte müssen im selben WLAN bzw. Heimnetz sein. Übertragen " +
+        "werden alle Zugänge, Favoriten, Gruppen und Einstellungen – die Lizenz nicht.",
+    val send: String = "Dieses Gerät sendet",
+    val receive: String = "Von anderem Gerät empfangen",
+    val stop: String = "Beenden",
+    val sendingHint: String = "Auf dem neuen Gerät „Von anderem Gerät empfangen“ wählen, " +
+        "dieses Gerät aussuchen und diesen Code eingeben:",
+    val address: (String) -> String = { "Adresse dieses Geräts: $it" },
+    val searching: String = "Suche nach Geräten im Netz …",
+    val noneFound: String = "Noch kein Gerät gefunden. Sendet das andere Gerät schon? " +
+        "Sonst die Adresse eingeben, die es anzeigt.",
+    val addressLabel: String = "Adresse des anderen Geräts",
+    val codeLabel: String = "Code vom anderen Gerät",
+    val fetch: String = "Übertragen",
+    val wrongCode: String = "Der Code stimmt nicht.",
+    val unreachable: String = "Das andere Gerät antwortet nicht. Sind beide im selben Netz, " +
+        "und sendet es noch?",
+    val fileTitle: String = "Als Datei sichern",
+    val fileHint: String = "Speichert alles in einer Datei, z. B. für ein neues Handy. Die " +
+        "Datei enthält deine Zugangsdaten – gib sie nicht weiter.",
+    val save: String = "Sicherung speichern",
+    val load: String = "Sicherung laden",
+    val noFilePicker: String = "Dieses Gerät hat keine Dateiauswahl. Bitte die Übertragung " +
+        "im Netz verwenden.",
+    val saved: String = "Sicherung gespeichert.",
+    val notABackup: String = "Das ist keine Karacast-Sicherung.",
+    val confirmTitle: String = "Sicherung übernehmen?",
+    val confirmText: (Int, String) -> String = { count, device ->
+        "$count Zugänge" + (if (device.isNotBlank()) " von $device" else "") +
+            ". Alle Zugänge und Einstellungen auf diesem Gerät werden dadurch ersetzt."
+    },
+    val apply: String = "Übernehmen",
+    val cancel: String = "Abbrechen",
+    val restoring: (String) -> String = { "Lade „$it“ …" },
+    val partly: (String) -> String = { "Übernommen. Nicht geladen: $it – später unter Quelle neu laden." }
 )
 
 /** Several saved accesses — providers or playlists — and moving between them. */
@@ -1175,6 +1219,44 @@ private val Turkish = Strings(
         connected = { "Bağlandı — $it" },
         sourceReceived = { "„$it“ hesabı alındı" }
     ),
+    backup = BackupStrings(
+        title = "Yedekle ve aktar",
+        fromOtherDevice = "Başka bir cihazdan al",
+        tileHint = "Her şeyi başka bir cihaza taşı",
+        lanTitle = "Başka bir cihaza aktar",
+        lanHint = "İki cihaz da aynı Wi-Fi'da / ev ağında olmalı. Tüm hesaplar, favoriler, " +
+            "gruplar ve ayarlar aktarılır – lisans aktarılmaz.",
+        send = "Bu cihaz gönderiyor",
+        receive = "Başka cihazdan al",
+        stop = "Bitir",
+        sendingHint = "Yeni cihazda „Başka cihazdan al“ seç, bu cihazı seç ve şu kodu gir:",
+        address = { "Bu cihazın adresi: $it" },
+        searching = "Ağda cihaz aranıyor …",
+        noneFound = "Henüz cihaz bulunamadı. Diğer cihaz gönderiyor mu? Değilse gösterdiği " +
+            "adresi gir.",
+        addressLabel = "Diğer cihazın adresi",
+        codeLabel = "Diğer cihazdaki kod",
+        fetch = "Aktar",
+        wrongCode = "Kod yanlış.",
+        unreachable = "Diğer cihaz yanıt vermiyor. İkisi aynı ağda mı, hâlâ gönderiyor mu?",
+        fileTitle = "Dosya olarak yedekle",
+        fileHint = "Her şeyi bir dosyaya kaydeder, örn. yeni bir telefon için. Dosya giriş " +
+            "bilgilerini içerir – kimseye verme.",
+        save = "Yedeği kaydet",
+        load = "Yedeği yükle",
+        noFilePicker = "Bu cihazda dosya seçici yok. Lütfen ağ üzerinden aktarımı kullan.",
+        saved = "Yedek kaydedildi.",
+        notABackup = "Bu bir Karacast yedeği değil.",
+        confirmTitle = "Yedek yüklensin mi?",
+        confirmText = { count, device ->
+            "$count hesap" + (if (device.isNotBlank()) " ($device)" else "") +
+                ". Bu cihazdaki tüm hesaplar ve ayarlar değiştirilecek."
+        },
+        apply = "Yükle",
+        cancel = "Vazgeç",
+        restoring = { "„$it“ yükleniyor …" },
+        partly = { "Yüklendi. Yüklenemeyen: $it – daha sonra Kaynak bölümünden yenile." }
+    ),
     sources = SourceStrings(
         title = "Kayıtlı hesaplar",
         hint = "Birden fazla sağlayıcı ya da liste kaydet ve istediğin zaman geçiş yap. " +
@@ -1726,6 +1808,46 @@ private val English = Strings(
         connected = { "Connected — $it" },
         sourceReceived = { "Account “$it” taken over" }
     ),
+    backup = BackupStrings(
+        title = "Back up & transfer",
+        fromOtherDevice = "Take over from another device",
+        tileHint = "Move everything to another device",
+        lanTitle = "Transfer to another device",
+        lanHint = "Both devices must be on the same Wi-Fi / home network. All accesses, " +
+            "favourites, groups and settings are transferred – the licence is not.",
+        send = "This device sends",
+        receive = "Receive from another device",
+        stop = "Stop",
+        sendingHint = "On the new device choose “Receive from another device”, pick this " +
+            "device and enter this code:",
+        address = { "This device's address: $it" },
+        searching = "Looking for devices on the network …",
+        noneFound = "No device found yet. Is the other device sending? Otherwise enter the " +
+            "address it shows.",
+        addressLabel = "Other device's address",
+        codeLabel = "Code from the other device",
+        fetch = "Transfer",
+        wrongCode = "The code is wrong.",
+        unreachable = "The other device does not answer. Are both on the same network, and " +
+            "is it still sending?",
+        fileTitle = "Back up as a file",
+        fileHint = "Saves everything to a file, e.g. for a new phone. The file contains your " +
+            "credentials – do not share it.",
+        save = "Save backup",
+        load = "Load backup",
+        noFilePicker = "This device has no file picker. Please use the network transfer.",
+        saved = "Backup saved.",
+        notABackup = "This is not a Karacast backup.",
+        confirmTitle = "Apply backup?",
+        confirmText = { count, device ->
+            "$count accesses" + (if (device.isNotBlank()) " from $device" else "") +
+                ". All accesses and settings on this device will be replaced."
+        },
+        apply = "Apply",
+        cancel = "Cancel",
+        restoring = { "Loading “$it” …" },
+        partly = { "Applied. Not loaded: $it – reload later under Source." }
+    ),
     sources = SourceStrings(
         title = "Saved accesses",
         hint = "Save several providers or playlists and switch whenever you like. " +
@@ -2262,6 +2384,42 @@ private val Arabic = Strings(
         failed = "تعذّر الوصول إلى اللوحة",
         connected = { "متّصل — $it" },
         sourceReceived = { "تمّ استلام اشتراك «$it»" }
+    ),
+    backup = BackupStrings(
+        title = "النسخ الاحتياطي والنقل",
+        fromOtherDevice = "النقل من جهاز آخر",
+        tileHint = "انقل كل شيء إلى جهاز آخر",
+        lanTitle = "النقل إلى جهاز آخر",
+        lanHint = "يجب أن يكون الجهازان على نفس شبكة Wi-Fi أو الشبكة المنزلية. تُنقل كل " +
+            "الحسابات والمفضلة والمجموعات والإعدادات – دون الترخيص.",
+        send = "هذا الجهاز يرسل",
+        receive = "الاستلام من جهاز آخر",
+        stop = "إيقاف",
+        sendingHint = "على الجهاز الجديد اختر «الاستلام من جهاز آخر»، ثم هذا الجهاز، وأدخل هذا الرمز:",
+        address = { "عنوان هذا الجهاز: $it" },
+        searching = "جارٍ البحث عن أجهزة في الشبكة …",
+        noneFound = "لم يُعثر على جهاز بعد. هل الجهاز الآخر يرسل؟ وإلا فأدخل العنوان الذي يعرضه.",
+        addressLabel = "عنوان الجهاز الآخر",
+        codeLabel = "الرمز من الجهاز الآخر",
+        fetch = "نقل",
+        wrongCode = "الرمز غير صحيح.",
+        unreachable = "الجهاز الآخر لا يستجيب. هل الجهازان على نفس الشبكة، وهل ما زال يرسل؟",
+        fileTitle = "نسخ احتياطي كملف",
+        fileHint = "يحفظ كل شيء في ملف، مثلاً لهاتف جديد. يحتوي الملف على بيانات الدخول – لا تشاركه.",
+        save = "حفظ النسخة",
+        load = "تحميل النسخة",
+        noFilePicker = "لا يوجد منتقي ملفات على هذا الجهاز. يرجى استخدام النقل عبر الشبكة.",
+        saved = "تم حفظ النسخة.",
+        notABackup = "هذا ليس نسخة احتياطية من Karacast.",
+        confirmTitle = "تطبيق النسخة الاحتياطية؟",
+        confirmText = { count, device ->
+            "$count حسابات" + (if (device.isNotBlank()) " من $device" else "") +
+                ". ستُستبدل كل الحسابات والإعدادات على هذا الجهاز."
+        },
+        apply = "تطبيق",
+        cancel = "إلغاء",
+        restoring = { "جارٍ تحميل «$it» …" },
+        partly = { "تم التطبيق. لم يُحمّل: $it – أعد التحميل لاحقاً من المصدر." }
     ),
     sources = SourceStrings(
         title = "الحسابات المحفوظة",

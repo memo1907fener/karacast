@@ -32,7 +32,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.safir.iptv.ui.theme.Brand
 
-enum class TvFieldKind { TEXT, URL, PASSWORD }
+enum class TvFieldKind { TEXT, URL, PASSWORD, NUMBER }
 
 /**
  * Text input for TV.
@@ -139,6 +139,8 @@ private fun buildEditText(
             InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
         TvFieldKind.PASSWORD ->
             InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+        TvFieldKind.NUMBER ->
+            InputType.TYPE_CLASS_NUMBER
         TvFieldKind.TEXT ->
             InputType.TYPE_CLASS_TEXT
     }

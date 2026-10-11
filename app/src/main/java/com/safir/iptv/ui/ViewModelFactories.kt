@@ -10,6 +10,7 @@ import com.safir.iptv.ui.channels.ChannelsViewModel
 import com.safir.iptv.ui.guide.GuideViewModel
 import com.safir.iptv.ui.login.SetupViewModel
 import com.safir.iptv.ui.player.PlayerViewModel
+import com.safir.iptv.ui.settings.BackupViewModel
 import com.safir.iptv.ui.settings.GroupChannelsViewModel
 import com.safir.iptv.ui.settings.GroupsViewModel
 import com.safir.iptv.ui.settings.SettingsViewModel
@@ -62,6 +63,12 @@ val AppViewModelFactory = viewModelFactory {
             container().settings,
             container().vodRepository,
             container().sources
+        )
+    }
+    initializer {
+        BackupViewModel(
+            this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as IptvApp,
+            container().backups
         )
     }
     initializer { MoviesViewModel(container().vodRepository, container().settings) }

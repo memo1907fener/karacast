@@ -76,6 +76,45 @@ class SettingsStore(context: Context) {
         bumpParental()
     }
 
+    // ------------------------------------------------------------ backups
+
+    /**
+     * Every stored value, for a backup. What identifies this particular box —
+     * its id, its registration with a panel, which update it last saw — stays
+     * behind: copied onto a second box, it would make the two indistinguishable.
+     */
+    fun exportValues(): Map<String, Any?> = prefs.all.filterKeys { it !in DEVICE_KEYS }
+
+    /** Replaces everything but the device's own values with [values]. */
+    fun importValues(values: Map<String, Any>) {
+        prefs.edit(commit = true) {
+            prefs.all.keys.filter { it !in DEVICE_KEYS }.forEach { remove(it) }
+            values.filterKeys { it !in DEVICE_KEYS }.forEach { (key, value) ->
+                when (value) {
+                    is String -> putString(key, value)
+                    is Boolean -> putBoolean(key, value)
+                    is Int -> putInt(key, value)
+                    is Long -> putLong(key, value)
+                    is Float -> putFloat(key, value)
+                    is Set<*> -> putStringSet(key, value.filterIsInstance<String>().toSet())
+                }
+            }
+        }
+        reload()
+    }
+
+    /** Re-reads every value that is held in memory, after the file changed underneath. */
+    private fun reload() {
+        _activeSourceId.value = prefs.getLong(KEY_ACTIVE_SOURCE, 1L)
+        _channelSort.value = readSort()
+        _parentalRevision.value = ParentalRevision(
+            prefs.getBoolean(KEY_PARENTAL, false),
+            _parentalRevision.value.at + 1
+        )
+        switchSource(_activeSourceId.value)
+        applyToHttp()
+    }
+
     /** Throws away everything an access that is being removed left behind. */
     fun forgetSource(sourceId: Long) = prefs.edit {
         SCOPED_KEYS.forEach { remove(scoped(it, sourceId)) }
@@ -612,6 +651,12 @@ class SettingsStore(context: Context) {
         const val KEY_GROUPS = "category_groups"
         const val KEY_CATEGORY_ORDER = "category_order"
         const val KEY_ACTIVE_SOURCE = "active_source"
+
+        /** What belongs to this box alone and never travels in a backup. */
+        val DEVICE_KEYS = setOf(
+            KEY_DEVICE_ID, KEY_PANEL_URL, KEY_PANEL_CODE, KEY_PANEL_SYNCED,
+            KEY_UPDATE_CHECKED, KEY_UPDATE_SKIPPED
+        )
 
         /** Everything that belongs to one access rather than to the device. */
         val SCOPED_KEYS = listOf(

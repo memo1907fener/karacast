@@ -167,6 +167,9 @@ interface FavoriteDao {
     @Query("SELECT EXISTS(SELECT 1 FROM favorites WHERE channelId = :channelId)")
     suspend fun isFavorite(channelId: String): Boolean
 
+    @Query("SELECT * FROM favorites")
+    suspend fun all(): List<FavoriteEntity>
+
     /** Channel ids start with their access's id, "3:1234". */
     @Query("DELETE FROM favorites WHERE channelId LIKE :prefix || '%'")
     suspend fun deleteWithPrefix(prefix: String)

@@ -104,6 +104,12 @@ class PlaylistRepository(
 
     suspend fun channelCount(): Int = channelDao.count(activeId)
 
+    /** Live favourites of every access, for a backup. */
+    suspend fun allFavorites(): List<FavoriteEntity> = favoriteDao.all()
+
+    suspend fun restoreFavorites(items: List<FavoriteEntity>) =
+        database.withTransaction { items.forEach { favoriteDao.add(it) } }
+
     // ---------------------------------------------------------------- observing
 
     /**
