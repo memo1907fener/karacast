@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.safir.iptv.data.repository.EpgRepository
 import com.safir.iptv.data.repository.PlaylistRepository
-import com.safir.iptv.data.repository.VodRepository
+import com.safir.iptv.data.repository.SourceSwitcher
 import com.safir.iptv.data.remote.redactCredentials
 import com.safir.iptv.domain.model.PlaylistSource
 import com.safir.iptv.domain.model.SourceType
@@ -36,11 +36,28 @@ data class SetupUiState(
         }
 }
 
+/** What the form is for. */
+enum class SetupMode {
+    /** The very first access, or one that never finished loading. */
+    FIRST,
+    /** Changing the credentials of the access on screen. */
+    EDIT,
+    /** One more access next to those already saved. */
+    ADD
+}
+
 class SetupViewModel(
     private val playlists: PlaylistRepository,
     private val epg: EpgRepository,
-    private val catalog: VodRepository
+    private val sources: SourceSwitcher
 ) : ViewModel() {
+
+    private var mode = SetupMode.FIRST
+
+    fun setMode(value: SetupMode) {
+        mode = value
+        if (value == SetupMode.EDIT) loadExisting()
+    }
 
     private val _state = MutableStateFlow(SetupUiState())
     val state: StateFlow<SetupUiState> = _state.asStateFlow()
@@ -55,7 +72,7 @@ class SetupViewModel(
     fun dismissError() = _state.update { it.copy(sync = SyncState.Idle) }
 
     /** Prefills the form when a source already exists (used from Settings). */
-    fun loadExisting() {
+    private fun loadExisting() {
         viewModelScope.launch {
             val existing = playlists.currentSource() ?: return@launch
             _state.update {
@@ -106,29 +123,42 @@ class SetupViewModel(
             return
         }
 
-        val source = PlaylistSource(
-            name = form.name.ifBlank { AppLocale.strings.myProvider },
-            type = form.type,
-            url = if (form.type == SourceType.XTREAM) form.serverUrl.trim() else form.m3uUrl.trim(),
-            username = form.username.trim(),
-            password = form.password.trim(),
-            epgUrl = form.epgUrl.trim()
-        )
+        val url = if (form.type == SourceType.XTREAM) form.serverUrl.trim() else form.m3uUrl.trim()
 
         viewModelScope.launch {
+            // Editing, and a first setup that is tried again, overwrite the access
+            // there is; only adding makes a new one. Until the playlist has loaded
+            // the access on screen stays what it was, so a typo costs nothing.
+            val id = if (mode == SetupMode.ADD) {
+                playlists.newSourceId()
+            } else {
+                playlists.currentSource()?.id ?: playlists.newSourceId()
+            }
+            val source = PlaylistSource(
+                id = id,
+                // With several accesses the name is what tells them apart, so an
+                // empty one becomes the server's name rather than "My provider".
+                name = form.name.trim().ifBlank { hostOf(url) ?: AppLocale.strings.myProvider },
+                type = form.type,
+                url = url,
+                username = form.username.trim(),
+                password = form.password.trim(),
+                epgUrl = form.epgUrl.trim()
+            )
+
             _state.update { it.copy(sync = SyncState.Running(AppLocale.strings.connecting)) }
             try {
                 val channels = playlists.sync(source) { step, fraction ->
                     _state.update { it.copy(sync = SyncState.Running(step, fraction)) }
                 }
-                playlists.saveSource(source)
-                // New credentials, possibly a new panel: nothing cached about the
-                // old one may survive into the new account's catalogue.
-                catalog.clearCache()
+                playlists.saveSource(source.copy(lastSyncAt = System.currentTimeMillis()))
+                // Also empties the film catalogue held in memory: new credentials,
+                // possibly a new panel, and nothing about the old one may survive.
+                sources.switchTo(id)
 
                 // The guide is a bonus: a provider without one must not fail the setup.
                 val programs = try {
-                    epg.refresh(source, playlists.knownEpgIds()) { step, fraction ->
+                    epg.refresh(source, playlists.knownEpgIds(id)) { step, fraction ->
                         _state.update { it.copy(sync = SyncState.Running(step, fraction)) }
                     } ?: 0
                 } catch (error: Exception) {
@@ -144,6 +174,14 @@ class SetupViewModel(
             }
         }
     }
+}
+
+/** "server.example.tv" out of "http://server.example.tv:8080/get.php?…". */
+private fun hostOf(url: String): String? {
+    val withScheme = if ("://" in url) url else "http://$url"
+    return runCatching { java.net.URI(withScheme).host }.getOrNull()
+        ?.removePrefix("www.")
+        ?.takeIf { it.isNotBlank() }
 }
 
 internal fun Exception.friendlyMessage(): String {

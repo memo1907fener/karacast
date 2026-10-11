@@ -11,6 +11,7 @@ import com.safir.iptv.data.remote.UpdateChecker
 import com.safir.iptv.data.remote.UpdateInstaller
 import com.safir.iptv.data.repository.EpgRepository
 import com.safir.iptv.data.repository.PlaylistRepository
+import com.safir.iptv.data.repository.SourceSwitcher
 import com.safir.iptv.data.repository.VodRepository
 import com.safir.iptv.domain.model.ALL_CATEGORY_ID
 import com.safir.iptv.domain.model.Category
@@ -84,11 +85,37 @@ class SettingsViewModel(
     private val playlists: PlaylistRepository,
     private val epg: EpgRepository,
     private val settings: SettingsStore,
-    private val catalog: VodRepository
+    private val catalog: VodRepository,
+    private val sources: SourceSwitcher
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SettingsUiState())
     val state: StateFlow<SettingsUiState> = _state.asStateFlow()
+
+    /** Every saved access, for the list on the source page. */
+    val savedSources: StateFlow<List<PlaylistSource>> = playlists.observeSources()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Puts another saved access on screen. Nothing is downloaded. */
+    fun switchSource(source: PlaylistSource, onSwitched: () -> Unit) {
+        viewModelScope.launch {
+            sources.switchTo(source.id)
+            onSwitched()
+        }
+    }
+
+    /**
+     * Removes a saved access that is not the one on screen. The one on screen is
+     * changed or let go of from elsewhere — removing the ground the settings stand
+     * on would leave them describing something that no longer exists.
+     */
+    fun removeSource(source: PlaylistSource) {
+        if (source.id == settings.activeSourceId.value) return
+        viewModelScope.launch {
+            sources.remove(source.id)
+            _state.update { it.copy(message = AppLocale.strings.sources.removed(source.name)) }
+        }
+    }
 
     /** Provider categories only — the user's own groups are managed on their own screen. */
     val categories: StateFlow<List<Category>> = playlists.observeCategories()
@@ -409,10 +436,13 @@ class SettingsViewModel(
             _state.update { it.copy(busyMessage = AppLocale.strings.reloadingPlaylist) }
             catalog.clearCache()
             try {
-                val channels = playlists.sync(source) { step, _ ->
+                // The panel replaces the access on screen, as it always has.
+                val target = source.copy(id = playlists.currentSource()?.id ?: playlists.newSourceId())
+                val channels = playlists.sync(target) { step, _ ->
                     _state.update { it.copy(busyMessage = step) }
                 }
-                playlists.saveSource(source)
+                playlists.saveSource(target.copy(lastSyncAt = System.currentTimeMillis()))
+                sources.switchTo(target.id)
                 _state.update {
                     it.copy(
                         busyMessage = null,
@@ -519,11 +549,9 @@ class SettingsViewModel(
 
     fun disconnect(onDone: () -> Unit) {
         viewModelScope.launch {
-            epg.clear()
-            playlists.clearEverything()
-            catalog.clearCache()
-            settings.lastChannelId = null
-            settings.lastCategoryId = null
+            // Every saved access, not only the one on screen: this is the button
+            // for handing the box on, and nothing of the old owner may stay.
+            playlists.allSources().forEach { sources.remove(it.id) }
             onDone()
         }
     }

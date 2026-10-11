@@ -18,7 +18,9 @@ import java.io.FileInputStream
 
 class EpgRepository(
     private val programDao: ProgramDao,
-    private val cacheDir: File
+    private val cacheDir: File,
+    /** The access whose guide is read; each one keeps its own. */
+    private val activeSourceId: () -> Long
 ) {
 
     /** SQLite caps a statement at 999 bound variables. */
@@ -72,12 +74,13 @@ class EpgRepository(
             // Erst jetzt den alten Programmführer wegwerfen: wenn der Download
             // scheitert, behält das Gerät lieber die Sendungen von gestern als gar
             // keine.
-            programDao.clear()
+            programDao.clear(source.id)
             try {
                 FileInputStream(file).use { raw ->
                     Http.readMaybeGzip(raw) { stream ->
                         XmltvParser.parse(stream, keepEpgIds) { program ->
                             batch += ProgramEntity(
+                                sourceId = source.id,
                                 epgId = program.channelId,
                                 title = program.title,
                                 description = program.description,
@@ -122,7 +125,7 @@ class EpgRepository(
         return size
     }
 
-    suspend fun hasGuide(): Boolean = programDao.count() > 0
+    suspend fun hasGuide(): Boolean = programDao.count(activeSourceId()) > 0
 
     /** Current and following programme for each of [epgIds]. */
     suspend fun nowNext(epgIds: Collection<String>, nowMs: Long = System.currentTimeMillis()):
@@ -130,8 +133,9 @@ class EpgRepository(
         val ids = epgIds.filter { it.isNotBlank() }.distinct()
         if (ids.isEmpty()) return@withContext emptyMap()
 
+        val sourceId = activeSourceId()
         val rows = ids.chunked(sqliteVariableLimit).flatMap { chunk ->
-            programDao.inWindow(chunk, nowMs, nowMs + 12 * 60 * 60 * 1000L)
+            programDao.inWindow(sourceId, chunk, nowMs, nowMs + 12 * 60 * 60 * 1000L)
         }
 
         rows.groupBy { it.epgId }.mapValues { (_, programs) ->
@@ -154,8 +158,9 @@ class EpgRepository(
     ): Map<String, List<Program>> = withContext(Dispatchers.IO) {
         val ids = epgIds.filter { it.isNotBlank() }.distinct()
         if (ids.isEmpty()) return@withContext emptyMap()
+        val sourceId = activeSourceId()
         ids.chunked(sqliteVariableLimit)
-            .flatMap { chunk -> programDao.inWindow(chunk, fromMs, toMs) }
+            .flatMap { chunk -> programDao.inWindow(sourceId, chunk, fromMs, toMs) }
             .map { it.toDomain() }
             .groupBy { it.channelEpgId }
             .mapValues { (_, list) -> list.sortedBy { it.startMs } }
@@ -167,10 +172,10 @@ class EpgRepository(
         limit: Int = 24,
         fromMs: Long = System.currentTimeMillis()
     ): List<Program> = withContext(Dispatchers.IO) {
-        programDao.upcoming(epgId, fromMs, limit).map { it.toDomain() }
+        programDao.upcoming(activeSourceId(), epgId, fromMs, limit).map { it.toDomain() }
     }
 
-    suspend fun clear() = programDao.clear()
+    suspend fun clear(sourceId: Long) = programDao.clear(sourceId)
 
     private companion object {
         const val BATCH_SIZE = 400

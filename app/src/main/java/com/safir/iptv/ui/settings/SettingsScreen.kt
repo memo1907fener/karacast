@@ -68,6 +68,7 @@ import com.safir.iptv.IptvApp
 import com.safir.iptv.domain.model.Category
 import com.safir.iptv.domain.model.ChannelSort
 import com.safir.iptv.domain.model.LicenseStatus
+import com.safir.iptv.domain.model.PlaylistSource
 import com.safir.iptv.domain.model.SourceType
 import com.safir.iptv.ui.AppViewModelFactory
 import com.safir.iptv.ui.components.FullScreenLoading
@@ -99,6 +100,8 @@ private enum class SettingsPage {
 fun SettingsScreen(
     onDisconnected: () -> Unit,
     onEditSource: () -> Unit,
+    onAddSource: () -> Unit,
+    onSourceSwitched: () -> Unit,
     onManageGroups: () -> Unit,
     onOpenAbout: () -> Unit,
     onBack: () -> Unit
@@ -110,6 +113,7 @@ fun SettingsScreen(
     val allCategories by viewModel.allCategories.collectAsStateWithLifecycle()
     val lockedIds by viewModel.lockedCategoryIds.collectAsStateWithLifecycle()
     val startOptions by viewModel.startOptions.collectAsStateWithLifecycle()
+    val savedSources by viewModel.savedSources.collectAsStateWithLifecycle()
 
     var page by rememberSaveable { mutableStateOf(SettingsPage.HUB) }
     // Deliberately not a saveable: walking away from the child lock and coming
@@ -161,7 +165,17 @@ fun SettingsScreen(
 
     SettingsPageFrame(title = title, onClose = closePage) {
         when (page) {
-            SettingsPage.SOURCE -> SourceSection(state, viewModel, onEditSource)
+            SettingsPage.SOURCE -> {
+                SourceSection(state, viewModel, onEditSource)
+                Spacer(Modifier.height(20.dp))
+                SavedSourcesSection(
+                    sources = savedSources,
+                    activeId = state.source?.id,
+                    onSwitch = { viewModel.switchSource(it, onSourceSwitched) },
+                    onRemove = viewModel::removeSource,
+                    onAdd = onAddSource
+                )
+            }
             SettingsPage.PLAYBACK -> PlaybackSection(state, viewModel)
             SettingsPage.DISPLAY -> DisplaySection(state, viewModel)
             SettingsPage.PARENTAL -> ParentalSection(
@@ -445,6 +459,82 @@ private fun SourceSection(
             TvButton(onClick = viewModel::refreshGuide) { Text(t.refreshEpg) }
             TvButton(onClick = onEditSource) { Text(t.editCredentials) }
         }
+    }
+}
+
+/**
+ * Every saved access, with the one on screen marked. Removing asks twice — on a
+ * remote the button you meant and the one beside it are one press apart, and
+ * what is removed here is a whole provider with its favourites.
+ */
+@Composable
+private fun SavedSourcesSection(
+    sources: List<PlaylistSource>,
+    activeId: Long?,
+    onSwitch: (PlaylistSource) -> Unit,
+    onRemove: (PlaylistSource) -> Unit,
+    onAdd: () -> Unit
+) {
+    val t = LocalStrings.current
+    var confirming by remember { mutableStateOf<Long?>(null) }
+    SettingsCard(title = t.sources.title) {
+        Text(t.sources.hint, style = MaterialTheme.typography.bodySmall, color = Brand.TextSecondary)
+        Spacer(Modifier.height(14.dp))
+        sources.forEach { source ->
+            val active = source.id == activeId
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        source.name,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (active) Brand.Accent else Brand.TextPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        when (source.type) {
+                            SourceType.XTREAM -> "Xtream Codes"
+                            SourceType.M3U -> t.m3uPlaylist
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Brand.TextSecondary
+                    )
+                }
+                if (active) {
+                    Text(
+                        "● " + t.sources.active,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Brand.Accent
+                    )
+                } else {
+                    TvButton(onClick = { onSwitch(source) }) { Text(t.sources.switchTo) }
+                    Spacer(Modifier.width(10.dp))
+                    val asking = confirming == source.id
+                    TvButton(
+                        onClick = {
+                            if (asking) {
+                                confirming = null
+                                onRemove(source)
+                            } else {
+                                confirming = source.id
+                            }
+                        },
+                        colors = ButtonDefaults.colors(
+                            containerColor = Brand.Danger.copy(alpha = if (asking) 0.45f else 0.18f),
+                            contentColor = Brand.Danger
+                        )
+                    ) {
+                        Text(if (asking) t.sources.confirmRemove else t.sources.remove)
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+        TvButton(onClick = onAdd) { Text("+ " + t.sources.add) }
     }
 }
 

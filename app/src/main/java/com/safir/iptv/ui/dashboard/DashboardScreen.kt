@@ -54,6 +54,11 @@ import androidx.tv.material3.Text
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.safir.iptv.IptvApp
+import com.safir.iptv.domain.model.PlaylistSource
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material.icons.filled.Dns
+import androidx.compose.foundation.layout.widthIn
+import kotlinx.coroutines.launch
 import com.safir.iptv.ui.i18n.AppLanguage
 import com.safir.iptv.ui.i18n.AppLocale
 import com.safir.iptv.ui.i18n.LocalStrings
@@ -75,14 +80,22 @@ fun DashboardScreen(
     onOpenMovies: () -> Unit,
     onOpenSearch: () -> Unit,
     onOpenGuide: () -> Unit,
-    onOpenSettings: () -> Unit
+    onOpenSettings: () -> Unit,
+    onAddSource: () -> Unit
 ) {
     val s = LocalStrings.current
     val context = LocalContext.current
     val language by AppLocale.current.collectAsStateWithLifecycle()
 
+    val container = (context.applicationContext as IptvApp).container
+    val sources by remember { container.playlistRepository.observeSources() }
+        .collectAsStateWithLifecycle(initialValue = emptyList())
+    val activeSourceId by container.settings.activeSourceId.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+
     val liveFocus = remember { FocusRequester() }
     var languageOpen by remember { mutableStateOf(false) }
+    var sourcesOpen by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         delay(120)
@@ -119,6 +132,10 @@ fun DashboardScreen(
                     color = Brand.TextPrimary
                 )
                 Spacer(Modifier.weight(1f))
+                sources.firstOrNull { it.id == activeSourceId }?.let { active ->
+                    SourceButton(name = active.name, onClick = { sourcesOpen = true })
+                    Spacer(Modifier.width(14.dp))
+                }
                 LanguageButton(
                     current = language,
                     onClick = { languageOpen = true }
@@ -203,6 +220,22 @@ fun DashboardScreen(
                     modifier = Modifier.weight(1f)
                 )
             }
+        }
+
+        if (sourcesOpen) {
+            SourcePicker(
+                sources = sources,
+                activeId = activeSourceId,
+                onPick = { picked ->
+                    sourcesOpen = false
+                    scope.launch { container.sources.switchTo(picked.id) }
+                },
+                onAdd = {
+                    sourcesOpen = false
+                    onAddSource()
+                },
+                onDismiss = { sourcesOpen = false }
+            )
         }
 
         if (languageOpen) {
@@ -451,6 +484,148 @@ private fun LanguagePicker(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * The access on screen, by name. Pressed, it drops down the saved ones — the
+ * same shape as the language next to it, so nothing new has to be learnt.
+ */
+@Composable
+private fun SourceButton(name: String, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = Brand.SurfaceHigh,
+            focusedContainerColor = Brand.Accent,
+            pressedContainerColor = Brand.Accent,
+            contentColor = Brand.TextPrimary,
+            focusedContentColor = Brand.Background,
+            pressedContentColor = Brand.Background
+        ),
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.06f),
+        modifier = Modifier.alsoTappable(onClick)
+    ) {
+        Row(
+            Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Default.Dns, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = name,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = 220.dp)
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(text = "▾", fontSize = 12.sp)
+        }
+    }
+}
+
+/** The saved accesses, the active one focused first, and a way to add one more. */
+@Composable
+private fun SourcePicker(
+    sources: List<PlaylistSource>,
+    activeId: Long,
+    onPick: (PlaylistSource) -> Unit,
+    onAdd: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val t = LocalStrings.current
+    val selectedRow = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        delay(60)
+        runCatching { selectedRow.requestFocus() }
+    }
+
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.55f))
+            .alsoTappable(onDismiss)
+            .onPreviewKeyEvent { event ->
+                if (event.type != KeyEventType.KeyUp) return@onPreviewKeyEvent false
+                if (event.key == Key.Back || event.key == Key.Escape) {
+                    onDismiss()
+                    true
+                } else {
+                    false
+                }
+            }
+    ) {
+        Column(
+            Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 74.dp, end = 48.dp)
+                .width(320.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Brand.Surface)
+                .padding(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                t.sources.pickerTitle,
+                style = MaterialTheme.typography.labelMedium,
+                color = Brand.TextSecondary,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+            )
+            sources.forEach { source ->
+                val selected = source.id == activeId
+                PickerRow(
+                    label = source.name,
+                    selected = selected,
+                    onClick = { if (selected) onDismiss() else onPick(source) },
+                    modifier = if (selected) Modifier.focusRequester(selectedRow) else Modifier
+                )
+            }
+            PickerRow(label = "+ " + t.sources.add, selected = false, onClick = onAdd)
+        }
+    }
+}
+
+@Composable
+private fun PickerRow(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = if (selected) Brand.SurfaceHigh else Color.Transparent,
+            focusedContainerColor = Brand.Accent,
+            pressedContainerColor = Brand.Accent,
+            contentColor = if (selected) Brand.TextPrimary else Brand.TextSecondary,
+            focusedContentColor = Brand.Background,
+            pressedContentColor = Brand.Background
+        ),
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+        modifier = Modifier
+            .fillMaxWidth()
+            .alsoTappable(onClick)
+            .then(modifier)
+    ) {
+        Row(
+            Modifier.padding(horizontal = 14.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+            if (selected) Text(text = "●", fontSize = 10.sp)
         }
     }
 }

@@ -20,14 +20,24 @@ interface SourceDao {
     @Query("SELECT * FROM sources WHERE id = :id")
     fun observe(id: Long): Flow<SourceEntity?>
 
+    @Query("SELECT * FROM sources ORDER BY id ASC")
+    fun observeAll(): Flow<List<SourceEntity>>
+
+    @Query("SELECT * FROM sources ORDER BY id ASC")
+    suspend fun all(): List<SourceEntity>
+
+    @Query("SELECT COALESCE(MAX(id), 0) FROM sources")
+    suspend fun maxId(): Long
+
+    @Query("DELETE FROM sources WHERE id = :id")
+    suspend fun delete(id: Long)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(source: SourceEntity)
 
     @Query("UPDATE sources SET lastSyncAt = :ts WHERE id = :id")
     suspend fun markSynced(ts: Long, id: Long)
 
-    @Query("DELETE FROM sources")
-    suspend fun clear()
 }
 
 @Dao
@@ -156,6 +166,10 @@ interface FavoriteDao {
 
     @Query("SELECT EXISTS(SELECT 1 FROM favorites WHERE channelId = :channelId)")
     suspend fun isFavorite(channelId: String): Boolean
+
+    /** Channel ids start with their access's id, "3:1234". */
+    @Query("DELETE FROM favorites WHERE channelId LIKE :prefix || '%'")
+    suspend fun deleteWithPrefix(prefix: String)
 }
 
 @Dao
@@ -164,8 +178,8 @@ interface RecentDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun mark(item: RecentEntity)
 
-    @Query("DELETE FROM recents")
-    suspend fun clear()
+    @Query("DELETE FROM recents WHERE channelId LIKE :prefix || '%'")
+    suspend fun deleteWithPrefix(prefix: String)
 }
 
 @Dao
@@ -174,42 +188,47 @@ interface ProgramDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(items: List<ProgramEntity>)
 
-    @Query("DELETE FROM programs")
-    suspend fun clear()
+    @Query("DELETE FROM programs WHERE sourceId = :sourceId")
+    suspend fun clear(sourceId: Long)
 
     @Query("DELETE FROM programs WHERE endMs < :beforeMs")
     suspend fun deleteEndedBefore(beforeMs: Long)
 
-    @Query("SELECT COUNT(*) FROM programs")
-    suspend fun count(): Int
+    @Query("SELECT COUNT(*) FROM programs WHERE sourceId = :sourceId")
+    suspend fun count(sourceId: Long): Int
 
     /** Programme overlapping a time window for a batch of channels — used by the guide. */
     @Query(
         """
         SELECT * FROM programs
-        WHERE epgId IN (:epgIds) AND endMs > :fromMs AND startMs < :toMs
+        WHERE sourceId = :sourceId AND epgId IN (:epgIds) AND endMs > :fromMs AND startMs < :toMs
         ORDER BY epgId ASC, startMs ASC
         """
     )
-    suspend fun inWindow(epgIds: List<String>, fromMs: Long, toMs: Long): List<ProgramEntity>
+    suspend fun inWindow(
+        sourceId: Long,
+        epgIds: List<String>,
+        fromMs: Long,
+        toMs: Long
+    ): List<ProgramEntity>
 
     @Query(
         """
         SELECT * FROM programs
-        WHERE epgId = :epgId AND endMs > :fromMs
+        WHERE sourceId = :sourceId AND epgId = :epgId AND endMs > :fromMs
         ORDER BY startMs ASC
         LIMIT :limit
         """
     )
-    fun observeUpcoming(epgId: String, fromMs: Long, limit: Int): Flow<List<ProgramEntity>>
+    fun observeUpcoming(sourceId: Long, epgId: String, fromMs: Long, limit: Int): Flow<List<ProgramEntity>>
 
     @Query(
         """
         SELECT * FROM programs
-        WHERE epgId = :epgId AND endMs > :fromMs
+        WHERE sourceId = :sourceId AND epgId = :epgId AND endMs > :fromMs
         ORDER BY startMs ASC
         LIMIT :limit
         """
     )
-    suspend fun upcoming(epgId: String, fromMs: Long, limit: Int): List<ProgramEntity>
+    suspend fun upcoming(sourceId: Long, epgId: String, fromMs: Long, limit: Int): List<ProgramEntity>
 }

@@ -45,23 +45,64 @@ class PlaylistRepository(
     private val settings: SettingsStore
 ) {
 
-    fun observeSource(): Flow<PlaylistSource?> =
-        sourceDao.observe(SOURCE_ID).map { it?.toDomain() }
+    /** The access everything on screen belongs to. */
+    private val activeId: Long get() = settings.activeSourceId.value
 
-    suspend fun currentSource(): PlaylistSource? = sourceDao.get(SOURCE_ID)?.toDomain()
+    /** A query that follows the active access, so switching redraws every list. */
+    private fun <T> perSource(query: (Long) -> Flow<T>): Flow<T> =
+        settings.activeSourceId.flatMapLatest(query)
+
+    fun observeSource(): Flow<PlaylistSource?> =
+        perSource { sourceDao.observe(it) }.map { it?.toDomain() }
+
+    /** Every saved access, oldest first. */
+    fun observeSources(): Flow<List<PlaylistSource>> =
+        sourceDao.observeAll().map { rows -> rows.map { it.toDomain() } }
+
+    suspend fun allSources(): List<PlaylistSource> = sourceDao.all().map { it.toDomain() }
+
+    suspend fun currentSource(): PlaylistSource? = sourceDao.get(activeId)?.toDomain()
+
+    /** An id no saved access uses — for one that is about to be added. */
+    suspend fun newSourceId(): Long = sourceDao.maxId() + 1
 
     suspend fun saveSource(source: PlaylistSource) {
         sourceDao.upsert(source.toEntity())
     }
 
-    suspend fun clearEverything() {
-        channelDao.deleteChannels(SOURCE_ID)
-        channelDao.deleteCategories(SOURCE_ID)
-        recentDao.clear()
-        sourceDao.clear()
+    /** Makes [sourceId] the access on screen; see [SettingsStore.switchSource]. */
+    fun activate(sourceId: Long) {
+        if (sourceId != activeId) settings.switchSource(sourceId)
     }
 
-    suspend fun channelCount(): Int = channelDao.count(SOURCE_ID)
+    /**
+     * The active access, or — should it have gone missing — the first one left,
+     * which then becomes the active one. Null only when nothing is saved at all.
+     */
+    suspend fun ensureActive(): PlaylistSource? {
+        currentSource()?.let { return it }
+        val first = allSources().firstOrNull() ?: return null
+        settings.switchSource(first.id)
+        return first
+    }
+
+    /**
+     * Forgets one access completely: its channels, its favourites and its own
+     * settings. Its guide is the guide's business, see [EpgRepository.clear].
+     */
+    suspend fun removeSource(sourceId: Long) {
+        val prefix = "$sourceId:"
+        database.withTransaction {
+            channelDao.deleteChannels(sourceId)
+            channelDao.deleteCategories(sourceId)
+            favoriteDao.deleteWithPrefix(prefix)
+            recentDao.deleteWithPrefix(prefix)
+            sourceDao.delete(sourceId)
+        }
+        settings.forgetSource(sourceId)
+    }
+
+    suspend fun channelCount(): Int = channelDao.count(activeId)
 
     // ---------------------------------------------------------------- observing
 
@@ -70,7 +111,7 @@ class PlaylistRepository(
      * Categories the user never sorted keep the provider's order behind the sorted ones.
      */
     fun observeCategories(): Flow<List<Category>> = combine(
-        channelDao.observeCategories(SOURCE_ID),
+        perSource { channelDao.observeCategories(it) },
         settings.groups,
         settings.categoryOrder,
         settings.parentalRevision
@@ -104,7 +145,7 @@ class PlaylistRepository(
      * uses [observeCategories], which cannot show one at all.
      */
     fun observeAllCategories(): Flow<List<Category>> =
-        channelDao.observeCategories(SOURCE_ID).map { rows ->
+        perSource { channelDao.observeCategories(it) }.map { rows ->
             rows.map { Category(it.id, it.name, it.channelCount) }
         }
 
@@ -112,12 +153,12 @@ class PlaylistRepository(
         // Re-reads the group on every edit, so membership, hidden channels and the
         // user's order all reach the list that is currently on screen.
         if (categoryId.startsWith(GROUP_PREFIX)) {
-            return settings.groups.flatMapLatest { groups ->
+            return combine(settings.activeSourceId, settings.groups, ::Pair).flatMapLatest { (sourceId, groups) ->
                 val group = groups.firstOrNull { GROUP_PREFIX + it.id == categoryId }
                 if (group == null || group.categoryIds.isEmpty()) {
                     flowOf(emptyList<Channel>())
                 } else {
-                    channelDao.observeByCategories(SOURCE_ID, group.categoryIds).map { rows ->
+                    channelDao.observeByCategories(sourceId, group.categoryIds).map { rows ->
                         val hidden = group.hiddenChannelIds.toSet()
                         // A group draws from several provider categories, so its numbers
                         // would jump around (802, 1140, 47 …). Inside a group they are
@@ -132,10 +173,10 @@ class PlaylistRepository(
         }
 
         val source: Flow<List<ChannelRow>> = when (categoryId) {
-            FAVORITES_CATEGORY_ID -> channelDao.observeFavorites(SOURCE_ID)
-            RECENT_CATEGORY_ID -> channelDao.observeRecent(SOURCE_ID)
-            ALL_CATEGORY_ID -> channelDao.observeAll(SOURCE_ID)
-            else -> channelDao.observeByCategory(SOURCE_ID, categoryId)
+            FAVORITES_CATEGORY_ID -> perSource { channelDao.observeFavorites(it) }
+            RECENT_CATEGORY_ID -> perSource { channelDao.observeRecent(it) }
+            ALL_CATEGORY_ID -> perSource { channelDao.observeAll(it) }
+            else -> perSource { channelDao.observeByCategory(it, categoryId) }
         }
 
         // "Zuletzt gesehen" is already in the only order that means anything there —
@@ -162,7 +203,7 @@ class PlaylistRepository(
      */
     fun observeGroupChannels(group: CategoryGroup): Flow<List<Channel>> {
         if (group.categoryIds.isEmpty()) return flowOf(emptyList<Channel>())
-        return channelDao.observeByCategories(SOURCE_ID, group.categoryIds)
+        return perSource { channelDao.observeByCategories(it, group.categoryIds) }
             .map { rows -> arrange(rows, group.channelOrder) }
     }
 
@@ -176,14 +217,15 @@ class PlaylistRepository(
     }
 
     fun search(query: String): Flow<List<Channel>> =
-        channelDao.search(SOURCE_ID, query).map { rows ->
+        perSource { channelDao.search(it, query) }.map { rows ->
             rows.filterNot { settings.isLiveBlocked(it.categoryId, it.categoryName) }
                 .map { it.toDomain() }
         }
 
     suspend fun channelById(id: String): Channel? = channelDao.byId(id)?.toDomain()
 
-    suspend fun knownEpgIds(): Set<String> = channelDao.knownEpgIds(SOURCE_ID).toSet()
+    suspend fun knownEpgIds(sourceId: Long = activeId): Set<String> =
+        channelDao.knownEpgIds(sourceId).toSet()
 
     /** @return the new favourite state. */
     suspend fun toggleFavorite(channelId: String): Boolean = database.withTransaction {
@@ -201,7 +243,9 @@ class PlaylistRepository(
      * Xtream or the channel id carries no stream id — an M3U playlist has no archive.
      */
     suspend fun archiveUrl(channelId: String, startMs: Long, durationMinutes: Int): String? {
-        val source = currentSource() ?: return null
+        // The channel's own access, which is not necessarily the one on screen.
+        val sourceId = sourceIdOf(channelId) ?: return null
+        val source = sourceDao.get(sourceId)?.toDomain() ?: return null
         if (source.type != SourceType.XTREAM) return null
         val streamId = channelId.substringAfterLast(':').toIntOrNull() ?: return null
         return XtreamClient(source.url, source.username, source.password)
@@ -237,12 +281,12 @@ class PlaylistRepository(
         onProgress(AppLocale.strings.syncSaving(channels.size), null)
         // One transaction, so the UI never observes a half-empty catalogue mid-sync.
         database.withTransaction {
-            channelDao.deleteChannels(SOURCE_ID)
-            channelDao.deleteCategories(SOURCE_ID)
+            channelDao.deleteChannels(source.id)
+            channelDao.deleteCategories(source.id)
             channelDao.insertCategories(categories)
             channels.chunked(500).forEach { channelDao.insertChannels(it) }
         }
-        sourceDao.markSynced(System.currentTimeMillis(), SOURCE_ID)
+        sourceDao.markSynced(System.currentTimeMillis(), source.id)
         channels.size
     }
 
@@ -251,6 +295,7 @@ class PlaylistRepository(
         onProgress: (String, Float?) -> Unit
     ): Pair<List<CategoryEntity>, List<ChannelEntity>> {
         val client = XtreamClient(source.url, source.username, source.password)
+        val sourceId = source.id
 
         onProgress(AppLocale.strings.syncSigningIn, null)
         val account = client.authenticate()
@@ -271,11 +316,11 @@ class PlaylistRepository(
         val channels = streams.mapIndexed { index, stream ->
             val categoryName = categoryNames[stream.categoryId] ?: "Sonstige"
             ChannelEntity(
-                id = "$SOURCE_ID:${stream.streamId}",
-                sourceId = SOURCE_ID,
+                id = "$sourceId:${stream.streamId}",
+                sourceId = sourceId,
                 name = stream.name,
                 logoUrl = stream.icon,
-                categoryId = stream.categoryId,
+                categoryId = categoryKey(sourceId, stream.categoryId),
                 categoryName = categoryName,
                 streamUrl = stream.directSource?.takeIf { it.startsWith("http", true) }
                     ?: client.liveStreamUrl(stream.streamId, extension),
@@ -287,11 +332,11 @@ class PlaylistRepository(
 
         val usedCategoryIds = channels.mapTo(HashSet()) { it.categoryId }
         val categories = remoteCategories
-            .filter { it.id in usedCategoryIds }
+            .filter { categoryKey(sourceId, it.id) in usedCategoryIds }
             .mapIndexed { index, category ->
                 CategoryEntity(
-                    id = category.id,
-                    sourceId = SOURCE_ID,
+                    id = categoryKey(sourceId, category.id),
+                    sourceId = sourceId,
                     name = category.name,
                     sortOrder = index
                 )
@@ -302,7 +347,7 @@ class PlaylistRepository(
         usedCategoryIds
             .filter { id -> categories.none { it.id == id } }
             .forEachIndexed { index, id ->
-                categories += CategoryEntity(id, SOURCE_ID, "Sonstige", categories.size + index)
+                categories += CategoryEntity(id, sourceId, "Sonstige", categories.size + index)
             }
 
         return categories to channels
@@ -312,17 +357,18 @@ class PlaylistRepository(
         source: PlaylistSource,
         onProgress: (String, Float?) -> Unit
     ): Pair<List<CategoryEntity>, List<ChannelEntity>> {
+        val sourceId = source.id
         onProgress(AppLocale.strings.syncPlaylist, null)
         val playlist = Http.getStream(source.url) { stream -> M3uParser.parse(stream) }
 
         onProgress(AppLocale.strings.syncEntries(playlist.entries.size), null)
         val categoryOrder = LinkedHashMap<String, String>() // id -> name
         val channels = playlist.entries.map { entry ->
-            val categoryId = "g:" + shortHash(entry.group)
+            val categoryId = categoryKey(sourceId, "g:" + shortHash(entry.group))
             if (!categoryOrder.containsKey(categoryId)) categoryOrder[categoryId] = entry.group
             ChannelEntity(
-                id = "$SOURCE_ID:" + shortHash(entry.url),
-                sourceId = SOURCE_ID,
+                id = "$sourceId:" + shortHash(entry.url),
+                sourceId = sourceId,
                 name = entry.name,
                 logoUrl = entry.logo,
                 categoryId = categoryId,
@@ -335,13 +381,23 @@ class PlaylistRepository(
         }
 
         val categories = categoryOrder.entries.mapIndexed { index, (id, name) ->
-            CategoryEntity(id = id, sourceId = SOURCE_ID, name = name, sortOrder = index)
+            CategoryEntity(id = id, sourceId = sourceId, name = name, sortOrder = index)
         }
         return categories to channels
     }
 
     companion object {
-        const val SOURCE_ID = 1L
+        /** Channel ids carry their access in front: "3:1234" belongs to access 3. */
+        fun sourceIdOf(channelId: String): Long? = channelId.substringBefore(':').toLongOrNull()
+
+        /**
+         * Category ids are the provider's own numbers, so two accesses both have a
+         * "5". The first access keeps the bare ids it always had — groups, order
+         * and locks saved before there were several accesses point at those —
+         * every later one gets its own prefix.
+         */
+        fun categoryKey(sourceId: Long, providerId: String): String =
+            if (sourceId == 1L) providerId else "s$sourceId:$providerId"
 
         /** Stable 12-char id so favourites survive a re-sync. */
         fun shortHash(value: String): String {

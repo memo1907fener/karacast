@@ -332,7 +332,29 @@ data class Strings(
     val license: LicenseStrings = LicenseStrings(),
     val play: PlayStrings = PlayStrings(),
     val reminders: ReminderStrings = ReminderStrings(),
-    val pip: PipStrings = PipStrings()
+    val pip: PipStrings = PipStrings(),
+    val sources: SourceStrings = SourceStrings()
+)
+
+/** Several saved accesses — providers or playlists — and moving between them. */
+data class SourceStrings(
+    val title: String = "Gespeicherte Zugänge",
+    val hint: String = "Mehrere Anbieter oder Playlists speichern und jederzeit wechseln. " +
+        "Jeder Zugang behält seine eigenen Favoriten, Gruppen und Einstellungen.",
+    val active: String = "Aktiv",
+    val switchTo: String = "Wechseln",
+    val remove: String = "Entfernen",
+    val confirmRemove: String = "Wirklich entfernen?",
+    val add: String = "Zugang hinzufügen",
+    val addTitle: String = "Weiteren Zugang hinzufügen",
+    val addHint: String = "Die bisherigen Zugänge bleiben gespeichert. Gewechselt wird oben " +
+        "auf der Startseite oder unter Einstellungen → Quelle.",
+    val nameLabel: String = "Name (optional)",
+    val namePlaceholder: String = "z. B. Anbieter 2",
+    val cancel: String = "Abbrechen",
+    val pickerTitle: String = "Zugang wählen",
+    val switched: (String) -> String = { "Gewechselt zu „$it“" },
+    val removed: (String) -> String = { "„$it“ entfernt" }
 )
 
 /** The phone's small floating window. */
@@ -1153,6 +1175,25 @@ private val Turkish = Strings(
         connected = { "Bağlandı — $it" },
         sourceReceived = { "„$it“ hesabı alındı" }
     ),
+    sources = SourceStrings(
+        title = "Kayıtlı hesaplar",
+        hint = "Birden fazla sağlayıcı ya da liste kaydet ve istediğin zaman geçiş yap. " +
+            "Her hesabın kendi favorileri, grupları ve ayarları olur.",
+        active = "Etkin",
+        switchTo = "Geç",
+        remove = "Kaldır",
+        confirmRemove = "Gerçekten kaldırılsın mı?",
+        add = "Hesap ekle",
+        addTitle = "Başka bir hesap ekle",
+        addHint = "Mevcut hesaplar kayıtlı kalır. Geçiş, ana ekranın üstünden ya da " +
+            "Ayarlar → Kaynak bölümünden yapılır.",
+        nameLabel = "Ad (isteğe bağlı)",
+        namePlaceholder = "ör. Sağlayıcı 2",
+        cancel = "Vazgeç",
+        pickerTitle = "Hesap seç",
+        switched = { "„$it“ hesabına geçildi" },
+        removed = { "„$it“ kaldırıldı" }
+    ),
     pip = PipStrings(
         title = "Resim içinde resim",
         hint = "Bir kanal ya da film oynarken uygulamadan çıkarsan küçük bir pencerede izlemeye devam edersin."
@@ -1685,6 +1726,25 @@ private val English = Strings(
         connected = { "Connected — $it" },
         sourceReceived = { "Account “$it” taken over" }
     ),
+    sources = SourceStrings(
+        title = "Saved accesses",
+        hint = "Save several providers or playlists and switch whenever you like. " +
+            "Each one keeps its own favourites, groups and settings.",
+        active = "Active",
+        switchTo = "Switch",
+        remove = "Remove",
+        confirmRemove = "Really remove?",
+        add = "Add access",
+        addTitle = "Add another access",
+        addHint = "Your existing accesses stay saved. Switch at the top of the home " +
+            "screen or under Settings → Source.",
+        nameLabel = "Name (optional)",
+        namePlaceholder = "e.g. Provider 2",
+        cancel = "Cancel",
+        pickerTitle = "Choose access",
+        switched = { "Switched to “$it”" },
+        removed = { "“$it” removed" }
+    ),
     pip = PipStrings(
         title = "Picture-in-picture",
         hint = "Leave the app while a channel or film is playing and it carries on in a small window."
@@ -2202,6 +2262,25 @@ private val Arabic = Strings(
         failed = "تعذّر الوصول إلى اللوحة",
         connected = { "متّصل — $it" },
         sourceReceived = { "تمّ استلام اشتراك «$it»" }
+    ),
+    sources = SourceStrings(
+        title = "الحسابات المحفوظة",
+        hint = "احفظ عدة مزوّدين أو قوائم وبدّل بينها متى شئت. " +
+            "لكل حساب مفضلته ومجموعاته وإعداداته الخاصة.",
+        active = "نشط",
+        switchTo = "تبديل",
+        remove = "إزالة",
+        confirmRemove = "هل تريد الإزالة فعلاً؟",
+        add = "إضافة حساب",
+        addTitle = "إضافة حساب آخر",
+        addHint = "تبقى الحسابات الحالية محفوظة. يتم التبديل من أعلى الشاشة الرئيسية " +
+            "أو من الإعدادات ← المصدر.",
+        nameLabel = "الاسم (اختياري)",
+        namePlaceholder = "مثلاً: المزوّد 2",
+        cancel = "إلغاء",
+        pickerTitle = "اختر الحساب",
+        switched = { "تم التبديل إلى «$it»" },
+        removed = { "تمت إزالة «$it»" }
     ),
     pip = PipStrings(
         title = "صورة داخل صورة",

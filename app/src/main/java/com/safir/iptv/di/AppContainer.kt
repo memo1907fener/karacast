@@ -8,6 +8,7 @@ import com.safir.iptv.data.prefs.SettingsStore
 import com.safir.iptv.data.repository.LicenseRepository
 import com.safir.iptv.data.repository.EpgRepository
 import com.safir.iptv.data.repository.PlaylistRepository
+import com.safir.iptv.data.repository.SourceSwitcher
 import com.safir.iptv.data.repository.VodRepository
 
 /**
@@ -47,13 +48,18 @@ class AppContainer(context: Context) {
      * braucht er einen Platz zum Ablegen. Der Zwischenspeicher ist richtig: das
      * System darf ihn wegräumen, die Sendungen stehen danach in der Datenbank.
      */
-    val epgRepository = EpgRepository(database.programDao(), context.cacheDir)
+    val epgRepository = EpgRepository(database.programDao(), context.cacheDir) {
+        settings.activeSourceId.value
+    }
 
     /**
      * Films and series. Network-backed and memory-cached rather than stored: see
      * [VodRepository] for why the catalogue does not belong in the database.
      */
     val vodRepository = VodRepository(playlistRepository, settings)
+
+    /** Moving between saved accesses; see [SourceSwitcher]. */
+    val sources = SourceSwitcher(playlistRepository, epgRepository, vodRepository)
 
     init {
         settings.applyToHttp()

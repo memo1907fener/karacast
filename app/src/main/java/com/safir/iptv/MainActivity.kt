@@ -193,7 +193,7 @@ class MainActivity : ComponentActivity() {
 
         LaunchedEffect(Unit) {
             // A source with at least one channel means the user is already set up.
-            val source = container.playlistRepository.currentSource()
+            val source = container.playlistRepository.ensureActive()
             val channels = container.playlistRepository.channelCount()
             val settings = container.settings
 

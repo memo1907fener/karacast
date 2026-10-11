@@ -42,6 +42,45 @@ class SettingsStore(context: Context) {
     private val continueSerializer = ListSerializer(ContinueItem.serializer())
     private val favoriteSerializer = ListSerializer(FavoriteItem.serializer())
 
+    // ------------------------------------------------------- which access
+
+    /**
+     * The access (provider, playlist) everything currently on screen belongs to.
+     *
+     * Declared before every value that reads through [scoped], because those are
+     * read while this object is still being built.
+     */
+    private val _activeSourceId = MutableStateFlow(prefs.getLong(KEY_ACTIVE_SOURCE, 1L))
+    val activeSourceId: StateFlow<Long> = _activeSourceId.asStateFlow()
+
+    /**
+     * Each access keeps its own groups, order, locked categories, film favourites,
+     * half-watched films and last channel: category ids are the provider's own
+     * numbers, and "5" at one provider is something else entirely at the next.
+     *
+     * The first access keeps the plain key names it always had, so an installation
+     * from before there were several accesses carries on without moving anything.
+     */
+    private fun scoped(key: String, sourceId: Long = _activeSourceId.value): String =
+        if (sourceId == 1L) key else "$key@$sourceId"
+
+    /** Swaps every per-access value for those of [sourceId]. */
+    fun switchSource(sourceId: Long) {
+        prefs.edit { putLong(KEY_ACTIVE_SOURCE, sourceId) }
+        _activeSourceId.value = sourceId
+        _groups.value = readGroups()
+        _categoryOrder.value = readCategoryOrder()
+        _blockedCategoryIds.value = readBlocked()
+        _vodFavorites.value = readFavorites()
+        _continueWatching.value = readContinue()
+        bumpParental()
+    }
+
+    /** Throws away everything an access that is being removed left behind. */
+    fun forgetSource(sourceId: Long) = prefs.edit {
+        SCOPED_KEYS.forEach { remove(scoped(it, sourceId)) }
+    }
+
     // ------------------------------------------------------------- connection
 
     var userAgent: String
@@ -224,13 +263,13 @@ class SettingsStore(context: Context) {
         } else {
             current - categoryId
         }
-        prefs.edit { putString(KEY_PARENTAL_IDS, json.encodeToString(stringListSerializer, updated)) }
+        prefs.edit { putString(scoped(KEY_PARENTAL_IDS), json.encodeToString(stringListSerializer, updated)) }
         _blockedCategoryIds.value = updated
         bumpParental()
     }
 
     private fun readBlocked(): List<String> {
-        val raw = prefs.getString(KEY_PARENTAL_IDS, null) ?: return emptyList()
+        val raw = prefs.getString(scoped(KEY_PARENTAL_IDS), null) ?: return emptyList()
         return runCatching { json.decodeFromString(stringListSerializer, raw) }
             .getOrDefault(emptyList())
     }
@@ -299,12 +338,12 @@ class SettingsStore(context: Context) {
     }
 
     private fun writeFavorites(items: List<FavoriteItem>) {
-        prefs.edit { putString(KEY_VOD_FAVORITES, json.encodeToString(favoriteSerializer, items)) }
+        prefs.edit { putString(scoped(KEY_VOD_FAVORITES), json.encodeToString(favoriteSerializer, items)) }
         _vodFavorites.value = items
     }
 
     private fun readFavorites(): List<FavoriteItem> {
-        val raw = prefs.getString(KEY_VOD_FAVORITES, null) ?: return emptyList()
+        val raw = prefs.getString(scoped(KEY_VOD_FAVORITES), null) ?: return emptyList()
         return runCatching { json.decodeFromString(favoriteSerializer, raw) }
             .getOrDefault(emptyList())
     }
@@ -358,12 +397,12 @@ class SettingsStore(context: Context) {
         writeContinue(_continueWatching.value.filter { it.isEpisode != episodes })
 
     private fun writeContinue(items: List<ContinueItem>) {
-        prefs.edit { putString(KEY_CONTINUE, json.encodeToString(continueSerializer, items)) }
+        prefs.edit { putString(scoped(KEY_CONTINUE), json.encodeToString(continueSerializer, items)) }
         _continueWatching.value = items
     }
 
     private fun readContinue(): List<ContinueItem> {
-        val raw = prefs.getString(KEY_CONTINUE, null) ?: return emptyList()
+        val raw = prefs.getString(scoped(KEY_CONTINUE), null) ?: return emptyList()
         return runCatching { json.decodeFromString(continueSerializer, raw) }
             .getOrDefault(emptyList())
     }
@@ -450,9 +489,9 @@ class SettingsStore(context: Context) {
      * channels, with no menu in between.
      */
     var liveDirectCategoryId: String?
-        get() = prefs.getString(KEY_LIVE_DIRECT, null)
+        get() = prefs.getString(scoped(KEY_LIVE_DIRECT), null)
         set(value) = prefs.edit {
-            if (value == null) remove(KEY_LIVE_DIRECT) else putString(KEY_LIVE_DIRECT, value)
+            if (value == null) remove(scoped(KEY_LIVE_DIRECT)) else putString(scoped(KEY_LIVE_DIRECT), value)
         }
 
     /**
@@ -467,12 +506,12 @@ class SettingsStore(context: Context) {
     // ----------------------------------------------------------- last session
 
     var lastChannelId: String?
-        get() = prefs.getString(KEY_LAST_CHANNEL, null)
-        set(value) = prefs.edit { putString(KEY_LAST_CHANNEL, value) }
+        get() = prefs.getString(scoped(KEY_LAST_CHANNEL), null)
+        set(value) = prefs.edit { putString(scoped(KEY_LAST_CHANNEL), value) }
 
     var lastCategoryId: String?
-        get() = prefs.getString(KEY_LAST_CATEGORY, null)
-        set(value) = prefs.edit { putString(KEY_LAST_CATEGORY, value) }
+        get() = prefs.getString(scoped(KEY_LAST_CATEGORY), null)
+        set(value) = prefs.edit { putString(scoped(KEY_LAST_CATEGORY), value) }
 
     // -------------------------------------------------- groups and ordering
 
@@ -484,24 +523,24 @@ class SettingsStore(context: Context) {
     val categoryOrder: StateFlow<List<String>> = _categoryOrder.asStateFlow()
 
     fun saveGroups(groups: List<CategoryGroup>) {
-        prefs.edit { putString(KEY_GROUPS, json.encodeToString(groupListSerializer, groups)) }
+        prefs.edit { putString(scoped(KEY_GROUPS), json.encodeToString(groupListSerializer, groups)) }
         _groups.value = groups
     }
 
     fun saveCategoryOrder(categoryIds: List<String>) {
         prefs.edit {
-            putString(KEY_CATEGORY_ORDER, json.encodeToString(stringListSerializer, categoryIds))
+            putString(scoped(KEY_CATEGORY_ORDER), json.encodeToString(stringListSerializer, categoryIds))
         }
         _categoryOrder.value = categoryIds
     }
 
     private fun readGroups(): List<CategoryGroup> {
-        val raw = prefs.getString(KEY_GROUPS, null) ?: return emptyList()
+        val raw = prefs.getString(scoped(KEY_GROUPS), null) ?: return emptyList()
         return runCatching { json.decodeFromString(groupListSerializer, raw) }.getOrDefault(emptyList())
     }
 
     private fun readCategoryOrder(): List<String> {
-        val raw = prefs.getString(KEY_CATEGORY_ORDER, null) ?: return emptyList()
+        val raw = prefs.getString(scoped(KEY_CATEGORY_ORDER), null) ?: return emptyList()
         return runCatching { json.decodeFromString(stringListSerializer, raw) }.getOrDefault(emptyList())
     }
 
@@ -572,5 +611,12 @@ class SettingsStore(context: Context) {
         const val KEY_LAST_CATEGORY = "last_category"
         const val KEY_GROUPS = "category_groups"
         const val KEY_CATEGORY_ORDER = "category_order"
+        const val KEY_ACTIVE_SOURCE = "active_source"
+
+        /** Everything that belongs to one access rather than to the device. */
+        val SCOPED_KEYS = listOf(
+            KEY_LIVE_DIRECT, KEY_LAST_CHANNEL, KEY_LAST_CATEGORY, KEY_GROUPS,
+            KEY_CATEGORY_ORDER, KEY_PARENTAL_IDS, KEY_VOD_FAVORITES, KEY_CONTINUE
+        )
     }
 }

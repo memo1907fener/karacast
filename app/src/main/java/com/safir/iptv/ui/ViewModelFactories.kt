@@ -26,7 +26,7 @@ val AppViewModelFactory = viewModelFactory {
         SetupViewModel(
             container().playlistRepository,
             container().epgRepository,
-            container().vodRepository
+            container().sources
         )
     }
     initializer {
@@ -60,7 +60,8 @@ val AppViewModelFactory = viewModelFactory {
             container().playlistRepository,
             container().epgRepository,
             container().settings,
-            container().vodRepository
+            container().vodRepository,
+            container().sources
         )
     }
     initializer { MoviesViewModel(container().vodRepository, container().settings) }

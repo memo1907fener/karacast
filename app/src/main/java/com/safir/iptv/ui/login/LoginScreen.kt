@@ -48,15 +48,15 @@ import androidx.compose.foundation.Image
 @Composable
 fun LoginScreen(
     onConnected: () -> Unit,
-    prefillExisting: Boolean = false
+    mode: SetupMode = SetupMode.FIRST,
+    /** Null on the very first setup: there is nothing to go back to. */
+    onCancel: (() -> Unit)? = null
 ) {
     val t = LocalStrings.current
     val viewModel: SetupViewModel = viewModel(factory = AppViewModelFactory)
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    LaunchedEffect(prefillExisting) {
-        if (prefillExisting) viewModel.loadExisting()
-    }
+    LaunchedEffect(mode) { viewModel.setMode(mode) }
 
     val running = state.sync as? SyncState.Running
     if (running != null) {
@@ -103,14 +103,14 @@ fun LoginScreen(
                     Spacer(Modifier.height(24.dp))
                 }
                 Text(
-                    text = t.connectProvider,
+                    text = if (mode == SetupMode.ADD) t.sources.addTitle else t.connectProvider,
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     color = Brand.TextPrimary
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    text = t.connectProviderHint,
+                    text = if (mode == SetupMode.ADD) t.sources.addHint else t.connectProviderHint,
                     style = MaterialTheme.typography.bodyMedium,
                     color = Brand.TextSecondary
                 )
@@ -169,6 +169,16 @@ fun LoginScreen(
                     }
                 }
 
+                // Last, because it is optional — but with several accesses saved it
+                // is what tells them apart on the switch.
+                Spacer(Modifier.height(12.dp))
+                TvTextField(
+                    value = state.name,
+                    onValueChange = viewModel::setName,
+                    label = t.sources.nameLabel,
+                    placeholder = t.sources.namePlaceholder
+                )
+
                 val failure = state.sync as? SyncState.Failed
                 if (failure != null) {
                     Spacer(Modifier.height(16.dp))
@@ -188,21 +198,26 @@ fun LoginScreen(
                 }
 
                 Spacer(Modifier.height(24.dp))
-                TvButton(
-                    onClick = { viewModel.connect(onConnected) },
-                    // Never disabled. A disabled Button on TV cannot take focus at all,
-                    // so the D-pad silently skips it and an unfilled form looks like a
-                    // broken remote. Missing fields are reported on press instead.
-                    colors = ButtonDefaults.colors(
-                        containerColor = Brand.Accent,
-                        contentColor = Brand.Background,
-                        focusedContainerColor = Brand.AccentSoft,
-                        focusedContentColor = Brand.Background,
-                        pressedContainerColor = Brand.AccentSoft,
-                        pressedContentColor = Brand.Background
-                    )
-                ) {
-                    Text(t.connectAndLoad, fontWeight = FontWeight.SemiBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    TvButton(
+                        onClick = { viewModel.connect(onConnected) },
+                        // Never disabled. A disabled Button on TV cannot take focus at all,
+                        // so the D-pad silently skips it and an unfilled form looks like a
+                        // broken remote. Missing fields are reported on press instead.
+                        colors = ButtonDefaults.colors(
+                            containerColor = Brand.Accent,
+                            contentColor = Brand.Background,
+                            focusedContainerColor = Brand.AccentSoft,
+                            focusedContentColor = Brand.Background,
+                            pressedContainerColor = Brand.AccentSoft,
+                            pressedContentColor = Brand.Background
+                        )
+                    ) {
+                        Text(t.connectAndLoad, fontWeight = FontWeight.SemiBold)
+                    }
+                    if (onCancel != null) {
+                        TvButton(onClick = onCancel) { Text(t.sources.cancel) }
+                    }
                 }
 
                 Spacer(Modifier.height(14.dp))

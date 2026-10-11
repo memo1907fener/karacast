@@ -32,6 +32,10 @@ import com.safir.iptv.ui.channels.ChannelsScreen
 import com.safir.iptv.ui.dashboard.DashboardScreen
 import com.safir.iptv.ui.guide.GuideScreen
 import com.safir.iptv.ui.login.LoginScreen
+import com.safir.iptv.ui.login.SetupMode
+import com.safir.iptv.data.repository.PlaylistRepository
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import com.safir.iptv.ui.player.PlayerScreen
 import com.safir.iptv.ui.settings.AboutScreen
 import com.safir.iptv.ui.settings.GroupChannelsScreen
@@ -45,10 +49,11 @@ import com.safir.iptv.ui.vod.VodPlayback
 import com.safir.iptv.ui.vod.VodPlayerScreen
 
 object Routes {
-    /** One screen, two entry points: fresh setup and editing existing credentials. */
-    const val SETUP_PATTERN = "setup?edit={edit}"
-    const val SETUP = "setup?edit=false"
-    const val SETUP_EDIT = "setup?edit=true"
+    /** One screen, three entry points; see [SetupMode]. */
+    const val SETUP_PATTERN = "setup?mode={mode}"
+    const val SETUP = "setup?mode=FIRST"
+    const val SETUP_EDIT = "setup?mode=EDIT"
+    const val SETUP_ADD = "setup?mode=ADD"
     const val DASHBOARD = "dashboard"
 
     /** One screen, two entry points: browsing categories and jumping into search. */
@@ -109,13 +114,21 @@ fun AppNavigation(
 
     val container = (LocalContext.current.applicationContext as IptvApp).container
     val inPip by PictureInPicture.active.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
     val notice = rememberReminderNotice(container.reminders) { reminder ->
-        // From one channel to the next rather than a player on top of a player,
-        // so Back still leads to where the viewer was before.
-        if (navController.currentDestination?.route == Routes.PLAYER) {
-            navController.popBackStack()
+        scope.launch {
+            // A reminder set while another access was on screen takes the viewer
+            // there: the channel only exists in its own access's lists.
+            PlaylistRepository.sourceIdOf(reminder.channelId)?.let { container.sources.switchTo(it) }
+            // From one channel to the next rather than a player on top of a player,
+            // so Back still leads to where the viewer was before.
+            if (navController.currentDestination?.route == Routes.PLAYER) {
+                navController.popBackStack()
+            }
+            navController.navigate(
+                Routes.player(reminder.channelId, container.settings.homeCategoryId)
+            )
         }
-        navController.navigate(Routes.player(reminder.channelId, container.settings.homeCategoryId))
     }
 
     Box(
@@ -128,19 +141,27 @@ fun AppNavigation(
             composable(
                 route = Routes.SETUP_PATTERN,
                 arguments = listOf(
-                    navArgument("edit") {
-                        type = NavType.BoolType
-                        defaultValue = false
+                    navArgument("mode") {
+                        type = NavType.StringType
+                        defaultValue = SetupMode.FIRST.name
                     }
                 )
             ) { entry ->
+                val mode = runCatching {
+                    SetupMode.valueOf(entry.arguments?.getString("mode").orEmpty())
+                }.getOrDefault(SetupMode.FIRST)
                 LoginScreen(
                     onConnected = {
                         navController.navigate(Routes.DASHBOARD) {
                             popUpTo(0) { inclusive = true }
                         }
                     },
-                    prefillExisting = entry.arguments?.getBoolean("edit") ?: false
+                    mode = mode,
+                    onCancel = if (mode == SetupMode.FIRST) {
+                        null
+                    } else {
+                        { navController.popBackStack() }
+                    }
                 )
             }
 
@@ -163,7 +184,8 @@ fun AppNavigation(
                         onOpenMovies = { navController.navigate(Routes.MOVIES) },
                         onOpenSearch = { navController.navigate(Routes.CHANNELS_SEARCH) },
                         onOpenGuide = { navController.navigate(Routes.GUIDE) },
-                        onOpenSettings = { navController.navigate(Routes.SETTINGS) }
+                        onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                        onAddSource = { navController.navigate(Routes.SETUP_ADD) }
                     )
                 }
             }
@@ -300,6 +322,14 @@ fun AppNavigation(
                         }
                     },
                     onEditSource = { navController.navigate(Routes.SETUP_EDIT) },
+                    onAddSource = { navController.navigate(Routes.SETUP_ADD) },
+                    onSourceSwitched = {
+                        // Back to the start, where everything is drawn afresh from the
+                        // access that is now on screen.
+                        navController.navigate(Routes.DASHBOARD) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    },
                     onManageGroups = { navController.navigate(Routes.GROUPS) },
                     onOpenAbout = { navController.navigate(Routes.ABOUT) },
                     onBack = { navController.popBackStack() }

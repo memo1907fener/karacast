@@ -1,5 +1,6 @@
 package com.safir.iptv.data.local
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -64,10 +65,16 @@ data class RecentEntity(
 
 @Entity(
     tableName = "programs",
-    indices = [Index(value = ["epgId", "startMs"]), Index("endMs")]
+    indices = [Index(value = ["sourceId", "epgId", "startMs"]), Index("endMs")]
 )
 data class ProgramEntity(
     @PrimaryKey(autoGenerate = true) val rowId: Long = 0L,
+    /**
+     * Every access keeps its own guide, so switching between them needs no
+     * download. Two providers often use the same channel ids with different
+     * schedules, so the epgId alone cannot tell them apart.
+     */
+    @ColumnInfo(defaultValue = "1") val sourceId: Long = 1L,
     val epgId: String,
     val title: String,
     val description: String,
