@@ -40,8 +40,8 @@ android {
         // (MainActivity.goImmersive) und die Zurück-Taste (Manifest,
         // enableOnBackInvokedCallback).
         targetSdk = 36
-        versionCode = 23
-        versionName = "1.10.0"
+        versionCode = 24
+        versionName = "1.11.0"
         vectorDrawables.useSupportLibrary = true
 
         // The FFmpeg decoders ship a native library per processor type, and each
@@ -190,6 +190,8 @@ dependencies {
     debugImplementation(libs.compose.ui.tooling)
 
     implementation(libs.androidx.tv.material)
+    // Die Reihen auf dem Startbildschirm des Fernsehers (Favoriten, Weiterschauen).
+    implementation(libs.androidx.tvprovider)
     implementation(libs.androidx.navigation.compose)
 
     implementation(libs.media3.exoplayer)

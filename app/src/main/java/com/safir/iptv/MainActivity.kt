@@ -42,7 +42,9 @@ import com.safir.iptv.ui.i18n.stringsFor
 import com.safir.iptv.ui.license.LicenseGate
 import com.safir.iptv.ui.theme.Brand
 import com.safir.iptv.ui.theme.SafirTheme
+import com.safir.iptv.util.DeepLinks
 import com.safir.iptv.util.SleepTimer
+import android.content.Intent
 import kotlinx.coroutines.delay
 
 /** Where the app opens, decided once from what is already stored on the device. */
@@ -55,6 +57,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // A click on the television's home screen; not again after a rotation,
+        // which would replay it.
+        if (savedInstanceState == null) DeepLinks.offer(intent)
 
         // A television must never dim, blank or drop into standby while its player
         // is on screen — not during a match, not while someone reads the programme
@@ -109,6 +114,13 @@ class MainActivity : ComponentActivity() {
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             hide(WindowInsetsCompat.Type.systemBars())
         }
+    }
+
+    /** singleTask: a click on the home screen while the app runs arrives here. */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        DeepLinks.offer(intent)
     }
 
     private val canPip by lazy { supportsPictureInPicture(this) }
@@ -201,7 +213,11 @@ class MainActivity : ComponentActivity() {
                 Entry(Routes.SETUP)
             } else {
                 val lastChannel = settings.lastChannelId
-                val resume = if (settings.resumeLastChannel && !lastChannel.isNullOrBlank()) {
+                // Opened from the home screen: that click says what to play, so
+                // "resume last channel" stands aside this once.
+                val resume = if (DeepLinks.pending.value == null &&
+                    settings.resumeLastChannel && !lastChannel.isNullOrBlank()
+                ) {
                     Routes.player(lastChannel, settings.homeCategoryId)
                 } else {
                     null

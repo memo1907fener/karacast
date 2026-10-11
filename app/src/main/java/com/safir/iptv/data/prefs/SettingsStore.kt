@@ -107,6 +107,7 @@ class SettingsStore(context: Context) {
     private fun reload() {
         _activeSourceId.value = prefs.getLong(KEY_ACTIVE_SOURCE, 1L)
         _channelSort.value = readSort()
+        _homeScreenRow.value = prefs.getBoolean(KEY_HOME_ROW, true)
         _parentalRevision.value = ParentalRevision(
             prefs.getBoolean(KEY_PARENTAL, false),
             _parentalRevision.value.at + 1
@@ -210,6 +211,19 @@ class SettingsStore(context: Context) {
     var pictureInPicture: Boolean
         get() = prefs.getBoolean(KEY_PIP, true)
         set(value) = prefs.edit { putBoolean(KEY_PIP, value) }
+
+    /**
+     * Android TV only: the favourites as a row on the television's own home screen,
+     * and half-watched films in its "watch next" row. A flow, because the home
+     * screen is kept up to date in the background and has to hear about it.
+     */
+    private val _homeScreenRow = MutableStateFlow(prefs.getBoolean(KEY_HOME_ROW, true))
+    val homeScreenRow: StateFlow<Boolean> = _homeScreenRow.asStateFlow()
+
+    fun setHomeScreenRow(value: Boolean) {
+        prefs.edit { putBoolean(KEY_HOME_ROW, value) }
+        _homeScreenRow.value = value
+    }
 
     // --------------------------------------------------- the language of a track
 
@@ -601,6 +615,7 @@ class SettingsStore(context: Context) {
         const val KEY_AUTOSTART = "auto_start_on_boot"
         const val KEY_AUTO_RECOVER = "auto_recover"
         const val KEY_PIP = "picture_in_picture"
+        const val KEY_HOME_ROW = "home_screen_row"
         const val KEY_AUDIO_LANGUAGE = "audio_language"
         const val KEY_SUBTITLE_LANGUAGE = "subtitle_language"
         const val KEY_CONTINUE = "continue_watching"

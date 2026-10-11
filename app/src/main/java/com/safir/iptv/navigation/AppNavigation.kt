@@ -27,6 +27,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.safir.iptv.domain.model.ALL_CATEGORY_ID
+import com.safir.iptv.domain.model.FAVORITES_CATEGORY_ID
+import com.safir.iptv.util.DeepLink
+import com.safir.iptv.util.DeepLinks
 import com.safir.iptv.domain.model.ContinueItem
 import com.safir.iptv.ui.channels.ChannelsScreen
 import com.safir.iptv.ui.dashboard.DashboardScreen
@@ -391,6 +394,39 @@ fun AppNavigation(
                     categoryId = entry.arguments?.getString("categoryId") ?: ALL_CATEGORY_ID,
                     onExit = { navController.popBackStack() }
                 )
+            }
+        }
+
+        // A click on the television's home screen. Handled here, after the graph
+        // exists; a box that is not set up yet has nothing to open it in.
+        val link by DeepLinks.pending.collectAsStateWithLifecycle()
+        LaunchedEffect(link) {
+            if (link == null) return@LaunchedEffect
+            // Asked of the database, not of where the app started: a box set up a
+            // minute ago in this very session still started on the setup screen.
+            if (container.playlistRepository.currentSource() == null) return@LaunchedEffect
+            when (val opened = DeepLinks.consume()) {
+                is DeepLink.Channel -> {
+                    PlaylistRepository.sourceIdOf(opened.channelId)?.let { container.sources.switchTo(it) }
+                    navController.navigate(Routes.DASHBOARD) { popUpTo(0) { inclusive = true } }
+                    // The list underneath, so Back leads where it always does.
+                    navController.navigate(Routes.CHANNELS)
+                    // Through the favourites: that is the row it was picked from,
+                    // and up/down then zaps along the same row.
+                    navController.navigate(Routes.player(opened.channelId, FAVORITES_CATEGORY_ID))
+                }
+                is DeepLink.Continue -> {
+                    container.sources.switchTo(opened.sourceId)
+                    navController.navigate(Routes.DASHBOARD) { popUpTo(0) { inclusive = true } }
+                    container.settings.continueWatching.value
+                        .firstOrNull { it.key == opened.key }
+                        ?.let { item ->
+                            VodPlayback.queue = emptyList()
+                            VodPlayback.pending = item.toRequest()
+                            navController.navigate(Routes.VOD_PLAYER)
+                        }
+                }
+                null -> Unit
             }
         }
 

@@ -86,6 +86,18 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
+        <!--
+            The television's launcher sends this once after installation, asking
+            for the home-screen row. Answering it is all the receiver does.
+        -->
+        <receiver
+            android:name=".HomeScreenReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.media.tv.action.INITIALIZE_PROGRAMS" />
+            </intent-filter>
+        </receiver>
+
         <receiver
             android:name=".BootReceiver"
             android:enabled="true"

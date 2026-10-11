@@ -21,6 +21,7 @@ zxing = "3.5.3"
 # Google Play Billing — nur in der Play-Version. Google verlangt eine aktuelle
 # Hauptversion; ältere werden zwei Jahre nach Erscheinen nicht mehr angenommen.
 billing = "8.0.0"
+tvprovider = "1.1.0"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
@@ -58,6 +59,7 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coil" }
 zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
 google-billing = { module = "com.android.billingclient:billing", version.ref = "billing" }
+androidx-tvprovider = { module = "androidx.tvprovider:tvprovider", version.ref = "tvprovider" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

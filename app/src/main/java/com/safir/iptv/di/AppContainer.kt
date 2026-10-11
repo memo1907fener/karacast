@@ -2,6 +2,7 @@ package com.safir.iptv.di
 
 import android.content.Context
 import com.safir.iptv.data.backup.BackupManager
+import com.safir.iptv.util.HomeScreen
 import com.safir.iptv.data.local.AppDatabase
 import com.safir.iptv.data.prefs.LicenseStore
 import com.safir.iptv.data.prefs.ReminderStore
@@ -61,6 +62,9 @@ class AppContainer(context: Context) {
 
     /** Moving between saved accesses; see [SourceSwitcher]. */
     val sources = SourceSwitcher(playlistRepository, epgRepository, vodRepository)
+
+    /** The rows on the television's home screen; see [HomeScreen]. */
+    val homeScreen = HomeScreen(context.applicationContext, playlistRepository, settings)
 
     /** Everything of this box, onto another one; see [BackupManager]. */
     val backups = BackupManager(playlistRepository, epgRepository, settings, sources)

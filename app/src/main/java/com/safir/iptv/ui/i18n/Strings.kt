@@ -334,7 +334,16 @@ data class Strings(
     val reminders: ReminderStrings = ReminderStrings(),
     val pip: PipStrings = PipStrings(),
     val sources: SourceStrings = SourceStrings(),
-    val backup: BackupStrings = BackupStrings()
+    val backup: BackupStrings = BackupStrings(),
+    val homeRow: HomeRowStrings = HomeRowStrings()
+)
+
+/** The rows on the television's own home screen. */
+data class HomeRowStrings(
+    val favorites: String = "Karacast – Favoriten",
+    val title: String = "Auf dem TV-Startbildschirm",
+    val hint: String = "Favoriten als eigene Reihe und angefangene Filme unter " +
+        "„Weiterschauen“ – ohne die App zu öffnen."
 )
 
 /** Settings to another box: over the home network, or as a file. */
@@ -1257,6 +1266,12 @@ private val Turkish = Strings(
         restoring = { "„$it“ yükleniyor …" },
         partly = { "Yüklendi. Yüklenemeyen: $it – daha sonra Kaynak bölümünden yenile." }
     ),
+    homeRow = HomeRowStrings(
+        favorites = "Karacast – Favoriler",
+        title = "TV ana ekranında",
+        hint = "Favoriler ayrı bir satır olarak, yarım kalan filmler „İzlemeye devam et“ " +
+            "altında – uygulamayı açmadan."
+    ),
     sources = SourceStrings(
         title = "Kayıtlı hesaplar",
         hint = "Birden fazla sağlayıcı ya da liste kaydet ve istediğin zaman geçiş yap. " +
@@ -1848,6 +1863,12 @@ private val English = Strings(
         restoring = { "Loading “$it” …" },
         partly = { "Applied. Not loaded: $it – reload later under Source." }
     ),
+    homeRow = HomeRowStrings(
+        favorites = "Karacast – Favourites",
+        title = "On the TV home screen",
+        hint = "Favourites as a row of their own, half-watched films under “Continue " +
+            "watching” – without opening the app."
+    ),
     sources = SourceStrings(
         title = "Saved accesses",
         hint = "Save several providers or playlists and switch whenever you like. " +
@@ -2420,6 +2441,11 @@ private val Arabic = Strings(
         cancel = "إلغاء",
         restoring = { "جارٍ تحميل «$it» …" },
         partly = { "تم التطبيق. لم يُحمّل: $it – أعد التحميل لاحقاً من المصدر." }
+    ),
+    homeRow = HomeRowStrings(
+        favorites = "Karacast – المفضلة",
+        title = "على الشاشة الرئيسية للتلفاز",
+        hint = "المفضلة كصف خاص، والأفلام غير المكتملة تحت «متابعة المشاهدة» – دون فتح التطبيق."
     ),
     sources = SourceStrings(
         title = "الحسابات المحفوظة",

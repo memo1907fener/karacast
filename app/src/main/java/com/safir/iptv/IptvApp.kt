@@ -6,6 +6,11 @@ import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import com.safir.iptv.di.AppContainer
+import com.safir.iptv.ui.i18n.AppLanguage
+import com.safir.iptv.ui.i18n.AppLocale
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import com.safir.iptv.util.CrashGuard
 
 class IptvApp : Application(), ImageLoaderFactory {
@@ -20,7 +25,13 @@ class IptvApp : Application(), ImageLoaderFactory {
         // a corrupt database would bite.
         CrashGuard.install(this)
         container = AppContainer(this)
+        // Before anything is drawn or published: the home-screen row has a name.
+        AppLocale.set(AppLanguage.fromTag(container.settings.language))
+        container.homeScreen.start(appScope)
     }
+
+    /** Lives as long as the process; for work that belongs to no screen. */
+    val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     /**
      * Covers, on a budget.

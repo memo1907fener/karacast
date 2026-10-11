@@ -596,6 +596,7 @@ private fun PlaybackSection(state: SettingsUiState, viewModel: SettingsViewModel
 @Composable
 private fun DisplaySection(state: SettingsUiState, viewModel: SettingsViewModel) {
     val t = LocalStrings.current
+    val context = LocalContext.current
     SettingsCard(title = t.displaySection) {
         ToggleRow(
             title = t.clockWhilePlaying,
@@ -603,6 +604,20 @@ private fun DisplaySection(state: SettingsUiState, viewModel: SettingsViewModel)
             checked = state.showClock,
             onToggle = { viewModel.setShowClock(!state.showClock) }
         )
+        // Only where there is a television home screen to put it on.
+        val homeScreen = remember(context) {
+            (context.applicationContext as com.safir.iptv.IptvApp).container.homeScreen
+        }
+        if (homeScreen.isSupported) {
+            val homeRow by homeScreen.enabled.collectAsStateWithLifecycle()
+            Spacer(Modifier.height(12.dp))
+            ToggleRow(
+                title = t.homeRow.title,
+                subtitle = t.homeRow.hint,
+                checked = homeRow,
+                onToggle = { homeScreen.setEnabled(!homeRow) }
+            )
+        }
         Spacer(Modifier.height(12.dp))
         ToggleRow(
             title = t.resumeLast,
