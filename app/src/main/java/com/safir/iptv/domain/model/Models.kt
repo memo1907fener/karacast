@@ -107,6 +107,15 @@ const val ALL_CATEGORY_ID = "__all__"
 /** How a channel list is ordered. A user's own group always keeps its own order. */
 enum class ChannelSort { NUMBER, NAME }
 
+/**
+ * Wie Live TV aussieht. [CLASSIC] ist die gewohnte Ansicht auf zwei Ebenen; die
+ * anderen drei zeigen Gruppen und Kanäle nebeneinander, mit Vorschau:
+ *  * [KINO] — das Live-Bild füllt den ganzen Hintergrund,
+ *  * [MOSAIK] — Gruppen als Leiste oben, Kanäle als Kacheln,
+ *  * [RECEIVER] — Liste mit „Jetzt“ und „Danach“ in jeder Zeile.
+ */
+enum class LiveLayout { CLASSIC, KINO, MOSAIK, RECEIVER }
+
 /** How the picture is fitted into the screen during playback. */
 enum class AspectMode { FIT, FILL, ZOOM }
 

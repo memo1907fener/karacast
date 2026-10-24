@@ -66,6 +66,7 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.safir.iptv.BuildConfig
 import com.safir.iptv.IptvApp
+import com.safir.iptv.domain.model.LiveLayout
 import com.safir.iptv.domain.model.Category
 import com.safir.iptv.domain.model.ChannelSort
 import com.safir.iptv.domain.model.LicenseStatus
@@ -626,12 +627,34 @@ private fun DisplaySection(state: SettingsUiState, viewModel: SettingsViewModel)
             onToggle = { viewModel.setResumeLastChannel(!state.resumeLastChannel) }
         )
         Spacer(Modifier.height(12.dp))
-        ToggleRow(
-            title = t.layout.settingTitle,
-            subtitle = t.layout.settingHint,
-            checked = state.liveColumns,
-            onToggle = { viewModel.setLiveColumns(!state.liveColumns) }
+        // Vier Ansichten für Live TV — eine Auswahl, kein Schalter.
+        Text(
+            text = t.layout.settingTitle,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = Brand.TextPrimary
         )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = t.layout.settingHint,
+            style = MaterialTheme.typography.labelSmall,
+            color = Brand.TextSecondary
+        )
+        Spacer(Modifier.height(8.dp))
+        listOf(
+            Triple(LiveLayout.CLASSIC, t.layout.classic, t.layout.classicHint),
+            Triple(LiveLayout.KINO, t.layout.kino, t.layout.kinoHint),
+            Triple(LiveLayout.MOSAIK, t.layout.mosaik, t.layout.mosaikHint),
+            Triple(LiveLayout.RECEIVER, t.layout.receiver, t.layout.receiverHint)
+        ).forEach { (layout, name, hint) ->
+            ChoiceRow(
+                title = name,
+                detail = hint,
+                selected = state.liveLayout == layout,
+                onSelect = { viewModel.setLiveLayout(layout) }
+            )
+            Spacer(Modifier.height(5.dp))
+        }
         Spacer(Modifier.height(12.dp))
         ToggleRow(
             title = t.previewWhileBrowsing,

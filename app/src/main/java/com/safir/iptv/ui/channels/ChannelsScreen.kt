@@ -83,6 +83,7 @@ import com.safir.iptv.domain.model.Category
 import com.safir.iptv.domain.model.Channel
 import com.safir.iptv.domain.model.FAVORITES_CATEGORY_ID
 import com.safir.iptv.domain.model.GROUP_PREFIX
+import com.safir.iptv.domain.model.LiveLayout
 import com.safir.iptv.domain.model.NowNext
 import com.safir.iptv.domain.model.RECENT_CATEGORY_ID
 import com.safir.iptv.ui.AppViewModelFactory
@@ -132,10 +133,11 @@ fun ChannelsScreen(
     // Einmal pro Aufbau gelesen: mitten in der Liste die Ansicht zu wechseln, würde
     // dem Fokus den Boden wegziehen. Die Einstellung liegt auf einer anderen Seite,
     // und auf dem Rückweg von dort wird dieser Bildschirm ohnehin neu aufgebaut.
-    val columns = remember { viewModel.columnLayout }
-    if (columns) {
-        ColumnsChannelsScreen(
+    val layout = remember { viewModel.liveLayout }
+    if (layout != LiveLayout.CLASSIC) {
+        ThemedChannelsScreen(
             viewModel = viewModel,
+            layout = layout,
             onPlay = onPlay,
             onOpenGuide = onOpenGuide,
             onOpenSettings = onOpenSettings,

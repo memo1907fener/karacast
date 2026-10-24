@@ -346,15 +346,24 @@ data class Strings(
  * im Arabischen ist die Ansicht gespiegelt, dort stehen sie deshalb andersherum.
  */
 data class LayoutStrings(
-    val settingTitle: String = "Zweites Design: drei Spalten",
-    val settingHint: String = "Gruppen links, Kanäle in der Mitte, Vorschau rechts – im " +
-        "violetten Look mit gelber Auswahl. Mit ▲▼ in den Gruppen wechselt die Kanalliste " +
-        "sofort mit, ohne OK zu drücken.",
+    val settingTitle: String = "Live-TV-Ansicht",
+    val settingHint: String = "In Kino, Mosaik und Receiver stehen Gruppen und Kanäle " +
+        "nebeneinander: OK spielt einen Kanal in der Vorschau ab, ein zweites OK auf " +
+        "denselben Kanal öffnet das Vollbild.",
+    val classic: String = "Klassisch",
+    val classicHint: String = "erst Gruppen, dann Kanäle",
+    val kino: String = "Kino",
+    val kinoHint: String = "Live-Bild als Hintergrund",
+    val mosaik: String = "Mosaik",
+    val mosaikHint: String = "Kanäle als Kacheln",
+    val receiver: String = "Receiver",
+    val receiverHint: String = "Liste mit Jetzt und Danach",
     val groups: String = "Gruppen",
     val fullscreen: String = "Vollbild",
-    val groupsHint: String = "▶ zu den Kanälen",
-    val channelsHint: String = "OK Vollbild · OK halten: Favorit · ◀ Gruppen",
-    val pickChannel: String = "Wähle einen Kanal – er läuft dann hier."
+    val number: String = "Nr",
+    val station: String = "Sender",
+    val hint: String = "OK spielt ab · nochmal OK: Vollbild · OK halten: Favorit",
+    val pickChannel: String = "OK auf einem Kanal spielt ihn hier ab."
 )
 
 /** The rows on the television's own home screen. */
@@ -1301,14 +1310,23 @@ private val Turkish = Strings(
             "altında – uygulamayı açmadan."
     ),
     layout = LayoutStrings(
-        settingTitle = "İkinci tasarım: üç sütun",
-        settingHint = "Gruplar solda, kanallar ortada, önizleme sağda – mor görünüm ve sarı " +
-            "seçimle. Gruplarda ▲▼ ile gezinince kanal listesi OK'ye basmadan hemen değişir.",
+        settingTitle = "Canlı TV görünümü",
+        settingHint = "Sinema, Mozaik ve Alıcı görünümlerinde gruplar ve kanallar yan yana " +
+            "durur: OK kanalı önizlemede oynatır, aynı kanalda ikinci OK tam ekranı açar.",
+        classic = "Klasik",
+        classicHint = "önce gruplar, sonra kanallar",
+        kino = "Sinema",
+        kinoHint = "canlı görüntü arka planda",
+        mosaik = "Mozaik",
+        mosaikHint = "kanallar kutucuk olarak",
+        receiver = "Alıcı",
+        receiverHint = "Şimdi ve Sonra ile liste",
         groups = "Gruplar",
         fullscreen = "Tam ekran",
-        groupsHint = "▶ kanallara",
-        channelsHint = "OK tam ekran · OK basılı tut: favori · ◀ gruplar",
-        pickChannel = "Bir kanal seç – burada oynar."
+        number = "No",
+        station = "Kanal",
+        hint = "OK oynatır · tekrar OK: tam ekran · OK basılı tut: favori",
+        pickChannel = "Bir kanalda OK'ye basın – burada oynar."
     ),
     sources = SourceStrings(
         title = "Kayıtlı hesaplar",
@@ -1911,15 +1929,23 @@ private val English = Strings(
             "watching” – without opening the app."
     ),
     layout = LayoutStrings(
-        settingTitle = "Second design: three columns",
-        settingHint = "Groups on the left, channels in the middle, preview on the right – " +
-            "in a purple look with yellow selection. Moving through the groups with ▲▼ " +
-            "changes the channel list straight away, no OK needed.",
+        settingTitle = "Live TV view",
+        settingHint = "In Cinema, Mosaic and Receiver, groups and channels sit side by side: " +
+            "OK plays a channel in the preview, a second OK on the same channel opens full screen.",
+        classic = "Classic",
+        classicHint = "groups first, then channels",
+        kino = "Cinema",
+        kinoHint = "live picture as background",
+        mosaik = "Mosaic",
+        mosaikHint = "channels as tiles",
+        receiver = "Receiver",
+        receiverHint = "list with Now and Next",
         groups = "Groups",
         fullscreen = "Full screen",
-        groupsHint = "▶ to the channels",
-        channelsHint = "OK full screen · hold OK: favourite · ◀ groups",
-        pickChannel = "Pick a channel – it plays here."
+        number = "No",
+        station = "Channel",
+        hint = "OK plays · OK again: full screen · hold OK: favourite",
+        pickChannel = "Press OK on a channel to play it here."
     ),
     sources = SourceStrings(
         title = "Saved accesses",
@@ -2503,15 +2529,23 @@ private val Arabic = Strings(
         hint = "المفضلة كصف خاص، والأفلام غير المكتملة تحت «متابعة المشاهدة» – دون فتح التطبيق."
     ),
     layout = LayoutStrings(
-        settingTitle = "التصميم الثاني: ثلاثة أعمدة",
-        settingHint = "المجموعات على اليمين، والقنوات في الوسط، والمعاينة على اليسار – " +
-            "بمظهر بنفسجي وتحديد أصفر. التنقل بين المجموعات بـ ▲▼ يغيّر قائمة القنوات " +
-            "فوراً دون الضغط على OK.",
+        settingTitle = "عرض البث المباشر",
+        settingHint = "في عروض السينما والفسيفساء والمستقبِل تظهر المجموعات والقنوات جنباً إلى " +
+            "جنب: OK يشغّل القناة في المعاينة، وضغطة OK ثانية على القناة نفسها تفتح ملء الشاشة.",
+        classic = "كلاسيكي",
+        classicHint = "المجموعات أولاً ثم القنوات",
+        kino = "سينما",
+        kinoHint = "الصورة المباشرة في الخلفية",
+        mosaik = "فسيفساء",
+        mosaikHint = "القنوات كمربعات",
+        receiver = "مستقبِل",
+        receiverHint = "قائمة مع الآن والتالي",
         groups = "المجموعات",
         fullscreen = "ملء الشاشة",
-        groupsHint = "◀ إلى القنوات",
-        channelsHint = "OK ملء الشاشة · ضغطة مطوّلة على OK: المفضلة · ▶ المجموعات",
-        pickChannel = "اختر قناة – ستعمل هنا."
+        number = "رقم",
+        station = "القناة",
+        hint = "OK للتشغيل · OK مرة أخرى: ملء الشاشة · ضغطة مطوّلة: المفضلة",
+        pickChannel = "اضغط OK على قناة لتشغيلها هنا."
     ),
     sources = SourceStrings(
         title = "الحسابات المحفوظة",

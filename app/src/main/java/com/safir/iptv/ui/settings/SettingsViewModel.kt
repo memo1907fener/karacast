@@ -13,6 +13,7 @@ import com.safir.iptv.data.repository.EpgRepository
 import com.safir.iptv.data.repository.PlaylistRepository
 import com.safir.iptv.data.repository.SourceSwitcher
 import com.safir.iptv.data.repository.VodRepository
+import com.safir.iptv.domain.model.LiveLayout
 import com.safir.iptv.domain.model.ALL_CATEGORY_ID
 import com.safir.iptv.domain.model.Category
 import com.safir.iptv.domain.model.ChannelSort
@@ -49,7 +50,7 @@ data class SettingsUiState(
     val showClock: Boolean = true,
     val resumeLastChannel: Boolean = false,
     val previewEnabled: Boolean = true,
-    val liveColumns: Boolean = false,
+    val liveLayout: LiveLayout = LiveLayout.CLASSIC,
     val previewMuted: Boolean = false,
     val groupCount: Int = 0,
     /** Null = Live TV shows the overview; otherwise the list it jumps straight into. */
@@ -200,9 +201,9 @@ class SettingsViewModel(
         _state.update { it.copy(resumeLastChannel = value) }
     }
 
-    fun setLiveColumns(value: Boolean) {
-        settings.liveColumns = value
-        _state.update { it.copy(liveColumns = value) }
+    fun setLiveLayout(value: LiveLayout) {
+        settings.liveLayout = value
+        _state.update { it.copy(liveLayout = value) }
     }
 
     fun setPreviewEnabled(value: Boolean) {
@@ -270,7 +271,7 @@ class SettingsViewModel(
                     showClock = settings.showClock,
                     resumeLastChannel = settings.resumeLastChannel,
                     previewEnabled = settings.previewEnabled,
-                    liveColumns = settings.liveColumns,
+                    liveLayout = settings.liveLayout,
                     previewMuted = settings.previewMuted,
                     groupCount = settings.groups.value.size,
                     liveDirectCategoryId = settings.liveDirectCategoryId,

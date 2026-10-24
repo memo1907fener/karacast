@@ -9,6 +9,7 @@ import com.safir.iptv.domain.model.ALL_CATEGORY_ID
 import com.safir.iptv.domain.model.Category
 import com.safir.iptv.domain.model.Channel
 import com.safir.iptv.domain.model.FAVORITES_CATEGORY_ID
+import com.safir.iptv.domain.model.LiveLayout
 import com.safir.iptv.domain.model.NowNext
 import com.safir.iptv.domain.model.RECENT_CATEGORY_ID
 import com.safir.iptv.ui.i18n.AppLocale
@@ -75,8 +76,8 @@ class ChannelsViewModel(
     val previewEnabled: Boolean get() = settings.previewEnabled
     val previewMuted: Boolean get() = settings.previewMuted
 
-    /** Drei Spalten statt zwei Ebenen — siehe [SettingsStore.liveColumns]. */
-    val columnLayout: Boolean get() = settings.liveColumns
+    /** Welche Ansicht Live TV hat — siehe [SettingsStore.liveLayout]. */
+    val liveLayout: LiveLayout get() = settings.liveLayout
 
     /** Der zuletzt laufende Kanal, damit die Vorschau beim Öffnen nicht leer ist. */
     val lastChannelId: String? get() = settings.lastChannelId

@@ -9,6 +9,7 @@ import com.safir.iptv.domain.model.ALL_CATEGORY_ID
 import com.safir.iptv.domain.model.AspectMode
 import com.safir.iptv.domain.model.CategoryGroup
 import com.safir.iptv.domain.model.ChannelSort
+import com.safir.iptv.domain.model.LiveLayout
 import com.safir.iptv.domain.model.ContinueItem
 import com.safir.iptv.domain.model.FavoriteItem
 import com.safir.iptv.domain.model.ParentalRevision
@@ -158,9 +159,19 @@ class SettingsStore(context: Context) {
      * Gruppen springt, spart sich damit das Hinein und Hinaus. Aus ist die
      * gewohnte Ansicht, deshalb ist das der Ausgangswert.
      */
-    var liveColumns: Boolean
-        get() = prefs.getBoolean(KEY_LIVE_COLUMNS, false)
-        set(value) = prefs.edit { putBoolean(KEY_LIVE_COLUMNS, value) }
+    var liveLayout: LiveLayout
+        get() {
+            prefs.getString(KEY_LIVE_LAYOUT, null)?.let { name ->
+                runCatching { LiveLayout.valueOf(name) }.getOrNull()?.let { return it }
+            }
+            // Wer in 1.12 die Drei-Spalten-Ansicht eingeschaltet hatte, landet in
+            // der nächstverwandten statt plötzlich wieder in der alten.
+            return if (prefs.getBoolean(KEY_LIVE_COLUMNS, false)) LiveLayout.RECEIVER else LiveLayout.CLASSIC
+        }
+        set(value) = prefs.edit {
+            putString(KEY_LIVE_LAYOUT, value.name)
+            remove(KEY_LIVE_COLUMNS)
+        }
 
     /** Reopen the app straight into the channel that was last watched. */
     var resumeLastChannel: Boolean
@@ -620,6 +631,7 @@ class SettingsStore(context: Context) {
         const val KEY_PREVIEW_MUTED = "preview_muted"
         const val KEY_SHOW_CLOCK = "show_clock"
         const val KEY_LIVE_COLUMNS = "live_columns"
+        const val KEY_LIVE_LAYOUT = "live_layout"
         const val KEY_LIVE_DIRECT = "live_direct_category"
         const val KEY_CHANNEL_SORT = "channel_sort"
         const val KEY_ASPECT = "aspect_mode"
