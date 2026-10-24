@@ -1,6 +1,6 @@
 {
-  "versionCode": 25,
-  "versionName": "1.11.1",
-  "url": "https://github.com/memo1907fener/karacast/releases/download/v1.11.1/KaracastIPTV-1.11.1.apk",
-  "notes": "Karacast 1.11.1: Leistung für schwache TV-Boxen"
+  "versionCode": 26,
+  "versionName": "1.12.0",
+  "url": "https://github.com/memo1907fener/karacast/releases/download/v1.12.0/KaracastIPTV-1.12.0.apk",
+  "notes": "Build-APK: mit eigenem Schlüssel signieren, APK nach Version benennen"
 }
