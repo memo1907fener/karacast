@@ -1,6 +1,6 @@
 {
-  "versionCode": 26,
-  "versionName": "1.12.0",
-  "url": "https://github.com/memo1907fener/karacast/releases/download/v1.12.0/KaracastIPTV-1.12.0.apk",
-  "notes": "Neu: Live TV in drei Spalten (Einstellungen → Anzeige). Absturz bei Tonspur und Untertitel behoben, Filme lassen sich mit OK anhalten."
+  "versionCode": 27,
+  "versionName": "1.12.1",
+  "url": "https://github.com/memo1907fener/karacast/releases/download/v1.12.1/KaracastIPTV-1.12.1.apk",
+  "notes": "Neu: zweites Design mit drei Spalten (Einstellungen → Anzeige). Absturz bei Tonspur und Untertitel behoben, Filme lassen sich mit OK anhalten."
 }
