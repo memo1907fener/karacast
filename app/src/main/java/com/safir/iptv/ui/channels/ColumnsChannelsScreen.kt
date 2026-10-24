@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -47,6 +49,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -344,7 +347,7 @@ internal fun ColumnsChannelsScreen(
     Box(
         Modifier
             .fillMaxSize()
-            .background(Brand.Background)
+            .background(Look.Page)
             .onPreviewKeyEvent { event ->
                 if (event.type != KeyEventType.KeyUp) return@onPreviewKeyEvent false
                 val isSelect = event.key == Key.DirectionCenter || event.key == Key.Enter
@@ -370,7 +373,9 @@ internal fun ColumnsChannelsScreen(
     ) {
         Column(Modifier.fillMaxSize()) {
 
-            TopTabs(
+            TopBar(
+                query = query,
+                searchMode = searchMode,
                 onHome = onBackToDashboard,
                 onMovies = onOpenMovies,
                 onSeries = onOpenSeries,
@@ -385,14 +390,9 @@ internal fun ColumnsChannelsScreen(
                     }
                 }
             )
+            Box(Modifier.fillMaxWidth().height(2.dp).background(Look.Separator))
 
-            Row(
-                Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(start = 20.dp, end = 20.dp, bottom = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
+            Row(Modifier.weight(1f).fillMaxWidth()) {
                 // -------------------------------------------------- 1: Gruppen
                 GroupColumn(
                     categories = categories,
@@ -408,7 +408,7 @@ internal fun ColumnsChannelsScreen(
                         jumpToChannels = true
                     },
                     modifier = Modifier
-                        .weight(0.26f)
+                        .weight(0.225f)
                         .fillMaxHeight()
                         .onFocusChanged {
                             if (it.hasFocus) {
@@ -418,13 +418,13 @@ internal fun ColumnsChannelsScreen(
                         }
                 )
 
+                ColumnSeparator()
+
                 // -------------------------------------------------- 2: Kanäle
                 Column(
                     Modifier
-                        .weight(0.33f)
+                        .weight(0.275f)
                         .fillMaxHeight()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Brand.Surface)
                 ) {
                     if (searchMode) {
                         TvTextField(
@@ -433,7 +433,7 @@ internal fun ColumnsChannelsScreen(
                             label = s.searchChannel,
                             placeholder = s.typeName,
                             autoFocus = true,
-                            modifier = Modifier.padding(start = 10.dp, end = 10.dp, top = 10.dp)
+                            modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 8.dp)
                         )
                     }
                     if (channels.isEmpty()) {
@@ -443,7 +443,6 @@ internal fun ColumnsChannelsScreen(
                     } else {
                         ColumnChannelList(
                             channels = channels,
-                            nowNext = nowNextMap,
                             focusTargetId = focusTargetId,
                             onFocusConsumed = viewModel::consumeFocusTarget,
                             previewingId = previewTarget?.id,
@@ -464,29 +463,19 @@ internal fun ColumnsChannelsScreen(
                     }
                 }
 
+                ColumnSeparator()
+
                 // -------------------------------------- 3: Vorschau und Knöpfe
                 DetailColumn(
                     channel = previewTarget,
                     nowNext = previewTarget?.epgId?.let { nowNextMap[it] },
                     previewPlayer = previewPlayer,
                     previewFailed = previewFailed,
-                    hint = when (pane) {
-                        Pane.GROUPS -> s.layout.groupsHint
-                        else -> s.layout.channelsHint
-                    },
-                    onFullscreen = {
-                        // Stammt der Kanal aus einer anderen Gruppe als der
-                        // angezeigten, schaltet der Player sonst durch die falsche
-                        // Liste — dann lieber durch alle Kanäle.
-                        previewTarget?.let { channel ->
-                            val inList = channels.any { it.id == channel.id }
-                            onPlay(channel, if (inList) playCategory else ALL_CATEGORY_ID)
-                        }
-                    },
                     onGuide = onOpenGuide,
                     onToggleFavorite = { previewTarget?.let(viewModel::toggleFavorite) },
+                    onSearch = { if (!searchMode) viewModel.enterSearch() },
                     modifier = Modifier
-                        .weight(0.41f)
+                        .weight(0.5f)
                         .fillMaxHeight()
                         .onFocusChanged {
                             if (it.hasFocus) {
@@ -525,14 +514,43 @@ internal fun ColumnsChannelsScreen(
     }
 }
 
+// =================================================================== Farben
+
+/**
+ * Das zweite Design hat seine eigenen Farben: schwarze Kopfzeile, dunkle Kacheln
+ * mit einem violetten Schimmer, Gelb für das, was gewählt ist, und ein violett-
+ * magentafarbener Verlauf unter der Vorschau. Absichtlich nur hier — der Rest der
+ * App bleibt in Karacast-Orange.
+ */
+private object Look {
+    val TopBar = Color(0xFF000000)
+    val Page = Color(0xFF14121B)
+    val Separator = Color(0xFF4A4856)
+    val TileTop = Color(0xFF2C2B32)
+    val TileBottom = Color(0xFF3B2F52)
+    val TileFocusTop = Color(0xFF45434F)
+    val TileFocusBottom = Color(0xFF5E4888)
+    val TileEdge = Color(0xFF1C1B22)
+    val Highlight = Color(0xFFFFD84D)
+    val Text = Color(0xFFF2F2F5)
+    val TextDim = Color(0xFFC9C5D8)
+    val PanelStart = Color(0xFF14163A)
+    val PanelMid = Color(0xFF4E1764)
+    val PanelEnd = Color(0xFF26104C)
+    val Button = Color(0xFF6E62A6)
+    val Logo = Color(0xFF9B59D0)
+}
+
 // ================================================================== Kopfzeile
 
 /**
- * Die Reiter oben. Live TV ist der, auf dem man steht — er ist deshalb nicht
- * anwählbar, sondern nur markiert; die anderen führen hinüber.
+ * Oben: Start | Live TV | Filme | Serien | Programm, das Suchfeld, rechts Uhr und
+ * Schriftzug. Live TV ist der Reiter, auf dem man steht — gelb und nicht anwählbar.
  */
 @Composable
-private fun TopTabs(
+private fun TopBar(
+    query: String,
+    searchMode: Boolean,
     onHome: () -> Unit,
     onMovies: () -> Unit,
     onSeries: () -> Unit,
@@ -545,78 +563,214 @@ private fun TopTabs(
     Row(
         modifier
             .fillMaxWidth()
-            .padding(start = 20.dp, end = 24.dp, top = 12.dp, bottom = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+            .background(Look.TopBar)
+            .padding(start = 16.dp, end = 20.dp, top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        TabChip(label = s.home, onClick = onHome)
-        ActiveTab(label = s.liveTv)
-        TabChip(label = s.movies, onClick = onMovies)
-        TabChip(label = s.series, onClick = onSeries)
-        TabChip(label = s.guide, onClick = onGuide)
-        TabChip(label = s.search, icon = Icons.Default.Search, onClick = onSearch)
-        Spacer(Modifier.weight(1f))
-        TabChip(label = null, icon = Icons.Default.Settings, onClick = onSettings)
-        Spacer(Modifier.width(14.dp))
+        TopTab(label = s.home, onClick = onHome)
+        TabSeparator()
+        Text(
+            text = s.liveTv,
+            color = Look.Highlight,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+        )
+        TabSeparator()
+        TopTab(label = s.movies, onClick = onMovies)
+        TabSeparator()
+        TopTab(label = s.series, onClick = onSeries)
+        TabSeparator()
+        TopTab(label = s.guide, onClick = onGuide)
+        Spacer(Modifier.width(18.dp))
+        Box(Modifier.weight(1f)) {
+            SearchPill(
+                text = if (searchMode) query else "",
+                onClick = onSearch,
+                modifier = Modifier.widthIn(max = 320.dp).fillMaxWidth()
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        TopIcon(icon = Icons.Default.Settings, description = s.settings, onClick = onSettings)
+        Spacer(Modifier.width(12.dp))
         Clock()
+        Spacer(Modifier.width(14.dp))
+        Text(
+            text = "KARACAST",
+            color = Look.Logo,
+            fontSize = 19.sp,
+            fontWeight = FontWeight.Black,
+            maxLines = 1
+        )
     }
 }
 
 @Composable
-private fun TabChip(
-    label: String?,
-    onClick: () -> Unit,
-    icon: ImageVector? = null
-) {
+private fun TopTab(label: String, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         colors = ClickableSurfaceDefaults.colors(
             containerColor = Color.Transparent,
-            focusedContainerColor = Brand.Accent,
-            pressedContainerColor = Brand.Accent,
-            contentColor = Brand.TextSecondary,
-            focusedContentColor = Brand.Background,
-            pressedContentColor = Brand.Background
+            focusedContainerColor = Look.Highlight,
+            pressedContainerColor = Look.Highlight,
+            contentColor = Look.Text,
+            focusedContentColor = Color.Black,
+            pressedContentColor = Color.Black
         ),
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(6.dp)),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
         modifier = Modifier.alsoTappable(onClick)
     ) {
+        Text(
+            text = label,
+            fontSize = 18.sp,
+            maxLines = 1,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+        )
+    }
+}
+
+@Composable
+private fun TabSeparator() {
+    Box(
+        Modifier
+            .padding(horizontal = 4.dp)
+            .width(2.dp)
+            .height(26.dp)
+            .background(Look.Separator)
+    )
+}
+
+@Composable
+private fun TopIcon(icon: ImageVector, description: String, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = Color.Transparent,
+            focusedContainerColor = Look.Highlight,
+            pressedContainerColor = Look.Highlight,
+            contentColor = Look.TextDim,
+            focusedContentColor = Color.Black,
+            pressedContentColor = Color.Black
+        ),
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(6.dp)),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+        modifier = Modifier.alsoTappable(onClick)
+    ) {
+        Icon(icon, contentDescription = description, modifier = Modifier.padding(6.dp).size(20.dp))
+    }
+}
+
+/** Das Suchfeld oben. Ein Druck darauf öffnet die Suche über der Kanalliste. */
+@Composable
+private fun SearchPill(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(20.dp)
+    Surface(
+        onClick = onClick,
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = Color.Transparent,
+            focusedContainerColor = Look.TileFocusBottom,
+            pressedContainerColor = Look.TileFocusBottom,
+            contentColor = Look.Text,
+            focusedContentColor = Look.Text,
+            pressedContentColor = Look.Text
+        ),
+        shape = ClickableSurfaceDefaults.shape(shape),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+        border = ClickableSurfaceDefaults.border(
+            border = Border(border = BorderStroke(2.dp, Look.TextDim), shape = shape),
+            focusedBorder = Border(border = BorderStroke(2.dp, Look.Highlight), shape = shape)
+        ),
+        modifier = modifier.alsoTappable(onClick)
+    ) {
         Row(
-            Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (icon != null) {
-                Icon(icon, contentDescription = label, modifier = Modifier.size(18.dp))
-                if (label != null) Spacer(Modifier.width(6.dp))
-            }
-            if (label != null) {
-                Text(text = label, fontSize = 17.sp, fontWeight = FontWeight.Medium)
-            }
+            Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(10.dp))
+            Text(
+                text = text,
+                fontSize = 16.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
 
 @Composable
-private fun ActiveTab(label: String) {
-    Column(
-        Modifier.padding(horizontal = 14.dp, vertical = 4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+private fun ColumnSeparator() {
+    Box(
+        Modifier
+            .width(3.dp)
+            .fillMaxHeight()
+            .background(Look.Separator)
+    )
+}
+
+// ==================================================================== Kachel
+
+/**
+ * Eine Zeile als Kachel: dunkel mit violettem Schimmer nach unten rechts. Gewählt
+ * heißt gelbe Schrift; der Fokus macht die Kachel heller und gibt ihr einen gelben
+ * Rand — so bleiben „gewählt“ und „hier steht die Fernbedienung“ unterscheidbar.
+ */
+@Composable
+private fun Tile(
+    onClick: () -> Unit,
+    highlighted: Boolean,
+    onFocused: () -> Unit,
+    modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null,
+    content: @Composable RowScope.(Color) -> Unit
+) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(3.dp)
+    val textColor = if (focused || highlighted) Look.Highlight else Look.Text
+    Surface(
+        onClick = onClick,
+        onLongClick = onLongClick,
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = Color.Transparent,
+            focusedContainerColor = Color.Transparent,
+            pressedContainerColor = Color.Transparent,
+            contentColor = textColor,
+            focusedContentColor = textColor,
+            pressedContentColor = textColor
+        ),
+        shape = ClickableSurfaceDefaults.shape(shape),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+        border = ClickableSurfaceDefaults.border(
+            border = Border(border = BorderStroke(1.dp, Look.TileEdge), shape = shape),
+            focusedBorder = Border(border = BorderStroke(2.dp, Look.Highlight), shape = shape)
+        ),
+        modifier = modifier
+            .fillMaxWidth()
+            .alsoTappable(onClick = onClick, onLongClick = onLongClick)
+            .onFocusChanged {
+                focused = it.isFocused
+                if (it.isFocused) onFocused()
+            }
     ) {
-        Text(
-            text = label,
-            fontSize = 17.sp,
-            fontWeight = FontWeight.Bold,
-            color = Brand.Accent
-        )
-        Spacer(Modifier.height(4.dp))
-        Box(
+        Row(
             Modifier
-                .width(28.dp)
-                .height(3.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .background(Brand.Accent)
-        )
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        if (focused) {
+                            listOf(Look.TileFocusTop, Look.TileFocusBottom)
+                        } else {
+                            listOf(Look.TileTop, Look.TileBottom)
+                        }
+                    )
+                )
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            content(textColor)
+        }
     }
 }
 
@@ -632,92 +786,45 @@ private fun GroupColumn(
     onOpenCategory: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val s = LocalStrings.current
-    Column(
-        modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(Brand.Surface)
+    LazyColumn(
+        state = state,
+        modifier = modifier.focusRestorer(),
+        contentPadding = PaddingValues(6.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        Text(
-            text = s.layout.groups.uppercase(),
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = Brand.TextSecondary,
-            modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 6.dp)
-        )
-        LazyColumn(
-            state = state,
-            modifier = Modifier.weight(1f).fillMaxWidth().focusRestorer(),
-            contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(3.dp)
-        ) {
-            items(categories, key = { it.id }) { category ->
-                GroupRow(
-                    category = category,
-                    selected = category.id == selectedId,
-                    onFocused = { onFocusCategory(category.id) },
-                    onClick = { onOpenCategory(category.id) },
-                    modifier = if (category.id == selectedId) {
-                        Modifier.focusRequester(selectedRequester)
-                    } else {
-                        Modifier
-                    }
+        items(categories, key = { it.id }) { category ->
+            val selected = category.id == selectedId
+            val virtualIcon = when (category.id) {
+                FAVORITES_CATEGORY_ID, RECENT_CATEGORY_ID, ALL_CATEGORY_ID -> category.icon()
+                else -> null
+            }
+            Tile(
+                onClick = { onOpenCategory(category.id) },
+                highlighted = selected,
+                onFocused = { onFocusCategory(category.id) },
+                modifier = if (selected) Modifier.focusRequester(selectedRequester) else Modifier
+            ) { color ->
+                if (virtualIcon != null) {
+                    Icon(
+                        virtualIcon,
+                        contentDescription = null,
+                        tint = color,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(10.dp))
+                }
+                Text(
+                    text = category.name,
+                    color = color,
+                    fontSize = 17.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
                 )
-            }
-        }
-    }
-}
-
-@Composable
-private fun GroupRow(
-    category: Category,
-    selected: Boolean,
-    onFocused: () -> Unit,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val virtualIcon = when (category.id) {
-        FAVORITES_CATEGORY_ID, RECENT_CATEGORY_ID, ALL_CATEGORY_ID -> category.icon()
-        else -> null
-    }
-    Surface(
-        onClick = onClick,
-        colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (selected) Brand.SurfaceHigh else Color.Transparent,
-            focusedContainerColor = Brand.Accent,
-            pressedContainerColor = Brand.Accent,
-            // Die gewählte Gruppe bleibt farbig, auch wenn der Fokus schon in den
-            // Kanälen steht — so sieht man immer, wessen Liste daneben steht.
-            contentColor = if (selected) Brand.Accent else Brand.TextPrimary,
-            focusedContentColor = Brand.Background,
-            pressedContentColor = Brand.Background
-        ),
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
-        modifier = modifier
-            .fillMaxWidth()
-            .alsoTappable(onClick = onClick)
-            .onFocusChanged { if (it.isFocused) onFocused() }
-    ) {
-        Row(
-            Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (virtualIcon != null) {
-                Icon(virtualIcon, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(10.dp))
-            }
-            Text(
-                text = category.name,
-                fontSize = 16.sp,
-                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
-            if (category.channelCount > 0) {
-                Spacer(Modifier.width(8.dp))
-                Text(text = "${category.channelCount}", fontSize = 14.sp)
+                if (category.channelCount > 0) {
+                    Spacer(Modifier.width(8.dp))
+                    Text(text = "${category.channelCount}", color = color, fontSize = 16.sp)
+                }
             }
         }
     }
@@ -728,7 +835,6 @@ private fun GroupRow(
 @Composable
 private fun ColumnChannelList(
     channels: List<Channel>,
-    nowNext: Map<String, NowNext>,
     focusTargetId: String?,
     onFocusConsumed: () -> Unit,
     previewingId: String?,
@@ -769,108 +875,55 @@ private fun ColumnChannelList(
     LazyColumn(
         state = listState,
         modifier = modifier.focusRestorer(),
-        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(3.dp)
+        contentPadding = PaddingValues(6.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         items(channels, key = { it.id }) { channel ->
-            ColumnChannelRow(
-                channel = channel,
-                nowTitle = channel.epgId?.let { nowNext[it] }?.now?.title,
-                showNumber = showNumbers,
-                previewing = channel.id == previewingId,
-                onPlay = { onPlay(channel) },
-                onToggleFavorite = { onToggleFavorite(channel) },
+            val s = LocalStrings.current
+            Tile(
+                onClick = { onPlay(channel) },
+                onLongClick = { onToggleFavorite(channel) },
+                highlighted = channel.id == previewingId,
                 onFocused = { onFocusChannel(channel) },
                 modifier = if (channel.id == focusTargetId) {
                     Modifier.focusRequester(jumpRequester)
                 } else {
                     Modifier
                 }
-            )
-        }
-    }
-}
-
-@Composable
-private fun ColumnChannelRow(
-    channel: Channel,
-    nowTitle: String?,
-    showNumber: Boolean,
-    previewing: Boolean,
-    onPlay: () -> Unit,
-    onToggleFavorite: () -> Unit,
-    onFocused: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val s = LocalStrings.current
-    val shape = RoundedCornerShape(8.dp)
-    Surface(
-        onClick = onPlay,
-        onLongClick = onToggleFavorite,
-        colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (previewing) Brand.SurfaceHigh else Color.Transparent,
-            focusedContainerColor = Brand.SurfaceHigh,
-            pressedContainerColor = Brand.SurfaceHigh,
-            contentColor = if (previewing) Brand.Accent else Brand.TextPrimary,
-            focusedContentColor = Brand.TextPrimary,
-            pressedContentColor = Brand.TextPrimary
-        ),
-        shape = ClickableSurfaceDefaults.shape(shape),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
-        border = ClickableSurfaceDefaults.border(
-            focusedBorder = Border(border = BorderStroke(2.dp, Brand.Accent), shape = shape)
-        ),
-        modifier = modifier
-            .fillMaxWidth()
-            .alsoTappable(onClick = onPlay, onLongClick = onToggleFavorite)
-            .onFocusChanged { if (it.isFocused) onFocused() }
-    ) {
-        Row(
-            Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (showNumber) {
-                Text(
-                    text = channel.number.toString(),
-                    fontSize = 14.sp,
-                    color = Brand.TextSecondary,
-                    maxLines = 1,
-                    modifier = Modifier.width(44.dp)
-                )
-            }
-            ChannelLogo(
-                url = channel.logoUrl,
-                name = channel.name,
-                modifier = Modifier.size(44.dp, 30.dp),
-                cornerRadius = 6
-            )
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = channel.name,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                if (!nowTitle.isNullOrBlank()) {
+            ) { color ->
+                if (showNumbers) {
                     Text(
-                        text = nowTitle,
-                        fontSize = 12.sp,
-                        color = Brand.TextSecondary,
+                        text = channel.number.toString(),
+                        color = color,
+                        fontSize = 16.sp,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        modifier = Modifier.width(52.dp)
                     )
                 }
-            }
-            if (channel.isFavorite) {
-                Spacer(Modifier.width(6.dp))
-                Icon(
-                    imageVector = Icons.Default.Star,
-                    contentDescription = s.favorite,
-                    tint = Brand.Accent,
-                    modifier = Modifier.size(16.dp)
+                ChannelLogo(
+                    url = channel.logoUrl,
+                    name = channel.name,
+                    modifier = Modifier.size(34.dp, 24.dp),
+                    cornerRadius = 4
                 )
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    text = channel.name,
+                    color = color,
+                    fontSize = 17.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                if (channel.isFavorite) {
+                    Spacer(Modifier.width(6.dp))
+                    Icon(
+                        imageVector = Icons.Default.Star,
+                        contentDescription = s.favorite,
+                        tint = Look.Highlight,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
             }
         }
     }
@@ -886,24 +939,22 @@ private fun DetailColumn(
     // gegen den Parameter, und die Ansicht bekäme sich selbst zugewiesen.
     previewPlayer: ExoPlayer?,
     previewFailed: Boolean,
-    hint: String,
-    onFullscreen: () -> Unit,
     onGuide: () -> Unit,
     onToggleFavorite: () -> Unit,
+    onSearch: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val s = LocalStrings.current
     Column(
-        modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(Brand.Surface)
-            .padding(12.dp)
+        modifier.background(
+            Brush.linearGradient(listOf(Look.PanelStart, Look.PanelMid, Look.PanelEnd))
+        )
     ) {
+        // Das Bild randlos oben, wie auf einer Box.
         Box(
             Modifier
                 .fillMaxWidth()
                 .aspectRatio(16f / 9f)
-                .clip(RoundedCornerShape(8.dp))
                 .background(Color.Black),
             contentAlignment = Alignment.Center
         ) {
@@ -937,128 +988,117 @@ private fun DetailColumn(
                 Text(
                     text = s.layout.pickChannel,
                     style = MaterialTheme.typography.bodySmall,
-                    color = Brand.TextSecondary,
+                    color = Look.TextDim,
                     modifier = Modifier.padding(16.dp)
                 )
             }
         }
 
-        Spacer(Modifier.height(10.dp))
-
-        if (channel != null) {
-            Text(
-                text = channel.name,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = Brand.TextPrimary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            val now = nowNext?.now
-            if (now != null) {
-                Spacer(Modifier.height(6.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    LiveBadge()
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = "${now.startMs.asClock()} – ${now.endMs.asClock()}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Brand.TextSecondary
-                    )
-                    Spacer(Modifier.weight(1f))
-                    Text(
-                        text = s.stillRunning(formatDuration(now.endMs - System.currentTimeMillis())),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Brand.TextSecondary
-                    )
-                }
-                Spacer(Modifier.height(4.dp))
+        Column(
+            Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp)
+        ) {
+            if (channel != null) {
                 Text(
-                    text = now.title,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = Brand.TextPrimary,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(Modifier.height(6.dp))
-                ProgressLine(
-                    progress = now.progressAt(System.currentTimeMillis()),
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-            nowNext?.next?.let { next ->
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = "${s.nextUp} ${next.startMs.asClock()}  ${next.title}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Brand.TextSecondary,
+                    text = channel.name,
+                    color = Look.Text,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                val now = nowNext?.now
+                if (now != null) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = "${now.startMs.asClock()} – ${now.endMs.asClock()}   " +
+                            s.stillRunning(formatDuration(now.endMs - System.currentTimeMillis())),
+                        color = Look.TextDim,
+                        fontSize = 13.sp,
+                        maxLines = 1
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = now.title,
+                        color = Look.Text,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    ProgressLine(
+                        progress = now.progressAt(System.currentTimeMillis()),
+                        trackColor = Color.White.copy(alpha = 0.18f),
+                        barColor = Look.Highlight,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                nowNext?.next?.let { next ->
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "${s.nextUp} ${next.startMs.asClock()}  ${next.title}",
+                        color = Look.TextDim,
+                        fontSize = 13.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
-        }
 
-        Spacer(Modifier.weight(1f))
+            Spacer(Modifier.weight(1f))
 
-        Text(
-            text = hint,
-            style = MaterialTheme.typography.labelSmall,
-            color = Brand.TextSecondary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        Spacer(Modifier.height(8.dp))
-
-        Row(
-            Modifier.fillMaxWidth().focusRestorer(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            ActionButton(
-                icon = Icons.Default.Fullscreen,
-                label = s.layout.fullscreen,
-                enabled = channel != null,
-                onClick = onFullscreen,
-                modifier = Modifier.weight(1f)
-            )
-            ActionButton(
-                icon = Icons.Default.DateRange,
-                label = s.guide,
-                onClick = onGuide,
-                modifier = Modifier.weight(1f)
-            )
-            ActionButton(
-                icon = if (channel?.isFavorite == true) Icons.Default.Star else Icons.Default.StarBorder,
-                label = s.favorite,
-                enabled = channel != null,
-                onClick = onToggleFavorite,
-                modifier = Modifier.weight(1f)
-            )
+            Row(
+                Modifier.fillMaxWidth().focusRestorer(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                PanelButton(
+                    // „Catch-up“: das Archiv steckt im Programmführer.
+                    label = if (channel?.hasArchive == true) s.archive else s.guide,
+                    onClick = onGuide,
+                    modifier = Modifier.weight(1f)
+                )
+                PanelButton(
+                    label = s.favorite,
+                    icon = if (channel?.isFavorite == true) Icons.Default.Star else Icons.Default.StarBorder,
+                    enabled = channel != null,
+                    onClick = onToggleFavorite,
+                    modifier = Modifier.weight(1f)
+                )
+                PanelButton(
+                    label = s.search,
+                    onClick = onSearch,
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun ActionButton(
-    icon: ImageVector,
+private fun PanelButton(
     label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
     enabled: Boolean = true
 ) {
     Surface(
         onClick = onClick,
         enabled = enabled,
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = Brand.SurfaceHigh,
-            focusedContainerColor = Brand.Accent,
-            pressedContainerColor = Brand.Accent,
-            contentColor = Brand.TextPrimary,
-            focusedContentColor = Brand.Background,
-            pressedContentColor = Brand.Background,
-            disabledContainerColor = Brand.SurfaceHigh.copy(alpha = 0.5f),
-            disabledContentColor = Brand.TextSecondary.copy(alpha = 0.5f)
+            containerColor = Look.Button,
+            focusedContainerColor = Look.Highlight,
+            pressedContainerColor = Look.Highlight,
+            contentColor = Color.White,
+            focusedContentColor = Color.Black,
+            pressedContentColor = Color.Black,
+            disabledContainerColor = Look.Button.copy(alpha = 0.4f),
+            disabledContentColor = Color.White.copy(alpha = 0.5f)
         ),
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(3.dp)),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
         modifier = modifier.then(if (enabled) Modifier.alsoTappable(onClick) else Modifier)
     ) {
@@ -1067,11 +1107,13 @@ private fun ActionButton(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(6.dp))
+            if (icon != null) {
+                Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+            }
             Text(
                 text = label,
-                fontSize = 14.sp,
+                fontSize = 15.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis

@@ -346,10 +346,10 @@ data class Strings(
  * im Arabischen ist die Ansicht gespiegelt, dort stehen sie deshalb andersherum.
  */
 data class LayoutStrings(
-    val settingTitle: String = "Live TV in drei Spalten",
-    val settingHint: String = "Gruppen links, Kanäle in der Mitte, Vorschau rechts – alles " +
-        "auf einem Bildschirm. Mit ▲▼ in den Gruppen wechselt die Kanalliste sofort mit, " +
-        "ohne OK zu drücken.",
+    val settingTitle: String = "Zweites Design: drei Spalten",
+    val settingHint: String = "Gruppen links, Kanäle in der Mitte, Vorschau rechts – im " +
+        "violetten Look mit gelber Auswahl. Mit ▲▼ in den Gruppen wechselt die Kanalliste " +
+        "sofort mit, ohne OK zu drücken.",
     val groups: String = "Gruppen",
     val fullscreen: String = "Vollbild",
     val groupsHint: String = "▶ zu den Kanälen",
@@ -1301,9 +1301,9 @@ private val Turkish = Strings(
             "altında – uygulamayı açmadan."
     ),
     layout = LayoutStrings(
-        settingTitle = "Canlı TV üç sütunda",
-        settingHint = "Gruplar solda, kanallar ortada, önizleme sağda – hepsi tek ekranda. " +
-            "Gruplarda ▲▼ ile gezinince kanal listesi OK'ye basmadan hemen değişir.",
+        settingTitle = "İkinci tasarım: üç sütun",
+        settingHint = "Gruplar solda, kanallar ortada, önizleme sağda – mor görünüm ve sarı " +
+            "seçimle. Gruplarda ▲▼ ile gezinince kanal listesi OK'ye basmadan hemen değişir.",
         groups = "Gruplar",
         fullscreen = "Tam ekran",
         groupsHint = "▶ kanallara",
@@ -1911,10 +1911,10 @@ private val English = Strings(
             "watching” – without opening the app."
     ),
     layout = LayoutStrings(
-        settingTitle = "Live TV in three columns",
+        settingTitle = "Second design: three columns",
         settingHint = "Groups on the left, channels in the middle, preview on the right – " +
-            "all on one screen. Moving through the groups with ▲▼ changes the channel list " +
-            "straight away, no OK needed.",
+            "in a purple look with yellow selection. Moving through the groups with ▲▼ " +
+            "changes the channel list straight away, no OK needed.",
         groups = "Groups",
         fullscreen = "Full screen",
         groupsHint = "▶ to the channels",
@@ -2503,10 +2503,10 @@ private val Arabic = Strings(
         hint = "المفضلة كصف خاص، والأفلام غير المكتملة تحت «متابعة المشاهدة» – دون فتح التطبيق."
     ),
     layout = LayoutStrings(
-        settingTitle = "البث المباشر في ثلاثة أعمدة",
+        settingTitle = "التصميم الثاني: ثلاثة أعمدة",
         settingHint = "المجموعات على اليمين، والقنوات في الوسط، والمعاينة على اليسار – " +
-            "كل ذلك في شاشة واحدة. التنقل بين المجموعات بـ ▲▼ يغيّر قائمة القنوات فوراً " +
-            "دون الضغط على OK.",
+            "بمظهر بنفسجي وتحديد أصفر. التنقل بين المجموعات بـ ▲▼ يغيّر قائمة القنوات " +
+            "فوراً دون الضغط على OK.",
         groups = "المجموعات",
         fullscreen = "ملء الشاشة",
         groupsHint = "◀ إلى القنوات",
