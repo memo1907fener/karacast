@@ -170,8 +170,16 @@ jobs:
           set -euo pipefail
           text="${NOTES:-}"
           if [ -z "$text" ] && [ "${GITHUB_REF#refs/tags/}" != "$GITHUB_REF" ]; then
-            # Bei einem beschrifteten Tag steht der Text im Tag selbst.
-            text=$(git tag -l --format='%(contents:subject)' "${GITHUB_REF#refs/tags/}")
+            tag="${GITHUB_REF#refs/tags/}"
+            # Bei einem beschrifteten Tag steht der Text im Tag selbst. Aber:
+            # actions/checkout legt den Tag als „leichten“ Tag an, der nur auf
+            # den Commit zeigt — der Text ginge verloren, und es käme der Titel
+            # des letzten Commits heraus (so geschehen bei 1.12.0). Deshalb den
+            # Tag selbst noch einmal holen, mitsamt seiner Beschriftung.
+            git fetch --force --no-tags origin "+refs/tags/${tag}:refs/tags/${tag}"
+            if [ "$(git cat-file -t "$tag")" = "tag" ]; then
+              text=$(git tag -l --format='%(contents:subject)' "$tag")
+            fi
           fi
           [ -n "$text" ] || text="Version ${{ steps.version.outputs.name }}"
           # Über eine Datei, damit Zeilenumbrüche und Anführungszeichen überleben.
