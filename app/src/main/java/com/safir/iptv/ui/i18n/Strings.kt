@@ -336,7 +336,24 @@ data class Strings(
     val sources: SourceStrings = SourceStrings(),
     val backup: BackupStrings = BackupStrings(),
     val homeRow: HomeRowStrings = HomeRowStrings(),
-    val layout: LayoutStrings = LayoutStrings()
+    val layout: LayoutStrings = LayoutStrings(),
+    val device: DeviceStrings = DeviceStrings()
+)
+
+/**
+ * Die falsche App auf dem falschen Gerät: die TV-App auf einem Handy, oder
+ * Karacast Mobil auf einem Fernseher. Beide Apps bauen diese Texte mit.
+ */
+data class DeviceStrings(
+    val tvOnPhoneTitle: String = "Karacast ist für Fernseher und Tablets",
+    val tvOnPhoneBody: String = "Für dein Handy gibt es Karacast Mobil — dieselben " +
+        "Sender, Filme und Serien, aber für Touch und Hochformat gebaut.",
+    val getMobile: String = "Karacast Mobil holen",
+    val mobileOnTvTitle: String = "Karacast Mobil ist für Handys und Tablets",
+    val mobileOnTvBody: String = "Für den Fernseher gibt es Karacast IPTV — mit " +
+        "Fernbedienung, Programmführer und allem, was dazugehört.",
+    val getTv: String = "Karacast für den Fernseher holen",
+    val failed: String = "Das hat nicht geklappt. Prüfe die Internetverbindung."
 )
 
 /**
@@ -1360,6 +1377,17 @@ private val Turkish = Strings(
         dismiss = "Kapat",
         keys = "OK: kanala geç · Geri: kapat"
     ),
+    device = DeviceStrings(
+        tvOnPhoneTitle = "Karacast televizyonlar ve tabletler içindir",
+        tvOnPhoneBody = "Telefonun için Karacast Mobil var — aynı kanallar, filmler ve " +
+            "diziler, dokunmatik ekran ve dikey kullanım için tasarlandı.",
+        getMobile = "Karacast Mobil'i indir",
+        mobileOnTvTitle = "Karacast Mobil telefonlar ve tabletler içindir",
+        mobileOnTvBody = "Televizyon için Karacast IPTV var — kumanda, yayın akışı ve " +
+            "gereken her şeyle.",
+        getTv = "Televizyon için Karacast'i indir",
+        failed = "Olmadı. İnternet bağlantısını kontrol et."
+    ),
     play = PlayStrings(
         expiredBody = "On dört günlük ücretsiz süre doldu. Karacast'i beğendiysen " +
             "kilidini aç — bir kerelik ömür boyu ya da abonelikle. Ödeme güvenle " +
@@ -1979,6 +2007,17 @@ private val English = Strings(
         dismiss = "Close",
         keys = "OK: switch · Back: close"
     ),
+    device = DeviceStrings(
+        tvOnPhoneTitle = "Karacast is made for TVs and tablets",
+        tvOnPhoneBody = "For your phone there is Karacast Mobile — the same channels, " +
+            "films and series, built for touch and portrait.",
+        getMobile = "Get Karacast Mobile",
+        mobileOnTvTitle = "Karacast Mobile is made for phones and tablets",
+        mobileOnTvBody = "For the television there is Karacast IPTV — with remote " +
+            "control, programme guide and everything else.",
+        getTv = "Get Karacast for TV",
+        failed = "That did not work. Check the internet connection."
+    ),
     play = PlayStrings(
         expiredBody = "Your fourteen free days are over. If you liked Karacast, " +
             "unlock it — once and for good, or as a subscription. Payment is handled " +
@@ -2578,6 +2617,17 @@ private val Arabic = Strings(
         switchNow = "انتقل",
         dismiss = "إغلاق",
         keys = "OK: انتقل · رجوع: إغلاق"
+    ),
+    device = DeviceStrings(
+        tvOnPhoneTitle = "كاراكاست مخصص لأجهزة التلفاز والأجهزة اللوحية",
+        tvOnPhoneBody = "لهاتفك يوجد كاراكاست موبايل — نفس القنوات والأفلام " +
+            "والمسلسلات، مصمم للمس والوضع العمودي.",
+        getMobile = "احصل على كاراكاست موبايل",
+        mobileOnTvTitle = "كاراكاست موبايل مخصص للهواتف والأجهزة اللوحية",
+        mobileOnTvBody = "للتلفاز يوجد كاراكاست IPTV — مع جهاز التحكم ودليل البرامج " +
+            "وكل ما يلزم.",
+        getTv = "احصل على كاراكاست للتلفاز",
+        failed = "لم ينجح ذلك. تحقق من الاتصال بالإنترنت."
     ),
     play = PlayStrings(
         expiredBody = "انتهت الأيام الأربعة عشر المجانية. إن أعجبك Karacast فافتحه — " +

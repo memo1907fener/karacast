@@ -40,6 +40,7 @@ import com.safir.iptv.ui.i18n.AppLocale
 import com.safir.iptv.ui.i18n.LocalStrings
 import com.safir.iptv.ui.i18n.stringsFor
 import com.safir.iptv.ui.license.LicenseGate
+import com.safir.iptv.ui.license.PhoneGate
 import com.safir.iptv.ui.theme.Brand
 import com.safir.iptv.ui.theme.SafirTheme
 import com.safir.iptv.util.DeepLinks
@@ -91,7 +92,9 @@ class MainActivity : ComponentActivity() {
                         // Around everything, not around one screen: "resume last
                         // channel" opens the player directly and would otherwise
                         // walk straight past the question.
-                        LicenseGate { Root() }
+                        // Auf einem Handy gar nicht erst die TV-Oberfläche: dort
+                        // gehört Karacast Mobil hin (siehe PhoneGate).
+                        PhoneGate { LicenseGate { Root() } }
                         SleepWatcher(onExpired = { finishAndRemoveTask() })
                     }
                 }

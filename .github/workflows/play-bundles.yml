@@ -1,0 +1,94 @@
+#
+# Bundles für Google Play bauen — für beide Apps oder eine davon.
+#
+# Google nimmt keine APKs, sondern App-Bundles (.aab), signiert mit dem
+# Upload-Schlüssel (nicht dem der APK-Fassung). Dieser Lauf baut sie und legt sie
+# unter „Artifacts“ zum Herunterladen ab; hochladen in die Play Console musst du
+# sie selbst (Testen und veröffentlichen → Release erstellen → Bundle hochladen).
+#
+#   * TV-App      → app-play-release.aab     (com.sternweb.karacast)
+#   * Handy-App   → mobile-play-release.aab  (com.sternweb.karacast.mobile)
+#
+# Einmalig einzurichten (Settings → Secrets and variables → Actions), mit den
+# Werten aus keystore-play.properties und der Datei keystore/karacast-play-upload.jks:
+#   PLAY_KEYSTORE_BASE64    die .jks-Datei, base64-kodiert
+#   PLAY_KEYSTORE_PASSWORD  storePassword
+#   PLAY_KEY_ALIAS          keyAlias
+#   PLAY_KEY_PASSWORD       keyPassword
+#
+name: Play-Bundles bauen
+
+on:
+  workflow_dispatch:
+    inputs:
+      which:
+        description: 'Welche App?'
+        type: choice
+        options: [beide, tv, handy]
+        default: beide
+
+jobs:
+  bundles:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Upload-Schlüssel bereitlegen
+        env:
+          PLAY_KEYSTORE_BASE64: ${{ secrets.PLAY_KEYSTORE_BASE64 }}
+          PLAY_KEYSTORE_PASSWORD: ${{ secrets.PLAY_KEYSTORE_PASSWORD }}
+          PLAY_KEY_ALIAS: ${{ secrets.PLAY_KEY_ALIAS }}
+          PLAY_KEY_PASSWORD: ${{ secrets.PLAY_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PLAY_KEYSTORE_BASE64:-}" ]; then
+            echo "::error::Das Secret PLAY_KEYSTORE_BASE64 fehlt. Ohne Upload-Schlüssel nimmt Google das Bundle nicht an."
+            exit 1
+          fi
+          mkdir -p keystore
+          printf '%s' "$PLAY_KEYSTORE_BASE64" | base64 -d > keystore/karacast-play-upload.jks
+          {
+            printf 'storeFile=keystore/karacast-play-upload.jks\n'
+            printf 'storePassword=%s\n' "$PLAY_KEYSTORE_PASSWORD"
+            printf 'keyAlias=%s\n' "$PLAY_KEY_ALIAS"
+            printf 'keyPassword=%s\n' "$PLAY_KEY_PASSWORD"
+          } > keystore-play.properties
+
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Bundles bauen
+        env:
+          WHICH: ${{ github.event.inputs.which }}
+        run: |
+          set -euo pipefail
+          tasks=""
+          case "${WHICH:-beide}" in
+            tv) tasks=":app:bundlePlayRelease" ;;
+            handy) tasks=":mobile:bundlePlayRelease" ;;
+            *) tasks=":app:bundlePlayRelease :mobile:bundlePlayRelease" ;;
+          esac
+          ./gradlew $tasks --no-daemon --stacktrace
+          mkdir -p dist
+          for f in app/build/outputs/bundle/playRelease/*.aab mobile/build/outputs/bundle/playRelease/*.aab; do
+            [ -f "$f" ] && cp "$f" dist/
+          done
+          ls -lh dist
+
+      - name: Bundles hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: Play-Bundles
+          path: dist/*.aab
+          if-no-files-found: error
+
+      - name: Schlüssel wieder wegräumen
+        if: always()
+        run: rm -f keystore/karacast-play-upload.jks keystore-play.properties

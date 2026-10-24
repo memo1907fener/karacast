@@ -1,6 +1,11 @@
 # Karacast im Google Play Store
 
-Die App gibt es in zwei Fassungen, gebaut aus demselben Code:
+Es gibt **zwei Apps**, beide aus demselben Code:
+
+- **Karacast IPTV** (`app/`) — für Fernseher, TV-Boxen und Tablets.
+- **Karacast Mobil** (`mobile/`) — für Handys und Tablets. Siehe Abschnitt 8.
+
+Jede App gibt es in zwei Fassungen:
 
 | | **direct** (APK) | **play** (Google Play) |
 |---|---|---|
@@ -126,3 +131,50 @@ IPTV-Player werden oft abgelehnt. So bleibt Karacast auf der sicheren Seite:
 
 Die APK-Fassung wird wie bisher über den Tag (`v1.9.x`) auf GitHub
 veröffentlicht — beide können dieselbe Versionsnummer tragen.
+
+---
+
+## 8. Karacast Mobil — die Handy-App
+
+Eine **eigene App** in der Play Console, mit eigenem Eintrag und eigenen
+Produkten. Ein Kauf in der Handy-App schaltet den Fernseher nicht frei und
+umgekehrt.
+
+| | TV-App | Handy-App |
+|---|---|---|
+| Paketname (Play) | `com.sternweb.karacast` | `com.sternweb.karacast.mobile` |
+| Paketname (APK) | `com.safir.iptv` | `com.safir.iptv.mobile` |
+| Geräte im Play Store | Fernseher + Tablets | Handys + Tablets |
+| Update-Datei (APK) | `update/karacast.json` | `update/karacast-mobile.json` |
+| Veröffentlichen (APK) | Tag `v1.2.3` | Tag `mobile-v1.2.3` |
+
+**Wer was sieht:**
+- Die TV-App meldet sich im Play Store nur für große Bildschirme an
+  (`supports-screens` in `app/src/play/AndroidManifest.xml`). Handys sehen sie
+  nicht.
+- Die Handy-App meldet kein Android TV und verlangt einen Touchscreen —
+  Fernseher sehen sie nicht.
+- Feiner schneiden: Play Console → *Release → Gerätekatalog*, dort einzelne
+  Geräte ausschließen.
+- Die APKs lassen sich überall installieren. Darum prüft jede App beim Start
+  das Gerät und schickt auf dem falschen zur richtigen App (TV-App auf einem
+  Handy → „Karacast Mobil holen“).
+
+**In der Play Console:**
+1. *App erstellen* → Name **Karacast Mobil**, Deutsch, App, Kostenlos.
+   Formfaktoren: nur Telefon/Tablet (kein Android TV hinzufügen).
+2. Produkte — **IDs exakt so**, wie bei der TV-App:
+   - In-App-Produkt `karacast_lifetime` → **29,99 €** → Aktivieren
+   - Abo `karacast_abo` → Basis-Abo `monatlich`, 1 Monat, **1,99 €** → Aktivieren
+   Die App zeigt die Preise so, wie Google sie liefert; im Code steht keiner.
+3. Bundle bauen: GitHub → *Actions* → **Play-Bundles bauen** → *Run workflow*
+   → „handy“. Das `.aab` unter *Artifacts* herunterladen und in einen
+   **internen Test** hochladen. (Einmalig die vier `PLAY_…`-Secrets anlegen,
+   siehe Kopf von `.github/workflows/play-bundles.yml`.)
+4. Datenschutz, Datensicherheit, Einstufung: dieselben Antworten wie bei der
+   TV-App (Abschnitt 4). Screenshots im Hochformat vom Handy.
+5. Privates Entwicklerkonto: auch für diese App gilt der geschlossene Test mit
+   12 Testern über 14 Tage vor „Produktion“.
+
+Die 14 Tage Testphase in der App gelten auch hier; danach erscheint die Seite
+„Karacast freischalten“ mit Abo und Einmalkauf.

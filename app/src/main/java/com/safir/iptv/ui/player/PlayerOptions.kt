@@ -62,8 +62,11 @@ import java.util.Locale
  * Tonspuren, die beide „Englisch · 5.1“ heißen, oder drei Untertitel ohne Namen,
  * die alle „Spur 1“ hießen, ergaben denselben Schlüssel zweimal, und Compose bricht
  * dann hart ab. Bei Live-Kanälen kommt das selten vor, bei Filmen ständig.
+ *
+ * `internal` statt `private`: die Handy-App zeigt dieselben Zeilen in ihrem
+ * eigenen Blatt von unten und soll die Spuren genau so zählen und benennen.
  */
-private data class OptionRow(
+internal data class OptionRow(
     val id: String,
     val title: String,
     val detail: String = "",
@@ -336,7 +339,7 @@ private fun rootRows(
 }
 
 /** Name der Spur, die der Player für [type] gerade spielt — oder null. */
-private fun selectedTrackName(tracks: Tracks, type: Int): String? {
+internal fun selectedTrackName(tracks: Tracks, type: Int): String? {
     var number = 0
     for (group in tracks.groups) {
         if (group.type != type) continue
@@ -357,7 +360,7 @@ private fun selectedTrackName(tracks: Tracks, type: Int): String? {
  * „Englisch · Stereo“, einmal AAC und einmal AC3), bekommt die zweite eine Nummer
  * dazu, damit man sie auseinanderhalten kann.
  */
-private fun trackRows(player: ExoPlayer, tracks: Tracks, type: Int): List<OptionRow> {
+internal fun trackRows(player: ExoPlayer, tracks: Tracks, type: Int): List<OptionRow> {
     val t = AppLocale.strings
     val rows = mutableListOf<OptionRow>()
     var number = 0
@@ -399,7 +402,7 @@ private fun List<OptionRow>.disambiguated(): List<OptionRow> {
     }
 }
 
-private fun subtitleRows(
+internal fun subtitleRows(
     player: ExoPlayer,
     tracks: Tracks,
     params: TrackSelectionParameters
@@ -424,7 +427,7 @@ private fun subtitleRows(
     return listOf(off) + available
 }
 
-private fun aspectRows(current: AspectMode, onAspect: (AspectMode) -> Unit): List<OptionRow> =
+internal fun aspectRows(current: AspectMode, onAspect: (AspectMode) -> Unit): List<OptionRow> =
     AspectMode.entries.map { mode ->
         OptionRow(
             id = "aspect-${mode.name}",
@@ -435,7 +438,7 @@ private fun aspectRows(current: AspectMode, onAspect: (AspectMode) -> Unit): Lis
         )
     }
 
-private fun sleepRows(onClose: () -> Unit): List<OptionRow> {
+internal fun sleepRows(onClose: () -> Unit): List<OptionRow> {
     val t = AppLocale.strings
     val off = OptionRow(
         id = "sleep-off",

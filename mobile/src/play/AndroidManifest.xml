@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Karacast Mobil, Play-Fassung: alles weg, was zum Selbst-Update gehört.
+
+    Google erlaubt keiner Play-App, sich am Store vorbei selbst zu ersetzen, und
+    REQUEST_INSTALL_PACKAGES allein reicht schon für eine Ablehnung. Updates
+    kommen hier vom Play Store; der Code dafür ist abgeschaltet (BuildConfig.PLAY_STORE).
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission
+        android:name="android.permission.REQUEST_INSTALL_PACKAGES"
+        tools:node="remove" />
+
+
+    <application>
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.updates"
+            tools:node="remove" />
+    </application>
+</manifest>

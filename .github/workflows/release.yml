@@ -124,7 +124,9 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Release-APK bauen
-        run: ./gradlew assembleDirectRelease --no-daemon --stacktrace
+        # Nur die TV-App (:app). Ohne das Präfix baute Gradle die Handy-App gleich
+        # mit — und ein Fehler dort hielte das TV-Update auf.
+        run: ./gradlew :app:assembleDirectRelease --no-daemon --stacktrace
 
       - name: APK prüfen und benennen
         id: apk

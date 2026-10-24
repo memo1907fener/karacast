@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Die Handy-App zeichnet bis unter Status- und Navigationsleiste
+        (enableEdgeToEdge in MobileActivity) und hält ihre Inhalte selbst davon
+        frei. Nur der Player blendet die Leisten aus.
+    -->
+    <style name="Theme.KaracastMobile" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/kc_background</item>
+        <item name="android:colorBackground">@color/kc_background</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:colorAccent">@color/kc_accent</item>
+    </style>
+
+    <color name="kc_background">#0A0C14</color>
+    <color name="kc_accent">#FF7A00</color>
+</resources>

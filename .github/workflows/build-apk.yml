@@ -1,6 +1,7 @@
 #
-# Bauen bei jedem Push: prüft, dass alles kompiliert, und legt das fertige APK
-# zum Herunterladen ab (Actions → dieser Lauf → unten „Artifacts“).
+# Bauen bei jedem Push: prüft, dass alles kompiliert, und legt die fertigen APKs
+# zum Herunterladen ab (Actions → dieser Lauf → unten „Artifacts“) — die
+# TV-App als „KaracastIPTV-…“, die Handy-App als „KaracastMobil-…“.
 #
 # Anders als „Veröffentlichen“ erfährt hier kein Fernseher etwas davon — das ist
 # der Weg zum Ausprobieren. Ist der Signaturschlüssel als Secret hinterlegt, wird
@@ -59,10 +60,10 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build debug APK
-        run: ./gradlew assembleDirectDebug --no-daemon --stacktrace
+        run: ./gradlew :app:assembleDirectDebug --no-daemon --stacktrace
 
       - name: Build release APK
-        run: ./gradlew assembleDirectRelease --no-daemon --stacktrace
+        run: ./gradlew :app:assembleDirectRelease --no-daemon --stacktrace
 
       - name: APKs benennen
         run: |
@@ -77,6 +78,34 @@ jobs:
         with:
           name: KaracastIPTV-${{ steps.version.outputs.name }}
           path: dist/*.apk
+          if-no-files-found: error
+
+      # ------------------------------------------------------ Karacast Mobil
+      # Nach der TV-App und getrennt hochgeladen: scheitert die Handy-App, liegt
+      # das TV-APK trotzdem zum Herunterladen bereit.
+
+      - name: Version der Handy-App lesen
+        id: mobile
+        run: |
+          name=$(grep -m1 -E '^\s*versionName\s*=' mobile/build.gradle.kts | sed -E 's/.*"([^"]+)".*/\1/')
+          echo "name=${name:-unbekannt}" >> "$GITHUB_OUTPUT"
+
+      - name: Handy-App bauen
+        run: ./gradlew :mobile:assembleDirectDebug :mobile:assembleDirectRelease --no-daemon --stacktrace
+
+      - name: Handy-APKs benennen
+        run: |
+          set -euo pipefail
+          mkdir -p dist-mobile
+          cp mobile/build/outputs/apk/direct/release/*.apk "dist-mobile/KaracastMobil-${{ steps.mobile.outputs.name }}.apk"
+          cp mobile/build/outputs/apk/direct/debug/*.apk "dist-mobile/KaracastMobil-${{ steps.mobile.outputs.name }}-test.apk"
+          ls -lh dist-mobile
+
+      - name: Handy-APKs hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: KaracastMobil-${{ steps.mobile.outputs.name }}
+          path: dist-mobile/*.apk
           if-no-files-found: error
 
       - name: Schlüssel wieder wegräumen

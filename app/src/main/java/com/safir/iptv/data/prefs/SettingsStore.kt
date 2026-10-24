@@ -3,6 +3,7 @@ package com.safir.iptv.data.prefs
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import com.safir.iptv.BuildConfig
 import com.safir.iptv.data.remote.DEFAULT_USER_AGENT
 import com.safir.iptv.data.remote.Http
 import com.safir.iptv.domain.model.ALL_CATEGORY_ID
@@ -680,8 +681,9 @@ class SettingsStore(context: Context) {
          * A raw GitHub URL rather than the repository page: the latter serves a web
          * page, and the app needs the JSON itself.
          */
-        const val DEFAULT_UPDATE_URL =
-            "https://raw.githubusercontent.com/memo1907fener/karacast/main/update/karacast.json"
+        // Aus dem Build: die TV-App liest update/karacast.json, die Handy-App
+        // update/karacast-mobile.json — beide bauen diese Datei mit.
+        val DEFAULT_UPDATE_URL: String = BuildConfig.UPDATE_URL
         const val KEY_LANGUAGE = "language"
         const val KEY_RESUME_LAST = "resume_last_channel"
         const val KEY_LAST_CHANNEL = "last_channel"

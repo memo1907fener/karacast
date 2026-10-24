@@ -40,9 +40,17 @@ android {
         // (MainActivity.goImmersive) und die Zurück-Taste (Manifest,
         // enableOnBackInvokedCallback).
         targetSdk = 36
-        versionCode = 28
-        versionName = "1.13.0"
+        versionCode = 29
+        versionName = "1.14.0"
         vectorDrawables.useSupportLibrary = true
+
+        // Wo die APK-Fassung nach Updates fragt. Steht hier und nicht im Code, weil
+        // die Handy-App denselben Code mitbaut und ihre eigene Update-Datei hat.
+        buildConfigField(
+            "String",
+            "UPDATE_URL",
+            "\"https://raw.githubusercontent.com/memo1907fener/karacast/main/update/karacast.json\""
+        )
 
         // The FFmpeg decoders ship a native library per processor type, and each
         // one is several megabytes. Every Android TV and every TV box worth

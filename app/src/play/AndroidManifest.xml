@@ -13,6 +13,22 @@
         android:name="android.permission.REQUEST_INSTALL_PACKAGES"
         tools:node="remove" />
 
+    <!--
+        Im Play Store nur für Fernseher und Tablets. Handys bekommen dort
+        Karacast Mobil (eigene App, com.sternweb.karacast.mobile).
+
+        Google Play blendet eine App für Bildschirme aus, die kleiner sind als der
+        kleinste, den sie angibt: ohne „small“ und „normal“ fallen Handys heraus,
+        Tablets („large“, „xlarge“) und Fernseher bleiben. Wer genauer schneiden
+        will, kann einzelne Geräte zusätzlich im Gerätekatalog der Play Console
+        ausschließen.
+    -->
+    <supports-screens
+        android:smallScreens="false"
+        android:normalScreens="false"
+        android:largeScreens="true"
+        android:xlargeScreens="true" />
+
     <application>
         <provider
             android:name="androidx.core.content.FileProvider"

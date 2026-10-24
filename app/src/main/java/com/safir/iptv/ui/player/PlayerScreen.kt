@@ -905,7 +905,7 @@ private fun RecoveryNotice(
     }
 }
 
-private fun PlaybackException.friendlyPlaybackMessage(): String {
+internal fun PlaybackException.friendlyPlaybackMessage(): String {
     val s = AppLocale.strings
     return when (errorCode) {
         PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
