@@ -75,6 +75,15 @@ class ChannelsViewModel(
     val previewEnabled: Boolean get() = settings.previewEnabled
     val previewMuted: Boolean get() = settings.previewMuted
 
+    /** Drei Spalten statt zwei Ebenen — siehe [SettingsStore.liveColumns]. */
+    val columnLayout: Boolean get() = settings.liveColumns
+
+    /** Der zuletzt laufende Kanal, damit die Vorschau beim Öffnen nicht leer ist. */
+    val lastChannelId: String? get() = settings.lastChannelId
+
+    /** Die Gruppe, aus der die Suche aufgerufen wurde — dorthin führt Zurück. */
+    private var categoryBeforeSearch: String? = null
+
     /** Provider categories with the three virtual ones pinned to the top. */
     val categories: StateFlow<List<Category>> =
         combine(playlists.observeCategories(), AppLocale.current) { provided, _ ->
@@ -123,6 +132,7 @@ class ChannelsViewModel(
     }
 
     fun enterSearch() {
+        if (!_searchMode.value) categoryBeforeSearch = _selectedCategoryId.value
         selectCategory(ALL_CATEGORY_ID)
         _searchMode.value = true
         _inCategory.value = true
@@ -148,6 +158,30 @@ class ChannelsViewModel(
         }
 
         _inCategory.value = false
+        return true
+    }
+
+    /**
+     * Für die Drei-Spalten-Ansicht: dort gibt es keine Übersicht, aus der man in
+     * eine Gruppe „hineingeht“ — die Kanäle stehen immer daneben. Also gilt man als
+     * drinnen, und der zuletzt gesehene Kanal bekommt den Fokus wie gewohnt.
+     */
+    fun enterColumns() {
+        _inCategory.value = true
+        focusLastWatched()
+    }
+
+    /**
+     * Raus aus der Suche, zurück in die Gruppe, aus der sie aufgerufen wurde.
+     *
+     * @return false, wenn gar keine Suche offen war.
+     */
+    fun leaveSearch(): Boolean {
+        if (!_searchMode.value) return false
+        _searchMode.value = false
+        _query.value = ""
+        categoryBeforeSearch?.let { selectCategory(it) }
+        categoryBeforeSearch = null
         return true
     }
 
@@ -186,6 +220,11 @@ class ChannelsViewModel(
     fun focusLastWatched() {
         if (!_inCategory.value || _searchMode.value) return
         val id = settings.lastChannelId ?: return
+        _focusTargetId.value = id
+    }
+
+    /** Gibt einem bestimmten Kanal den Fokus — die Liste scrollt hin und fokussiert ihn. */
+    fun focusChannel(id: String) {
         _focusTargetId.value = id
     }
 

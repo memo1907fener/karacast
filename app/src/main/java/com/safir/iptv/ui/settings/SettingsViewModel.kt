@@ -49,6 +49,7 @@ data class SettingsUiState(
     val showClock: Boolean = true,
     val resumeLastChannel: Boolean = false,
     val previewEnabled: Boolean = true,
+    val liveColumns: Boolean = false,
     val previewMuted: Boolean = false,
     val groupCount: Int = 0,
     /** Null = Live TV shows the overview; otherwise the list it jumps straight into. */
@@ -199,6 +200,11 @@ class SettingsViewModel(
         _state.update { it.copy(resumeLastChannel = value) }
     }
 
+    fun setLiveColumns(value: Boolean) {
+        settings.liveColumns = value
+        _state.update { it.copy(liveColumns = value) }
+    }
+
     fun setPreviewEnabled(value: Boolean) {
         settings.previewEnabled = value
         _state.update { it.copy(previewEnabled = value) }
@@ -264,6 +270,7 @@ class SettingsViewModel(
                     showClock = settings.showClock,
                     resumeLastChannel = settings.resumeLastChannel,
                     previewEnabled = settings.previewEnabled,
+                    liveColumns = settings.liveColumns,
                     previewMuted = settings.previewMuted,
                     groupCount = settings.groups.value.size,
                     liveDirectCategoryId = settings.liveDirectCategoryId,

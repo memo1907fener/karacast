@@ -627,6 +627,13 @@ private fun DisplaySection(state: SettingsUiState, viewModel: SettingsViewModel)
         )
         Spacer(Modifier.height(12.dp))
         ToggleRow(
+            title = t.layout.settingTitle,
+            subtitle = t.layout.settingHint,
+            checked = state.liveColumns,
+            onToggle = { viewModel.setLiveColumns(!state.liveColumns) }
+        )
+        Spacer(Modifier.height(12.dp))
+        ToggleRow(
             title = t.previewWhileBrowsing,
             subtitle = t.previewWhileBrowsingHint,
             checked = state.previewEnabled,

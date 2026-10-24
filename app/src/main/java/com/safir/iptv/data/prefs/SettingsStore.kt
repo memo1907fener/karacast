@@ -152,6 +152,16 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean(KEY_PREVIEW_MUTED, false)
         set(value) = prefs.edit { putBoolean(KEY_PREVIEW_MUTED, value) }
 
+    /**
+     * Live TV in drei Spalten statt auf zwei Ebenen: Gruppen links, Kanäle in der
+     * Mitte, Vorschau rechts — alles gleichzeitig auf dem Schirm. Wer viel zwischen
+     * Gruppen springt, spart sich damit das Hinein und Hinaus. Aus ist die
+     * gewohnte Ansicht, deshalb ist das der Ausgangswert.
+     */
+    var liveColumns: Boolean
+        get() = prefs.getBoolean(KEY_LIVE_COLUMNS, false)
+        set(value) = prefs.edit { putBoolean(KEY_LIVE_COLUMNS, value) }
+
     /** Reopen the app straight into the channel that was last watched. */
     var resumeLastChannel: Boolean
         get() = prefs.getBoolean(KEY_RESUME_LAST, false)
@@ -609,6 +619,7 @@ class SettingsStore(context: Context) {
         const val KEY_PREVIEW = "preview_enabled"
         const val KEY_PREVIEW_MUTED = "preview_muted"
         const val KEY_SHOW_CLOCK = "show_clock"
+        const val KEY_LIVE_COLUMNS = "live_columns"
         const val KEY_LIVE_DIRECT = "live_direct_category"
         const val KEY_CHANNEL_SORT = "channel_sort"
         const val KEY_ASPECT = "aspect_mode"

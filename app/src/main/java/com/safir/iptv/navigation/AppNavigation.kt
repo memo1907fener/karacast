@@ -235,7 +235,9 @@ fun AppNavigation(
                             popUpTo(0) { inclusive = true }
                         }
                     },
-                    startInSearch = entry.arguments?.getBoolean("search") ?: false
+                    startInSearch = entry.arguments?.getBoolean("search") ?: false,
+                    onOpenMovies = { navController.navigate(Routes.MOVIES) },
+                    onOpenSeries = { navController.navigate(Routes.SERIES) }
                 )
             }
 

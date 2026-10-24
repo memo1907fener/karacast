@@ -17,9 +17,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -34,7 +36,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.common.C
+import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.TrackSelectionParameters
 import androidx.media3.common.Tracks
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.tv.material3.ClickableSurfaceDefaults
@@ -50,11 +54,22 @@ import com.safir.iptv.util.SleepTimer
 import kotlinx.coroutines.delay
 import java.util.Locale
 
-/** One selectable line: title, optional detail on the right, a dot when it is active. */
+/**
+ * One selectable line: title, optional detail on the right, a dot when it is active.
+ *
+ * [id] ist der Schlüssel in der Liste und muss eindeutig sein. Früher war es der
+ * sichtbare Text — und genau das hat die App bei Filmen abstürzen lassen: zwei
+ * Tonspuren, die beide „Englisch · 5.1“ heißen, oder drei Untertitel ohne Namen,
+ * die alle „Spur 1“ hießen, ergaben denselben Schlüssel zweimal, und Compose bricht
+ * dann hart ab. Bei Live-Kanälen kommt das selten vor, bei Filmen ständig.
+ */
 private data class OptionRow(
+    val id: String,
     val title: String,
     val detail: String = "",
     val selected: Boolean = false,
+    /** False für Spuren, die dieses Gerät nicht abspielen kann — sichtbar, aber nicht wählbar. */
+    val enabled: Boolean = true,
     val onClick: () -> Unit
 )
 
@@ -83,18 +98,40 @@ fun PlayerOptionsPanel(
     onToggleFavorite: (() -> Unit)?,
     onClose: () -> Unit
 ) {
-    // Re-read on every page change: a track list only fills up once the stream has
-    // been running for a moment, so it must not be captured once and kept.
     val t = LocalStrings.current
-    val tracks = player.currentTracks
+
+    // Der Player ist kein Compose-Zustand: was er über seine Spuren weiß, ändert sich,
+    // ohne dass Compose davon erfährt. Einmal gelesen, blieb die Anzeige deshalb
+    // stehen — man wählte einen Untertitel, er wurde auch eingeschaltet, aber der
+    // Punkt blieb bei „Aus“ und es sah aus, als ginge die Auswahl nicht. Jetzt hört
+    // das Menü dem Player zu und zeichnet sich neu, sobald er umgeschaltet hat.
+    var tracks by remember(player) { mutableStateOf(player.currentTracks) }
+    var params by remember(player) { mutableStateOf(player.trackSelectionParameters) }
+    DisposableEffect(player) {
+        val listener = object : Player.Listener {
+            override fun onTracksChanged(newTracks: Tracks) {
+                tracks = newTracks
+            }
+
+            override fun onTrackSelectionParametersChanged(parameters: TrackSelectionParameters) {
+                params = parameters
+            }
+        }
+        player.addListener(listener)
+        // Was sich zwischen dem ersten Lesen und dem Anmelden getan hat, nachholen.
+        tracks = player.currentTracks
+        params = player.trackSelectionParameters
+        onDispose { player.removeListener(listener) }
+    }
 
     val (title, rows) = when (page) {
         OptionsPage.AUDIO -> t.audioTrack to trackRows(player, tracks, C.TRACK_TYPE_AUDIO)
-        OptionsPage.SUBTITLE -> t.subtitles to subtitleRows(player, tracks)
+        OptionsPage.SUBTITLE -> t.subtitles to subtitleRows(player, tracks, params)
         OptionsPage.ASPECT -> t.aspect to aspectRows(aspectMode, onAspect)
         OptionsPage.SLEEP -> t.sleepTimer to sleepRows(onClose)
         else -> t.options to rootRows(
             tracks = tracks,
+            params = params,
             aspectMode = aspectMode,
             isFavorite = isFavorite,
             onPage = onPage,
@@ -149,14 +186,25 @@ fun PlayerOptionsPanel(
             modifier = Modifier.padding(start = 12.dp, bottom = 14.dp)
         )
 
-        if (rows.isEmpty()) {
+        // Leer (die Spuren sind noch nicht da, oder der Film hat keine): eine Zeile
+        // „Zurück“ statt gar nichts. Ohne etwas Anwählbares fiel der Fokus ins Leere,
+        // und Zurück beendete dann den ganzen Film statt nur diese Seite.
+        val shown = if (rows.isEmpty()) {
             Text(
                 text = t.nothingToChoose,
                 style = MaterialTheme.typography.bodyMedium,
                 color = Brand.TextSecondary,
                 modifier = Modifier.padding(12.dp)
             )
-            return@Column
+            listOf(
+                OptionRow(
+                    id = "empty-back",
+                    title = "‹ " + t.back,
+                    onClick = { onPage(OptionsPage.ROOT) }
+                )
+            )
+        } else {
+            rows
         }
 
         LazyColumn(
@@ -164,7 +212,7 @@ fun PlayerOptionsPanel(
             contentPadding = PaddingValues(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            items(rows, key = { it.title + it.detail }) { row -> OptionLine(row) }
+            items(shown, key = { it.id }) { row -> OptionLine(row) }
         }
     }
 }
@@ -173,17 +221,22 @@ fun PlayerOptionsPanel(
 private fun OptionLine(row: OptionRow) {
     Surface(
         onClick = row.onClick,
+        enabled = row.enabled,
         colors = ClickableSurfaceDefaults.colors(
             containerColor = if (row.selected) Brand.SurfaceHigh else Color.Transparent,
             focusedContainerColor = Brand.Accent,
             pressedContainerColor = Brand.Accent,
             contentColor = if (row.selected) Brand.TextPrimary else Brand.TextSecondary,
             focusedContentColor = Brand.Background,
-            pressedContentColor = Brand.Background
+            pressedContentColor = Brand.Background,
+            disabledContainerColor = Color.Transparent,
+            disabledContentColor = Brand.TextSecondary.copy(alpha = 0.5f)
         ),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
-        modifier = Modifier.fillMaxWidth().alsoTappable(row.onClick)
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (row.enabled) Modifier.alsoTappable(row.onClick) else Modifier)
     ) {
         Row(
             Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
@@ -224,6 +277,7 @@ private fun OptionLine(row: OptionRow) {
 
 private fun rootRows(
     tracks: Tracks,
+    params: TrackSelectionParameters,
     aspectMode: AspectMode,
     isFavorite: Boolean,
     onPage: (OptionsPage) -> Unit,
@@ -232,29 +286,47 @@ private fun rootRows(
     val t = AppLocale.strings
     val audioCount = tracks.groups.filter { it.type == C.TRACK_TYPE_AUDIO }.sumOf { it.length }
     val textCount = tracks.groups.filter { it.type == C.TRACK_TYPE_TEXT }.sumOf { it.length }
+    // Rechts steht, was gerade läuft — „Deutsch ›“ sagt mehr als „3 ›“, und man
+    // muss die Seite nicht erst öffnen, um zu sehen, ob sie richtig steht.
+    val audioNow = selectedTrackName(tracks, C.TRACK_TYPE_AUDIO)
+    val subtitlesOff = params.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT)
+    val subtitleNow = if (subtitlesOff) null else selectedTrackName(tracks, C.TRACK_TYPE_TEXT)
     return listOfNotNull(
         OptionRow(
+            id = "root-audio",
             title = t.audioTrack,
-            detail = if (audioCount > 1) "$audioCount ›" else "›",
+            detail = when {
+                audioNow != null && audioCount > 1 -> "$audioNow ›"
+                audioCount > 1 -> "$audioCount ›"
+                else -> "›"
+            },
             onClick = { onPage(OptionsPage.AUDIO) }
         ),
         OptionRow(
+            id = "root-subtitles",
             title = t.subtitles,
-            detail = if (textCount > 0) "$textCount ›" else "${t.none} ›",
+            detail = when {
+                textCount == 0 -> "${t.none} ›"
+                subtitleNow != null -> "$subtitleNow ›"
+                else -> "${t.off} ›"
+            },
             onClick = { onPage(OptionsPage.SUBTITLE) }
         ),
         OptionRow(
+            id = "root-aspect",
             title = t.aspect,
             detail = aspectMode.label() + " ›",
             onClick = { onPage(OptionsPage.ASPECT) }
         ),
         OptionRow(
+            id = "root-sleep",
             title = t.sleepTimer,
             detail = if (SleepTimer.isActive) t.nMinutesShort(SleepTimer.remainingMinutes) + " ›" else "${t.off} ›",
             onClick = { onPage(OptionsPage.SLEEP) }
         ),
         onToggleFavorite?.let { toggle ->
             OptionRow(
+                id = "root-favorite",
                 title = if (isFavorite) t.removeFavorite else t.addFavorite,
                 selected = isFavorite,
                 onClick = toggle
@@ -263,24 +335,85 @@ private fun rootRows(
     )
 }
 
-private fun trackRows(player: ExoPlayer, tracks: Tracks, type: Int): List<OptionRow> =
-    tracks.groups.filter { it.type == type }.flatMap { group ->
-        (0 until group.length).map { index ->
-            OptionRow(
-                title = group.getTrackFormat(index).describe(index),
-                detail = group.getTrackFormat(index).channelLabel(),
+/** Name der Spur, die der Player für [type] gerade spielt — oder null. */
+private fun selectedTrackName(tracks: Tracks, type: Int): String? {
+    var number = 0
+    for (group in tracks.groups) {
+        if (group.type != type) continue
+        for (index in 0 until group.length) {
+            number++
+            if (group.isTrackSelected(index)) return group.getTrackFormat(index).describe(number)
+        }
+    }
+    return null
+}
+
+/**
+ * Eine Zeile pro Spur, über alle Gruppen hinweg durchgezählt.
+ *
+ * Durchgezählt, weil viele Anbieter jede Spur in eine eigene Gruppe packen: mit
+ * der Nummer innerhalb der Gruppe hieß dann jede namenlose Spur „Spur 1“. Jetzt
+ * heißen sie Spur 1, 2, 3 — und wenn zwei trotzdem gleich heißen (zweimal
+ * „Englisch · Stereo“, einmal AAC und einmal AC3), bekommt die zweite eine Nummer
+ * dazu, damit man sie auseinanderhalten kann.
+ */
+private fun trackRows(player: ExoPlayer, tracks: Tracks, type: Int): List<OptionRow> {
+    val t = AppLocale.strings
+    val rows = mutableListOf<OptionRow>()
+    var number = 0
+    tracks.groups.forEachIndexed { groupIndex, group ->
+        if (group.type != type) return@forEachIndexed
+        for (index in 0 until group.length) {
+            number++
+            val format = group.getTrackFormat(index)
+            // Ein Untertitel als Bild (PGS, DVB) oder ein Tonformat ohne passenden
+            // Decoder lässt sich auswählen, spielt dann aber nichts — oder bricht
+            // die Wiedergabe ab. Lieber sichtbar und ausgegraut als eine Falle.
+            val playable = group.isTrackSupported(index, true)
+            val detail = when {
+                !playable -> t.tracks.notPlayable
+                type == C.TRACK_TYPE_AUDIO -> format.channelLabel()
+                else -> format.subtitleFlags()
+            }
+            rows += OptionRow(
+                id = "track-$type-$groupIndex-$index",
+                title = format.describe(number),
+                detail = detail,
                 selected = group.isTrackSelected(index),
+                enabled = playable,
                 onClick = { player.selectTrack(group, index, type) }
             )
         }
     }
+    return rows.disambiguated()
+}
 
-private fun subtitleRows(player: ExoPlayer, tracks: Tracks): List<OptionRow> {
+/** Gleich lautende Zeilen bekommen ab der zweiten eine laufende Nummer. */
+private fun List<OptionRow>.disambiguated(): List<OptionRow> {
+    val seen = HashMap<String, Int>()
+    return map { row ->
+        val label = row.title + "\u0000" + row.detail
+        val count = (seen[label] ?: 0) + 1
+        seen[label] = count
+        if (count == 1) row else row.copy(title = "${row.title} ($count)")
+    }
+}
+
+private fun subtitleRows(
+    player: ExoPlayer,
+    tracks: Tracks,
+    params: TrackSelectionParameters
+): List<OptionRow> {
     val t = AppLocale.strings
-    val disabled = player.trackSelectionParameters.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT)
+    val disabled = params.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT)
+    val available = trackRows(player, tracks, C.TRACK_TYPE_TEXT)
+        .map { if (disabled) it.copy(selected = false) else it }
+    // „Aus“ ist auch dann die richtige Markierung, wenn der Player von sich aus
+    // keinen Untertitel gewählt hat — sonst stünde gar kein Punkt da.
     val off = OptionRow(
+        id = "subtitle-off",
         title = t.off,
-        selected = disabled,
+        selected = disabled || available.none { it.selected },
         onClick = {
             player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
                 .clearOverridesOfType(C.TRACK_TYPE_TEXT)
@@ -288,14 +421,13 @@ private fun subtitleRows(player: ExoPlayer, tracks: Tracks): List<OptionRow> {
                 .build()
         }
     )
-    val available = trackRows(player, tracks, C.TRACK_TYPE_TEXT)
-        .map { if (disabled) it.copy(selected = false) else it }
     return listOf(off) + available
 }
 
 private fun aspectRows(current: AspectMode, onAspect: (AspectMode) -> Unit): List<OptionRow> =
     AspectMode.entries.map { mode ->
         OptionRow(
+            id = "aspect-${mode.name}",
             title = mode.label(),
             detail = mode.hint(),
             selected = mode == current,
@@ -306,12 +438,14 @@ private fun aspectRows(current: AspectMode, onAspect: (AspectMode) -> Unit): Lis
 private fun sleepRows(onClose: () -> Unit): List<OptionRow> {
     val t = AppLocale.strings
     val off = OptionRow(
+        id = "sleep-off",
         title = t.off,
         selected = !SleepTimer.isActive,
         onClick = { SleepTimer.cancel(); onClose() }
     )
     return listOf(off) + SLEEP_CHOICES.map { minutes ->
         OptionRow(
+            id = "sleep-$minutes",
             title = t.nMinutes(minutes),
             selected = SleepTimer.isActive && SleepTimer.remainingMinutes == minutes,
             onClick = { SleepTimer.start(minutes); onClose() }
@@ -341,7 +475,7 @@ private fun AspectMode.hint(): String = when (this) {
  * matters: a label if there is one, otherwise the language spelled out in full,
  * otherwise at least a number the user can count through.
  */
-private fun androidx.media3.common.Format.describe(index: Int): String {
+private fun androidx.media3.common.Format.describe(number: Int): String {
     label?.takeIf { it.isNotBlank() }?.let { return it }
     val tag = language?.takeIf { it.isNotBlank() && it != "und" }
     if (tag != null) {
@@ -349,7 +483,17 @@ private fun androidx.media3.common.Format.describe(index: Int): String {
         if (display.isNotBlank()) return display.replaceFirstChar { it.uppercase() }
         return tag.uppercase()
     }
-    return AppLocale.strings.trackNumber(index + 1)
+    return AppLocale.strings.trackNumber(number)
+}
+
+/** „erzwungen“, „für Hörgeschädigte“ — das, was zwei gleichsprachige Untertitel unterscheidet. */
+private fun androidx.media3.common.Format.subtitleFlags(): String {
+    val t = AppLocale.strings.tracks
+    val parts = buildList {
+        if (selectionFlags and C.SELECTION_FLAG_FORCED != 0) add(t.forced)
+        if (roleFlags and C.ROLE_FLAG_DESCRIBES_MUSIC_AND_SOUND != 0) add(t.hearingImpaired)
+    }
+    return parts.joinToString(" · ")
 }
 
 private fun androidx.media3.common.Format.channelLabel(): String = when {

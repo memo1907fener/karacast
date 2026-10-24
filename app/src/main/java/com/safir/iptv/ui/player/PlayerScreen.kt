@@ -220,8 +220,16 @@ fun PlayerScreen(
 
     // When the coloured bar closes, its focused entry goes with it. Without this the
     // focus would be left nowhere and the remote would appear dead.
-    LaunchedEffect(state.colorBarVisible) {
-        if (!state.colorBarVisible) {
+    //
+    // Früher reagierte das nur auf die Farbleiste — und genau das machte das
+    // Optionsmenü tot: Grün/Gelb/Blau schließt die Leiste und öffnet das Menü, das
+    // Menü holte sich den Fokus nach 60 ms, und 20 ms später nahm ihn der
+    // Bildschirm wieder weg. Umgekehrt bekam nach dem Schließen von Menü oder
+    // Kanalliste niemand den Fokus zurück. Jetzt gilt eine Regel für alle drei:
+    // der Bildschirm nimmt den Fokus erst, wenn nichts mehr offen ist.
+    val overlayOpen = state.colorBarVisible || state.optionsVisible || state.channelListVisible
+    LaunchedEffect(overlayOpen) {
+        if (!overlayOpen) {
             delay(80)
             runCatching { focusRequester.requestFocus() }
         }
@@ -326,12 +334,21 @@ fun PlayerScreen(
 
                     // OK is the channel list — the shortcut people reach for first.
                     Key.DirectionCenter, Key.Enter -> {
-                        if (state.channelListVisible || state.optionsVisible ||
-                            state.colorBarVisible
-                        ) {
-                            false // the focused row handles it
-                        } else {
-                            viewModel.setChannelListVisible(true); true
+                        when {
+                            state.channelListVisible || state.optionsVisible ||
+                                state.colorBarVisible -> false // the focused row handles it
+
+                            // Steht die Fehlermeldung da, heißt OK „Erneut versuchen“.
+                            // Ihre Knöpfe sind per Steuerkreuz nicht erreichbar, weil der
+                            // Bildschirm die Pfeiltasten selbst behandelt — ohne das
+                            // öffnete OK die Kanalliste, und die Meldung blieb stehen.
+                            state.error != null -> {
+                                viewModel.retry(); true
+                            }
+
+                            else -> {
+                                viewModel.setChannelListVisible(true); true
+                            }
                         }
                     }
 

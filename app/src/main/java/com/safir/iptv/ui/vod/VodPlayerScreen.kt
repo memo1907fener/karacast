@@ -49,6 +49,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -127,6 +128,19 @@ fun VodPlayerScreen(onExit: () -> Unit) {
      */
     var actionsFocused by remember { mutableStateOf(false) }
 
+    /**
+     * Vom Zuschauer angehalten. Bisher gab es das gar nicht: OK und selbst die
+     * Play/Pause-Taste blendeten nur die Leiste ein und aus — einen Film anhalten,
+     * um ans Telefon zu gehen, ging nicht. Gemerkt wird es auch, damit die App nach
+     * dem Zurückholen aus dem Hintergrund nicht von selbst weiterspielt.
+     */
+    var paused by remember { mutableStateOf(false) }
+
+    // Das Loslassen von OK, mit dem der Film im Katalog gestartet wurde, kommt erst
+    // hier an. Früher blendete es nur die Leiste aus; seit OK anhält, würde jeder
+    // Film gleich angehalten beginnen. Live-Player und Kanalliste haben dieselbe Sperre.
+    val openedAt = remember { System.currentTimeMillis() }
+
     var positionMs by remember { mutableLongStateOf(request.startMs) }
     var durationMs by remember { mutableLongStateOf(0L) }
 
@@ -182,7 +196,7 @@ fun VodPlayerScreen(onExit: () -> Unit) {
                     exoPlayer.pause()
                 }
 
-                Lifecycle.Event.ON_START -> exoPlayer.play()
+                Lifecycle.Event.ON_START -> if (!paused) exoPlayer.play()
                 else -> Unit
             }
         }
@@ -216,7 +230,8 @@ fun VodPlayerScreen(onExit: () -> Unit) {
                 if (runCatching { exoPlayer.repairSilentAudio() }.getOrDefault(false)) {
                     runCatching {
                         exoPlayer.prepare()
-                        exoPlayer.play()
+                        // Eine Reparatur darf einen angehaltenen Film nicht starten.
+                        if (!paused) exoPlayer.play()
                     }
                     return
                 }
@@ -247,7 +262,7 @@ fun VodPlayerScreen(onExit: () -> Unit) {
             .build()
         exoPlayer.setMediaItem(item, resumeAt.coerceAtLeast(0L))
         exoPlayer.prepare()
-        exoPlayer.play()
+        if (!paused) exoPlayer.play()
         failure = null
     }
 
@@ -271,6 +286,7 @@ fun VodPlayerScreen(onExit: () -> Unit) {
             // a screen ends up with the focus nowhere and the remote doing nothing.
             if (barVisible &&
                 !actionsFocused &&
+                !paused &&
                 optionsPage == OptionsPage.NONE &&
                 System.currentTimeMillis() - barShownAt > BAR_TIMEOUT_MS
             ) {
@@ -287,8 +303,14 @@ fun VodPlayerScreen(onExit: () -> Unit) {
 
     // Whenever the icons let go, the screen itself takes the focus back, so the
     // next key press always lands somewhere.
-    LaunchedEffect(actionsFocused, barVisible) {
-        if (!actionsFocused) {
+    //
+    // Das Optionsmenü gehört mit in die Schlüssel: früher wurde es hier nicht
+    // beachtet. Nach dem Schließen hatte niemand mehr den Fokus, die Leiste blendete
+    // nie mehr aus und ◀▶ spulten nicht — die Fernbedienung wirkte tot. Und solange
+    // das Menü offen ist, darf ihm der Bildschirm den Fokus nicht wegnehmen.
+    val optionsOpen = optionsPage != OptionsPage.NONE
+    LaunchedEffect(actionsFocused, barVisible, optionsOpen) {
+        if (!actionsFocused && !optionsOpen) {
             delay(80)
             runCatching { focusRequester.requestFocus() }
         }
@@ -297,6 +319,20 @@ fun VodPlayerScreen(onExit: () -> Unit) {
     fun showBar() {
         barShownAt = System.currentTimeMillis()
         barVisible = true
+    }
+
+    /** Öffnet eine Seite des Optionsmenüs und lässt die Symbolleiste los. */
+    fun openOptions(page: OptionsPage) {
+        actionsFocused = false
+        optionsPage = page
+    }
+
+    fun togglePause() {
+        paused = !paused
+        exoPlayer.playWhenReady = !paused
+        // Wer anhält, steht vielleicht auf — die Stelle gleich sichern.
+        if (paused) rememberPosition()
+        showBar()
     }
 
     /**
@@ -308,6 +344,9 @@ fun VodPlayerScreen(onExit: () -> Unit) {
      */
     fun playNext() {
         val next = VodPlayback.after(request) ?: return
+        // Die nächste Folge beginnt zu laufen, auch wenn die vorige angehalten war.
+        paused = false
+        exoPlayer.playWhenReady = true
         positionMs = 0L
         durationMs = 0L
         retryToken = 0
@@ -342,6 +381,7 @@ fun VodPlayerScreen(onExit: () -> Unit) {
                     Key.Back, Key.Escape -> {
                         when {
                             optionsPage != OptionsPage.NONE -> {
+                                actionsFocused = false
                                 optionsPage = if (optionsPage == OptionsPage.ROOT) {
                                     OptionsPage.NONE
                                 } else {
@@ -389,13 +429,32 @@ fun VodPlayerScreen(onExit: () -> Unit) {
                         }
                     }
 
-                    Key.DirectionCenter, Key.Enter, Key.MediaPlayPause -> {
+                    // Die Medientasten tun immer, was draufsteht.
+                    Key.MediaPlayPause -> {
+                        togglePause(); true
+                    }
+
+                    Key.MediaPlay -> {
+                        if (paused) togglePause() else showBar()
+                        true
+                    }
+
+                    Key.MediaPause -> {
+                        if (!paused) togglePause() else showBar()
+                        true
+                    }
+
+                    // OK: ist die Leiste weg, holt der erste Druck sie nur hervor —
+                    // so hält niemand den Film an, der bloß nachsehen wollte, wie
+                    // spät es im Film ist. Steht sie da, hält OK an bzw. spielt weiter.
+                    Key.DirectionCenter, Key.Enter -> {
                         when {
+                            System.currentTimeMillis() - openedAt < OPEN_GUARD_MS -> true
                             optionsPage != OptionsPage.NONE -> false
                             // An icon has the focus: let it answer its own press.
                             actionsFocused -> false
                             barVisible -> {
-                                barVisible = false; true
+                                togglePause(); true
                             }
 
                             else -> {
@@ -417,9 +476,9 @@ fun VodPlayerScreen(onExit: () -> Unit) {
                                         positionMs = 0L
                                         showBar()
                                     }
-                                    ColorKey.GREEN -> optionsPage = OptionsPage.AUDIO
-                                    ColorKey.YELLOW -> optionsPage = OptionsPage.SUBTITLE
-                                    ColorKey.BLUE -> optionsPage = OptionsPage.ASPECT
+                                    ColorKey.GREEN -> openOptions(OptionsPage.AUDIO)
+                                    ColorKey.YELLOW -> openOptions(OptionsPage.SUBTITLE)
+                                    ColorKey.BLUE -> openOptions(OptionsPage.ASPECT)
                                 }
                                 true
                             }
@@ -463,6 +522,26 @@ fun VodPlayerScreen(onExit: () -> Unit) {
         if (buffering && failure == null) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = Brand.Accent)
+            }
+        }
+
+        // Angehalten: unübersehbar in der Mitte, damit niemand meint, das Bild
+        // sei eingefroren.
+        if (paused && failure == null) {
+            Box(
+                Modifier
+                    .align(Alignment.Center)
+                    .size(88.dp)
+                    .clip(RoundedCornerShape(44.dp))
+                    .background(Color.Black.copy(alpha = 0.6f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "❚❚",
+                    color = Color.White,
+                    fontSize = 30.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
 
@@ -516,18 +595,18 @@ fun VodPlayerScreen(onExit: () -> Unit) {
                     ColorAction(
                         key = ColorKey.GREEN,
                         label = t.colors.audio,
-                        onSelect = { optionsPage = OptionsPage.AUDIO }
+                        onSelect = { openOptions(OptionsPage.AUDIO) }
                     ),
                     ColorAction(
                         key = ColorKey.YELLOW,
                         label = t.colors.subtitles,
-                        onSelect = { optionsPage = OptionsPage.SUBTITLE }
+                        onSelect = { openOptions(OptionsPage.SUBTITLE) }
                     ),
                     ColorAction(
                         key = ColorKey.BLUE,
                         label = t.colors.picture,
                         detail = aspectMode.shortLabel(),
-                        onSelect = { optionsPage = OptionsPage.ASPECT }
+                        onSelect = { openOptions(OptionsPage.ASPECT) }
                     ),
                     ColorAction(
                         key = null,
@@ -543,7 +622,7 @@ fun VodPlayerScreen(onExit: () -> Unit) {
                     ColorAction(
                         key = null,
                         label = t.options,
-                        onSelect = { optionsPage = OptionsPage.ROOT }
+                        onSelect = { openOptions(OptionsPage.ROOT) }
                     )
                 )
             )
@@ -671,5 +750,8 @@ private fun ControlBar(
 
 /** Thirty seconds: an advert break in two presses, a missed line in one. */
 private const val SEEK_STEP_MS = 30_000L
+
+/** Nach dem Öffnen: so lange wird OK verworfen (siehe `openedAt`). */
+private const val OPEN_GUARD_MS = 600L
 
 private const val BAR_TIMEOUT_MS = 5_000L

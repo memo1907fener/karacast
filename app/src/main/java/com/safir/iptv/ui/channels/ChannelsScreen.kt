@@ -122,10 +122,51 @@ fun ChannelsScreen(
     onOpenSettings: () -> Unit,
     onBackToDashboard: () -> Unit = {},
     /** Opened from the dashboard's search tile — go straight to the search field. */
-    startInSearch: Boolean = false
+    startInSearch: Boolean = false,
+    /** Nur die Drei-Spalten-Ansicht hat Reiter für Filme und Serien. */
+    onOpenMovies: () -> Unit = {},
+    onOpenSeries: () -> Unit = {}
+) {
+    val viewModel: ChannelsViewModel = viewModel(factory = AppViewModelFactory)
+
+    // Einmal pro Aufbau gelesen: mitten in der Liste die Ansicht zu wechseln, würde
+    // dem Fokus den Boden wegziehen. Die Einstellung liegt auf einer anderen Seite,
+    // und auf dem Rückweg von dort wird dieser Bildschirm ohnehin neu aufgebaut.
+    val columns = remember { viewModel.columnLayout }
+    if (columns) {
+        ColumnsChannelsScreen(
+            viewModel = viewModel,
+            onPlay = onPlay,
+            onOpenGuide = onOpenGuide,
+            onOpenSettings = onOpenSettings,
+            onBackToDashboard = onBackToDashboard,
+            onOpenMovies = onOpenMovies,
+            onOpenSeries = onOpenSeries,
+            startInSearch = startInSearch
+        )
+    } else {
+        TwoLevelChannelsScreen(
+            viewModel = viewModel,
+            onPlay = onPlay,
+            onOpenGuide = onOpenGuide,
+            onOpenSettings = onOpenSettings,
+            onBackToDashboard = onBackToDashboard,
+            startInSearch = startInSearch
+        )
+    }
+}
+
+/** Die gewohnte Ansicht: erst die Gruppen, dann das Innere einer Gruppe. */
+@Composable
+private fun TwoLevelChannelsScreen(
+    viewModel: ChannelsViewModel,
+    onPlay: (channel: Channel, categoryId: String) -> Unit,
+    onOpenGuide: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onBackToDashboard: () -> Unit,
+    startInSearch: Boolean
 ) {
     val s = LocalStrings.current
-    val viewModel: ChannelsViewModel = viewModel(factory = AppViewModelFactory)
     val categories by viewModel.categories.collectAsStateWithLifecycle()
     val channels by viewModel.channels.collectAsStateWithLifecycle()
     val selectedCategory by viewModel.selectedCategoryId.collectAsStateWithLifecycle()
@@ -441,7 +482,7 @@ private fun CategoryPage(
 }
 
 /** An icon per category so the list is readable without reading it. */
-private fun Category.icon(): ImageVector = when {
+internal fun Category.icon(): ImageVector = when {
     id == FAVORITES_CATEGORY_ID -> Icons.Default.Star
     id == RECENT_CATEGORY_ID -> Icons.Default.History
     id == ALL_CATEGORY_ID -> Icons.Default.Tv
@@ -933,7 +974,7 @@ private fun ChannelRow(
 // -------------------------------------------------------------------- pieces
 
 @Composable
-private fun Clock(large: Boolean = false) {
+internal fun Clock(large: Boolean = false) {
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) {

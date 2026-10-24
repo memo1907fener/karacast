@@ -335,7 +335,26 @@ data class Strings(
     val pip: PipStrings = PipStrings(),
     val sources: SourceStrings = SourceStrings(),
     val backup: BackupStrings = BackupStrings(),
-    val homeRow: HomeRowStrings = HomeRowStrings()
+    val homeRow: HomeRowStrings = HomeRowStrings(),
+    val layout: LayoutStrings = LayoutStrings()
+)
+
+/**
+ * Live TV in drei Spalten: Gruppen, Kanäle, Vorschau nebeneinander.
+ *
+ * Die Pfeile in den Hinweisen zeigen in die Richtung, in die man drücken muss —
+ * im Arabischen ist die Ansicht gespiegelt, dort stehen sie deshalb andersherum.
+ */
+data class LayoutStrings(
+    val settingTitle: String = "Live TV in drei Spalten",
+    val settingHint: String = "Gruppen links, Kanäle in der Mitte, Vorschau rechts – alles " +
+        "auf einem Bildschirm. Mit ▲▼ in den Gruppen wechselt die Kanalliste sofort mit, " +
+        "ohne OK zu drücken.",
+    val groups: String = "Gruppen",
+    val fullscreen: String = "Vollbild",
+    val groupsHint: String = "▶ zu den Kanälen",
+    val channelsHint: String = "OK Vollbild · OK halten: Favorit · ◀ Gruppen",
+    val pickChannel: String = "Wähle einen Kanal – er läuft dann hier."
 )
 
 /** The rows on the television's own home screen. */
@@ -705,7 +724,13 @@ data class TrackStrings(
     val subtitleTitle: String = "Untertitel",
     val subtitleHint: String = "Untertitel in dieser Sprache einschalten, sofern der Stream " +
         "welche mitliefert. „Aus“ heißt: keine Untertitel.",
-    val automatic: String = "Automatisch"
+    val automatic: String = "Automatisch",
+    /** Neben einer Spur, die dieses Gerät nicht wiedergeben kann. */
+    val notPlayable: String = "nicht abspielbar",
+    /** Untertitel, die nur fremdsprachige Stellen übersetzen. */
+    val forced: String = "erzwungen",
+    /** Untertitel mit Geräuschbeschreibungen. */
+    val hearingImpaired: String = "für Hörgeschädigte"
 )
 
 /** The self-healing player: what it says while it puts a dead stream back together. */
@@ -748,7 +773,7 @@ data class VodStrings(
     val episodesTitle: String = "Folgen",
     val gridHint: String = "OK öffnet · ◀ zurück zu den Kategorien",
     val episodeHint: String = "OK spielt die Folge",
-    val playerHint: String = "OK Leiste · ◀▶ 30 Sek · Zurück beendet",
+    val playerHint: String = "OK Pause · ◀▶ 30 Sek · ▼ Ton & Untertitel · Zurück beendet",
     val season: (Int) -> String = { "Staffel $it" },
     val episode: (Int) -> String = { "Folge $it" },
     val nSeasons: (Int) -> String = { "$it Staffeln" },
@@ -1051,7 +1076,10 @@ private val Turkish = Strings(
         subtitleTitle = "Altyazı",
         subtitleHint = "Yayın altyazı içeriyorsa bu dildeki altyazıyı açar. " +
             "„Kapalı“ demek: altyazı yok.",
-        automatic = "Otomatik"
+        automatic = "Otomatik",
+        notPlayable = "oynatılamaz",
+        forced = "zorunlu",
+        hearingImpaired = "işitme engelliler için"
     ),
     vod = VodStrings(
         continueWatching = "İzlemeye devam et",
@@ -1079,7 +1107,7 @@ private val Turkish = Strings(
         episodesTitle = "Bölümler",
         gridHint = "OK açar · ◀ kategorilere döner",
         episodeHint = "OK bölümü oynatır",
-        playerHint = "OK çubuk · ◀▶ 30 sn · Geri bitirir",
+        playerHint = "OK duraklat · ◀▶ 30 sn · ▼ ses ve altyazı · Geri bitirir",
         season = { "$it. Sezon" },
         episode = { "$it. Bölüm" },
         nSeasons = { "$it sezon" },
@@ -1271,6 +1299,16 @@ private val Turkish = Strings(
         title = "TV ana ekranında",
         hint = "Favoriler ayrı bir satır olarak, yarım kalan filmler „İzlemeye devam et“ " +
             "altında – uygulamayı açmadan."
+    ),
+    layout = LayoutStrings(
+        settingTitle = "Canlı TV üç sütunda",
+        settingHint = "Gruplar solda, kanallar ortada, önizleme sağda – hepsi tek ekranda. " +
+            "Gruplarda ▲▼ ile gezinince kanal listesi OK'ye basmadan hemen değişir.",
+        groups = "Gruplar",
+        fullscreen = "Tam ekran",
+        groupsHint = "▶ kanallara",
+        channelsHint = "OK tam ekran · OK basılı tut: favori · ◀ gruplar",
+        pickChannel = "Bir kanal seç – burada oynar."
     ),
     sources = SourceStrings(
         title = "Kayıtlı hesaplar",
@@ -1647,7 +1685,10 @@ private val English = Strings(
         subtitleTitle = "Subtitles",
         subtitleHint = "Turn on subtitles in this language, where the stream carries them. " +
             "“Off” means no subtitles.",
-        automatic = "Automatic"
+        automatic = "Automatic",
+        notPlayable = "can't play here",
+        forced = "forced",
+        hearingImpaired = "SDH"
     ),
     vod = VodStrings(
         continueWatching = "Keep watching",
@@ -1675,7 +1716,7 @@ private val English = Strings(
         episodesTitle = "Episodes",
         gridHint = "OK opens · ◀ back to the categories",
         episodeHint = "OK plays the episode",
-        playerHint = "OK bar · ◀▶ 30 s · Back ends",
+        playerHint = "OK pause · ◀▶ 30 s · ▼ audio & subtitles · Back ends",
         season = { "Season $it" },
         episode = { "Episode $it" },
         nSeasons = { "$it seasons" },
@@ -1868,6 +1909,17 @@ private val English = Strings(
         title = "On the TV home screen",
         hint = "Favourites as a row of their own, half-watched films under “Continue " +
             "watching” – without opening the app."
+    ),
+    layout = LayoutStrings(
+        settingTitle = "Live TV in three columns",
+        settingHint = "Groups on the left, channels in the middle, preview on the right – " +
+            "all on one screen. Moving through the groups with ▲▼ changes the channel list " +
+            "straight away, no OK needed.",
+        groups = "Groups",
+        fullscreen = "Full screen",
+        groupsHint = "▶ to the channels",
+        channelsHint = "OK full screen · hold OK: favourite · ◀ groups",
+        pickChannel = "Pick a channel – it plays here."
     ),
     sources = SourceStrings(
         title = "Saved accesses",
@@ -2236,7 +2288,10 @@ private val Arabic = Strings(
             "وإن لم تتوفر، يبقى المسار الذي يبدأ به البث.",
         subtitleTitle = "الترجمة",
         subtitleHint = "تشغيل الترجمة بهذه اللغة إن كان البث يوفّرها. «إيقاف» تعني بلا ترجمة.",
-        automatic = "تلقائي"
+        automatic = "تلقائي",
+        notPlayable = "غير قابل للتشغيل",
+        forced = "إجباري",
+        hearingImpaired = "لضعاف السمع"
     ),
     vod = VodStrings(
         continueWatching = "متابعة المشاهدة",
@@ -2264,7 +2319,7 @@ private val Arabic = Strings(
         episodesTitle = "الحلقات",
         gridHint = "OK يفتح · ◀ للعودة إلى الفئات",
         episodeHint = "OK يشغّل الحلقة",
-        playerHint = "OK الشريط · ◀▶ ٣٠ ثانية · الرجوع ينهي",
+        playerHint = "OK إيقاف مؤقت · ◀▶ ٣٠ ثانية · ▼ الصوت والترجمة · الرجوع ينهي",
         season = { "الموسم $it" },
         episode = { "الحلقة $it" },
         nSeasons = { "$it موسم" },
@@ -2446,6 +2501,17 @@ private val Arabic = Strings(
         favorites = "Karacast – المفضلة",
         title = "على الشاشة الرئيسية للتلفاز",
         hint = "المفضلة كصف خاص، والأفلام غير المكتملة تحت «متابعة المشاهدة» – دون فتح التطبيق."
+    ),
+    layout = LayoutStrings(
+        settingTitle = "البث المباشر في ثلاثة أعمدة",
+        settingHint = "المجموعات على اليمين، والقنوات في الوسط، والمعاينة على اليسار – " +
+            "كل ذلك في شاشة واحدة. التنقل بين المجموعات بـ ▲▼ يغيّر قائمة القنوات فوراً " +
+            "دون الضغط على OK.",
+        groups = "المجموعات",
+        fullscreen = "ملء الشاشة",
+        groupsHint = "◀ إلى القنوات",
+        channelsHint = "OK ملء الشاشة · ضغطة مطوّلة على OK: المفضلة · ▶ المجموعات",
+        pickChannel = "اختر قناة – ستعمل هنا."
     ),
     sources = SourceStrings(
         title = "الحسابات المحفوظة",
