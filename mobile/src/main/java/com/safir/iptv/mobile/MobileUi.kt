@@ -19,12 +19,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -148,7 +150,12 @@ private val MobileType = Typography().let { base ->
 
 @Composable
 fun KaracastMobileTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = MobileColors, typography = MobileType, content = content)
+    MaterialTheme(colorScheme = MobileColors, typography = MobileType) {
+        // Text ohne eigene Farbe nimmt die „Inhaltsfarbe“ — und die ist außerhalb
+        // einer Surface schwarz. Auf dem dunklen Grund war Text dann kaum lesbar
+        // (Einstellungen, Titel unter den Plakaten). Hell als Vorgabe für alles.
+        CompositionLocalProvider(LocalContentColor provides Kc.TextPrimary, content = content)
+    }
 }
 
 /** Das App-Symbol: oranges Quadrat, weißes Dreieck — gezeichnet, nicht geladen. */

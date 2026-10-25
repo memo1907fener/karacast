@@ -174,7 +174,7 @@ private fun ResumeStrip(items: List<ContinueItem>, onPlay: (ContinueItem) -> Uni
                         )
                     }
                     Text(
-                        listOf(item.title, item.subtitle).filter { it.isNotBlank() }.joinToString(" · "),
+                        listOf(cleanTitle(item.title), item.subtitle).filter { it.isNotBlank() }.joinToString(" · "),
                         fontSize = 12.sp,
                         color = Kc.TextSecondary,
                         maxLines = 1,

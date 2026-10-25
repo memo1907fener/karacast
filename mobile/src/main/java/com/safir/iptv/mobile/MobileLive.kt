@@ -172,6 +172,21 @@ fun MobileStartScreen(
             RoundIconButton(Icons.Filled.Settings, t.settings, onOpenSettings)
         }
 
+        // Ein Gruß nach Tageszeit — macht die Startseite freundlicher als eine Leiste.
+        val hour = remember { java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY) }
+        val greeting = m.greetings[
+            when (hour) {
+                in 5..10 -> 0
+                in 11..17 -> 1
+                in 18..22 -> 2
+                else -> 3
+            }
+        ]
+        Column(Modifier.padding(horizontal = 20.dp)) {
+            Text(greeting, fontSize = 26.sp, fontWeight = FontWeight.Black)
+            Text(m.greetingHint, fontSize = 15.sp, color = Kc.TextSecondary)
+        }
+
         // Vier Wege hinein, groß und farbig — wer die App zum ersten Mal öffnet,
         // sieht sofort, was es gibt.
         Column(
@@ -261,7 +276,7 @@ private fun QuickTile(
 ) {
     Box(
         modifier
-            .height(76.dp)
+            .height(68.dp)
             .clip(RoundedCornerShape(18.dp))
             .background(brush)
             .clickable(onClick = onClick)
@@ -347,7 +362,7 @@ private fun ResumeCard(item: ContinueItem, onClick: () -> Unit) {
             )
         }
         Text(
-            text = listOf(item.title, item.subtitle).filter { it.isNotBlank() }.joinToString(" · "),
+            text = listOf(cleanTitle(item.title), item.subtitle).filter { it.isNotBlank() }.joinToString(" · "),
             fontSize = 13.sp,
             color = Kc.TextSecondary,
             maxLines = 1,

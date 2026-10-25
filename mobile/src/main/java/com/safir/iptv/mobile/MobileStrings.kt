@@ -14,6 +14,9 @@ import com.safir.iptv.ui.i18n.AppLanguage
  */
 data class MobileStrings(
     val nChannels: (Int) -> String = { "$it Kanäle" },
+    /** Gruß oben auf der Startseite, nach Tageszeit: Morgen, Tag, Abend, Nacht. */
+    val greetings: List<String> = listOf("Guten Morgen", "Guten Tag", "Guten Abend", "Gute Nacht"),
+    val greetingHint: String = "Was möchtest du sehen?",
     val seeAll: String = "Alle",
     val emptyStartTitle: String = "Los geht's",
     val emptyStart: String = "Tippe unten auf Live TV und wähle einen Kanal — " +
@@ -70,6 +73,8 @@ private val MobileGerman = MobileStrings()
 
 private val MobileTurkish = MobileStrings(
     nChannels = { "$it kanal" },
+    greetings = listOf("Günaydın", "İyi günler", "İyi akşamlar", "İyi geceler"),
+    greetingHint = "Ne izlemek istersin?",
     seeAll = "Tümü",
     emptyStartTitle = "Haydi başlayalım",
     emptyStart = "Aşağıda Canlı TV'ye dokun ve bir kanal seç — en son izlediklerin " +
@@ -124,6 +129,8 @@ private val MobileTurkish = MobileStrings(
 
 private val MobileEnglish = MobileStrings(
     nChannels = { "$it channels" },
+    greetings = listOf("Good morning", "Good afternoon", "Good evening", "Good night"),
+    greetingHint = "What would you like to watch?",
     seeAll = "All",
     emptyStartTitle = "Let's start",
     emptyStart = "Tap Live TV below and pick a channel — what you watched last will " +
@@ -178,6 +185,8 @@ private val MobileEnglish = MobileStrings(
 
 private val MobileArabic = MobileStrings(
     nChannels = { "$it قناة" },
+    greetings = listOf("صباح الخير", "نهارك سعيد", "مساء الخير", "تصبح على خير"),
+    greetingHint = "ماذا تريد أن تشاهد؟",
     seeAll = "الكل",
     emptyStartTitle = "لنبدأ",
     emptyStart = "اضغط على البث المباشر بالأسفل واختر قناة — ما شاهدته مؤخراً سيظهر هنا.",

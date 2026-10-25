@@ -46,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -63,8 +64,8 @@ import com.safir.iptv.ui.i18n.LocalStrings
 
 import kotlinx.coroutines.delay
 
-/** Wie breit eine Minute im Raster ist. Zwei Stunden ≈ eine Handybreite. */
-private val MINUTE: Dp = 2.6.dp
+/** Wie breit eine Minute im Raster ist: eine halbe Stunde ≈ ein lesbarer Titel. */
+private val MINUTE: Dp = 4.dp
 private val ROW_HEIGHT: Dp = 60.dp
 private val CHANNEL_COLUMN: Dp = 76.dp
 
@@ -127,7 +128,7 @@ fun MobileGuideScreen(
         Spacer(Modifier.height(14.dp))
 
         // Zeitleiste
-        Row(Modifier.fillMaxWidth().height(22.dp)) {
+        Row(Modifier.fillMaxWidth().height(22.dp).clipToBounds()) {
             Spacer(Modifier.width(CHANNEL_COLUMN))
             Box(Modifier.weight(1f).horizontalScroll(scroll)) {
                 Box(Modifier.width(gridWidth).fillMaxHeight()) {
@@ -228,7 +229,7 @@ private fun GuideRow(
     scroll: ScrollState,
     onOpen: (Program) -> Unit
 ) {
-    Row(Modifier.fillMaxWidth().height(ROW_HEIGHT + 4.dp)) {
+    Row(Modifier.fillMaxWidth().height(ROW_HEIGHT + 4.dp).clipToBounds()) {
         Column(
             Modifier
                 .width(CHANNEL_COLUMN)
@@ -268,9 +269,10 @@ private fun GuideRow(
                             .clip(RoundedCornerShape(10.dp))
                             .background(
                                 when {
-                                    live -> Color(0xFF252C44)
-                                    past -> Color(0xFF12151F)
-                                    else -> Color(0xFF181C2A)
+                                    // Was jetzt läuft, sticht heraus; Vergangenes tritt zurück.
+                                    live -> Color(0xFF4A2E2A)
+                                    past -> Color(0xFF151A30)
+                                    else -> Kc.Surface
                                 }
                             )
                             .clickable { onOpen(program) }
