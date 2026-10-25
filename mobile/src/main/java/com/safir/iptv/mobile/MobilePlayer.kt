@@ -110,7 +110,7 @@ import com.safir.iptv.ui.player.selectedTrackName
 import com.safir.iptv.ui.player.sleepRows
 import com.safir.iptv.ui.player.subtitleRows
 import com.safir.iptv.ui.player.trackRows
-import com.safir.iptv.ui.theme.Brand
+
 import com.safir.iptv.ui.vod.VodPlayback
 import com.safir.iptv.util.PictureInPicture
 import com.safir.iptv.util.applyLanguagePreferences
@@ -324,7 +324,7 @@ fun MobileLivePlayer(
         if (inPip) return@Box
 
         if (state.isBuffering && state.error == null) {
-            CircularProgressIndicator(Modifier.align(Alignment.Center), color = Brand.Accent)
+            CircularProgressIndicator(Modifier.align(Alignment.Center), color = Kc.Accent)
         }
 
         if (state.recovering && state.error == null) {
@@ -367,7 +367,7 @@ fun MobileLivePlayer(
                             Text(
                                 listOfNotNull(
                                     channel.number.takeIf { it > 0 }?.toString(),
-                                    channel.name
+                                    cleanTitle(channel.name)
                                 ).joinToString(" · "),
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold,
@@ -419,7 +419,7 @@ fun MobileLivePlayer(
                             controls.poke()
                         },
                         shape = RoundedCornerShape(36.dp),
-                        color = Brand.Accent,
+                        color = Kc.Accent,
                         contentColor = Color(0xFF101010),
                         modifier = Modifier.size(72.dp)
                     ) {
@@ -508,7 +508,7 @@ fun MobileLivePlayer(
             ) {
                 Text(t.playbackFailed, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.White)
                 Text(message, color = Color(0xFFC9CFDC), fontSize = 14.sp)
-                if (state.recovering) Text(t.recovery.stillTrying, color = Brand.TextSecondary, fontSize = 13.sp)
+                if (state.recovering) Text(t.recovery.stillTrying, color = Kc.TextSecondary, fontSize = 13.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedButton(onClick = { onExit(state.channel) }) { Text(t.back) }
                     Button(onClick = viewModel::retry) { Text(t.retry) }
@@ -533,7 +533,7 @@ fun MobileLivePlayer(
                 modifier = Modifier
                     .width(340.dp)
                     .fillMaxHeight()
-                    .background(Brand.Background.copy(alpha = 0.94f))
+                    .background(Kc.Background.copy(alpha = 0.94f))
                     .windowInsetsPadding(WindowInsets.displayCutout)
                     .pointerInput(Unit) { detectTapGestures { } },
                 contentPadding = PaddingValues(12.dp),
@@ -546,7 +546,7 @@ fun MobileLivePlayer(
                             .fillMaxWidth()
                             .height(52.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .background(if (current) Brand.SurfaceHigh else Color.Transparent)
+                            .background(if (current) Kc.SurfaceHigh else Color.Transparent)
                             .clickable { viewModel.select(item) }
                             .padding(horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -554,16 +554,16 @@ fun MobileLivePlayer(
                         Text(
                             item.number.takeIf { it > 0 }?.toString().orEmpty(),
                             fontSize = 12.sp,
-                            color = Brand.TextSecondary,
+                            color = Kc.TextSecondary,
                             modifier = Modifier.width(32.dp)
                         )
                         ChannelBadge(item.logoUrl, item.name, Modifier.size(width = 44.dp, height = 30.dp), corner = 7.dp)
                         Spacer(Modifier.width(10.dp))
                         Text(
-                            item.name,
+                            cleanTitle(item.name),
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,
-                            color = if (current) Brand.AccentSoft else Brand.TextPrimary,
+                            color = if (current) Kc.AccentSoft else Kc.TextPrimary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -635,7 +635,7 @@ fun TrackSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Brand.Surface
+        containerColor = Kc.Surface
     ) {
         Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
             Text(
@@ -647,13 +647,13 @@ fun TrackSheet(
             if (page == OptionsPage.AUDIO || page == OptionsPage.SUBTITLE) {
                 val now = if (page == OptionsPage.AUDIO) selectedTrackName(tracks, C.TRACK_TYPE_AUDIO) else null
                 if (now != null) {
-                    Text(now, color = Brand.AccentSoft, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 24.dp))
+                    Text(now, color = Kc.AccentSoft, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 24.dp))
                 }
             }
             if (rows.isEmpty()) {
                 Text(
                     t.nothingToChoose,
-                    color = Brand.TextSecondary,
+                    color = Kc.TextSecondary,
                     modifier = Modifier.padding(24.dp)
                 )
             } else {
@@ -678,7 +678,7 @@ private fun SheetRow(row: OptionRow) {
             Modifier
                 .size(20.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(if (row.selected) Brand.Accent else Brand.SurfaceHigh),
+                .background(if (row.selected) Kc.Accent else Kc.SurfaceHigh),
             contentAlignment = Alignment.Center
         ) {
             if (row.selected) Box(Modifier.size(8.dp).clip(RoundedCornerShape(4.dp)).background(Color(0xFF101010)))
@@ -688,9 +688,9 @@ private fun SheetRow(row: OptionRow) {
             row.title,
             fontSize = 16.sp,
             color = when {
-                !row.enabled -> Brand.TextSecondary.copy(alpha = 0.5f)
-                row.selected -> Brand.TextPrimary
-                else -> Brand.TextPrimary.copy(alpha = 0.85f)
+                !row.enabled -> Kc.TextSecondary.copy(alpha = 0.5f)
+                row.selected -> Kc.TextPrimary
+                else -> Kc.TextPrimary.copy(alpha = 0.85f)
             },
             fontWeight = if (row.selected) FontWeight.Bold else FontWeight.Normal,
             maxLines = 1,
@@ -698,7 +698,7 @@ private fun SheetRow(row: OptionRow) {
             modifier = Modifier.weight(1f)
         )
         if (row.detail.isNotEmpty()) {
-            Text(row.detail, fontSize = 13.sp, color = Brand.TextSecondary, maxLines = 1)
+            Text(row.detail, fontSize = 13.sp, color = Kc.TextSecondary, maxLines = 1)
         }
     }
 }
@@ -927,7 +927,7 @@ fun MobileVodPlayer(onExit: () -> Unit) {
         if (inPip) return@Box
 
         if (buffering && failure == null) {
-            CircularProgressIndicator(Modifier.align(Alignment.Center), color = Brand.Accent)
+            CircularProgressIndicator(Modifier.align(Alignment.Center), color = Kc.Accent)
         }
 
         AnimatedVisibility(
@@ -948,7 +948,7 @@ fun MobileVodPlayer(onExit: () -> Unit) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = t.back, tint = Color.White)
                     }
                     Column(Modifier.weight(1f)) {
-                        Text(request.title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(cleanTitle(request.title), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         if (request.subtitle.isNotBlank()) {
                             Text(request.subtitle, color = Color(0xFFC9CFDC), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
@@ -979,7 +979,7 @@ fun MobileVodPlayer(onExit: () -> Unit) {
                             controls.poke()
                         },
                         shape = RoundedCornerShape(36.dp),
-                        color = Brand.Accent,
+                        color = Kc.Accent,
                         contentColor = Color(0xFF101010),
                         modifier = Modifier.size(72.dp)
                     ) {
@@ -1020,8 +1020,8 @@ fun MobileVodPlayer(onExit: () -> Unit) {
                             scrubbing = false
                         },
                         colors = SliderDefaults.colors(
-                            thumbColor = Brand.Accent,
-                            activeTrackColor = Brand.Accent,
+                            thumbColor = Kc.Accent,
+                            activeTrackColor = Kc.Accent,
                             inactiveTrackColor = Color.White.copy(alpha = 0.25f)
                         ),
                         modifier = Modifier.fillMaxWidth().height(32.dp)

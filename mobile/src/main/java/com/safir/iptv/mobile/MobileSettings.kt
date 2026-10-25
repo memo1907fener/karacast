@@ -65,7 +65,7 @@ import com.safir.iptv.ui.i18n.AppLanguage
 import com.safir.iptv.ui.i18n.AppLocale
 import com.safir.iptv.ui.i18n.LocalStrings
 import com.safir.iptv.ui.settings.SettingsViewModel
-import com.safir.iptv.ui.theme.Brand
+
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -76,12 +76,12 @@ private fun SettingsCard(title: String, content: @Composable ColumnScope.() -> U
             title.uppercase(),
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
-            color = Brand.TextSecondary,
+            color = Kc.TextSecondary,
             letterSpacing = 1.sp,
             modifier = Modifier.padding(start = 8.dp, bottom = 8.dp)
         )
         Column(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Brand.Surface),
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Kc.Surface),
             content = content
         )
     }
@@ -95,9 +95,9 @@ private fun LinkRow(title: String, detail: String? = null, onClick: () -> Unit) 
     ) {
         Column(Modifier.weight(1f)) {
             Text(title, fontSize = 15.sp)
-            if (!detail.isNullOrBlank()) Text(detail, fontSize = 13.sp, color = Brand.TextSecondary)
+            if (!detail.isNullOrBlank()) Text(detail, fontSize = 13.sp, color = Kc.TextSecondary)
         }
-        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = Brand.TextSecondary)
+        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = Kc.TextSecondary)
     }
 }
 
@@ -109,19 +109,19 @@ private fun SwitchRow(title: String, hint: String? = null, checked: Boolean, onC
     ) {
         Column(Modifier.weight(1f)) {
             Text(title, fontSize = 15.sp)
-            if (!hint.isNullOrBlank()) Text(hint, fontSize = 12.sp, color = Brand.TextSecondary)
+            if (!hint.isNullOrBlank()) Text(hint, fontSize = 12.sp, color = Kc.TextSecondary)
         }
         Spacer(Modifier.width(12.dp))
         Switch(
             checked = checked,
             onCheckedChange = onChange,
-            colors = SwitchDefaults.colors(checkedTrackColor = Brand.Accent)
+            colors = SwitchDefaults.colors(checkedTrackColor = Kc.Accent)
         )
     }
 }
 
 @Composable
-private fun Divider() = HorizontalDivider(color = Brand.Border.copy(alpha = 0.6f), modifier = Modifier.padding(start = 16.dp))
+private fun Divider() = HorizontalDivider(color = Kc.Border.copy(alpha = 0.6f), modifier = Modifier.padding(start = 16.dp))
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -169,7 +169,7 @@ fun MobileSettingsScreen(
     Column(
         Modifier
             .fillMaxSize()
-            .background(Brand.Background)
+            .screenBackground()
             .statusBarsPadding()
     ) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -195,13 +195,34 @@ fun MobileSettingsScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(if (state.error != null) Brand.Danger.copy(alpha = 0.18f) else Brand.SurfaceHigh)
+                        .background(if (state.error != null) Kc.Danger.copy(alpha = 0.18f) else Kc.SurfaceHigh)
                         .padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(note, fontSize = 14.sp, modifier = Modifier.weight(1f))
                     if (state.busyMessage == null) {
                         TextButton(onClick = viewModel::dismissMessages) { Text(m.close) }
+                    }
+                }
+            }
+
+            // Nach einem Absturz: was es war, damit es sich beheben lässt.
+            state.lastCrash?.let { crash ->
+                SettingsCard(t.crash.title) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(t.crash.explain, fontSize = 13.sp, color = Kc.TextSecondary)
+                        Text(
+                            java.text.DateFormat.getDateTimeInstance().format(java.util.Date(crash.atMs)),
+                            fontSize = 13.sp
+                        )
+                        Text(crash.message, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Kc.Danger)
+                        Text(
+                            crash.trace.lineSequence().take(8).joinToString("\n"),
+                            fontSize = 11.sp,
+                            color = Kc.TextSecondary,
+                            lineHeight = 14.sp
+                        )
+                        TextButton(onClick = viewModel::clearCrashReport) { Text(t.crash.forget) }
                     }
                 }
             }
@@ -218,7 +239,7 @@ fun MobileSettingsScreen(
                                 "${t.epgSection}: " + if (state.hasGuide) t.available else t.noData
                             ).joinToString(" · "),
                             fontSize = 13.sp,
-                            color = Brand.TextSecondary
+                            color = Kc.TextSecondary
                         )
                     }
                     Divider()
@@ -233,7 +254,7 @@ fun MobileSettingsScreen(
                     Text(
                         t.sources.title,
                         fontSize = 13.sp,
-                        color = Brand.TextSecondary,
+                        color = Kc.TextSecondary,
                         modifier = Modifier.padding(start = 16.dp, top = 12.dp)
                     )
                     sources.forEach { saved ->
@@ -244,10 +265,10 @@ fun MobileSettingsScreen(
                         ) {
                             Text(saved.name, fontSize = 15.sp, modifier = Modifier.weight(1f))
                             if (active) {
-                                Text(t.sources.active, fontSize = 13.sp, color = Brand.Live)
+                                Text(t.sources.active, fontSize = 13.sp, color = Kc.Live)
                             } else {
                                 TextButton(onClick = { viewModel.removeSource(saved) }) {
-                                    Text(t.sources.remove, color = Brand.TextSecondary)
+                                    Text(t.sources.remove, color = Kc.TextSecondary)
                                 }
                                 TextButton(onClick = { viewModel.switchSource(saved, onSourceSwitched) }) {
                                     Text(t.sources.switchTo)
@@ -262,7 +283,7 @@ fun MobileSettingsScreen(
                 Row(
                     Modifier.fillMaxWidth().clickable { confirmDisconnect = true }.padding(16.dp)
                 ) {
-                    Text(t.disconnect, color = Brand.Danger, fontSize = 15.sp)
+                    Text(t.disconnect, color = Kc.Danger, fontSize = 15.sp)
                 }
             }
 
@@ -324,8 +345,8 @@ fun MobileSettingsScreen(
                         Text("${t.installedVersion}: ${BuildConfig.VERSION_NAME}", fontSize = 15.sp)
                         val info = state.updateInfo
                         if (info != null) {
-                            Text(t.versionAvailable(info.versionName), color = Brand.AccentSoft, fontWeight = FontWeight.Bold)
-                            if (info.notes.isNotBlank()) Text(info.notes, fontSize = 13.sp, color = Brand.TextSecondary)
+                            Text(t.versionAvailable(info.versionName), color = Kc.AccentSoft, fontWeight = FontWeight.Bold)
+                            if (info.notes.isNotBlank()) Text(info.notes, fontSize = 13.sp, color = Kc.TextSecondary)
                             if (state.downloading) {
                                 if (state.downloadPercent >= 0) {
                                     LinearProgressIndicator(
@@ -353,7 +374,7 @@ fun MobileSettingsScreen(
                         Spacer(Modifier.width(10.dp))
                         Text("Karacast Mobil · ${t.versionLabel(BuildConfig.VERSION_NAME)}", fontWeight = FontWeight.Bold)
                     }
-                    Text(t.disclaimer, fontSize = 13.sp, color = Brand.TextSecondary)
+                    Text(t.disclaimer, fontSize = 13.sp, color = Kc.TextSecondary)
                 }
             }
         }
@@ -368,12 +389,12 @@ fun MobileSettingsScreen(
                 TextButton(onClick = {
                     confirmDisconnect = false
                     viewModel.disconnect(onDisconnected)
-                }) { Text(t.disconnect, color = Brand.Danger) }
+                }) { Text(t.disconnect, color = Kc.Danger) }
             },
             dismissButton = {
                 TextButton(onClick = { confirmDisconnect = false }) { Text(t.sources.cancel) }
             },
-            containerColor = Brand.Surface
+            containerColor = Kc.Surface
         )
     }
 }
@@ -420,7 +441,7 @@ fun MobileUpdatePrompt() {
                         LinearProgressIndicator(Modifier.fillMaxWidth())
                     }
                 }
-                problem?.let { Text(it, color = Brand.Danger) }
+                problem?.let { Text(it, color = Kc.Danger) }
             }
         },
         confirmButton = {
@@ -448,10 +469,10 @@ fun MobileUpdatePrompt() {
                 TextButton(enabled = !busy, onClick = {
                     settings.skippedUpdateCode = info.versionCode
                     offer = null
-                }) { Text(t.update.skipVersion, color = Brand.TextSecondary) }
+                }) { Text(t.update.skipVersion, color = Kc.TextSecondary) }
                 TextButton(enabled = !busy, onClick = { offer = null }) { Text(t.update.later) }
             }
         },
-        containerColor = Brand.Surface
+        containerColor = Kc.Surface
     )
 }

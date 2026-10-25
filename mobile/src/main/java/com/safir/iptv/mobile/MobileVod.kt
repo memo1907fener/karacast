@@ -55,6 +55,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -71,7 +72,7 @@ import com.safir.iptv.domain.model.Movie
 import com.safir.iptv.domain.model.Series
 import com.safir.iptv.ui.AppViewModelFactory
 import com.safir.iptv.ui.i18n.LocalStrings
-import com.safir.iptv.ui.theme.Brand
+
 import com.safir.iptv.ui.vod.MoviesViewModel
 import com.safir.iptv.ui.vod.SeriesDetailViewModel
 import com.safir.iptv.ui.vod.SeriesViewModel
@@ -105,7 +106,7 @@ private fun CatalogHeader(
         ) {
             Text(title, style = MaterialTheme.typography.headlineMedium)
             Spacer(Modifier.width(10.dp))
-            if (count != null) Text(count, fontSize = 14.sp, color = Brand.TextSecondary)
+            if (count != null) Text(count, fontSize = 14.sp, color = Kc.TextSecondary)
             Spacer(Modifier.weight(1f))
             RoundIconButton(Icons.Filled.Search, placeholder) { searching = true }
         }
@@ -124,7 +125,7 @@ private fun CategoryChips(
         listOf(Category(VOD_FAVORITES_CATEGORY_ID, t.vod.favorites)) + categories
     }
     ChipRow(all, key = { it.id }) { category ->
-        KcChip(label = category.name, selected = category.id == selected, onClick = { onSelect(category.id) })
+        KcChip(label = cleanTitle(category.name), selected = category.id == selected, onClick = { onSelect(category.id) })
     }
 }
 
@@ -134,10 +135,11 @@ private fun PosterCell(title: String, url: String?, caption: String?, onClick: (
         Modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Poster(url, title, Modifier.fillMaxWidth().aspectRatio(2f / 3f))
-        Text(title, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        if (!caption.isNullOrBlank()) {
-            Text("★ $caption", fontSize = 12.sp, color = Brand.AccentSoft, maxLines = 1)
+        val shown = cleanTitle(title)
+        Poster(url, shown, Modifier.fillMaxWidth().aspectRatio(2f / 3f))
+        Text(shown, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        ratingOf(caption)?.let {
+            Text("★ $it", fontSize = 12.sp, color = Kc.AccentSoft, maxLines = 1)
         }
     }
 }
@@ -174,7 +176,7 @@ private fun ResumeStrip(items: List<ContinueItem>, onPlay: (ContinueItem) -> Uni
                     Text(
                         listOf(item.title, item.subtitle).filter { it.isNotBlank() }.joinToString(" · "),
                         fontSize = 12.sp,
-                        color = Brand.TextSecondary,
+                        color = Kc.TextSecondary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -261,7 +263,7 @@ fun MobileMoviesScreen(onPlayVod: () -> Unit) {
                 state.openedDetail?.released?.take(4),
                 state.openedDetail?.genre,
                 state.openedDetail?.durationSecs?.let { durationOf(it * 1000L) },
-                (state.openedDetail?.rating ?: movie.rating)?.takeIf { it.isNotBlank() }?.let { "★ $it" }
+                ratingOf(state.openedDetail?.rating ?: movie.rating)?.let { "★ $it" }
             ).filter { it.isNotBlank() }.joinToString(" · "),
             resumeMs = state.openedResumeMs,
             favorite = state.openedIsFavorite,
@@ -299,7 +301,22 @@ private fun <T> CatalogGrid(
     ) {
         if (resume.isNotEmpty()) {
             item(key = "resume", span = { GridItemSpan(maxLineSpan) }) {
-                Box(Modifier.padding(bottom = 4.dp)) { ResumeStrip(resume, onResume) }
+                // Das Raster hat 20 dp Rand; der Streifen soll wie überall bis an
+                // den Bildschirmrand laufen und bringt seinen Rand selbst mit.
+                Box(
+                    Modifier
+                        .padding(bottom = 4.dp)
+                        .layout { measurable, constraints ->
+                            val extra = 40.dp.roundToPx()
+                            val width = constraints.maxWidth + extra
+                            val placeable = measurable.measure(
+                                constraints.copy(minWidth = width, maxWidth = width)
+                            )
+                            layout(constraints.maxWidth, placeable.height) {
+                                placeable.place(-extra / 2, 0)
+                            }
+                        }
+                ) { ResumeStrip(resume, onResume) }
             }
         }
         when {
@@ -329,7 +346,7 @@ private fun MovieSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = Brand.Surface
+        containerColor = Kc.Surface
     ) {
         Column(
             Modifier
@@ -342,8 +359,8 @@ private fun MovieSheet(
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Poster(movie.posterUrl, movie.name, Modifier.width(110.dp).aspectRatio(2f / 3f))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(movie.name, style = MaterialTheme.typography.titleLarge)
-                    if (meta.isNotBlank()) Text(meta, fontSize = 13.sp, color = Brand.TextSecondary)
+                    Text(cleanTitle(movie.name), style = MaterialTheme.typography.titleLarge)
+                    if (meta.isNotBlank()) Text(meta, fontSize = 13.sp, color = Kc.TextSecondary)
                 }
             }
             if (resumeMs > 0L) {
@@ -387,8 +404,8 @@ private fun FavoriteButton(favorite: Boolean, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(14.dp),
-        color = Brand.SurfaceHigh,
-        contentColor = if (favorite) Brand.Accent else Brand.TextPrimary,
+        color = Kc.SurfaceHigh,
+        contentColor = if (favorite) Kc.Accent else Kc.TextPrimary,
         modifier = Modifier.size(50.dp)
     ) {
         Box(contentAlignment = Alignment.Center) {
@@ -488,7 +505,7 @@ fun MobileSeriesDetail(seriesId: Int, onBack: () -> Unit, onPlay: () -> Unit) {
     }
 
     LazyColumn(
-        Modifier.fillMaxSize().background(Brand.Background),
+        Modifier.fillMaxSize().background(Kc.Background),
         contentPadding = PaddingValues(bottom = 32.dp)
     ) {
         item(key = "hero") {
@@ -506,16 +523,16 @@ fun MobileSeriesDetail(seriesId: Int, onBack: () -> Unit, onPlay: () -> Unit) {
                 Box(
                     Modifier.fillMaxSize().background(
                         androidx.compose.ui.graphics.Brush.verticalGradient(
-                            0f to Brand.Background.copy(alpha = 0.35f),
+                            0f to Kc.Background.copy(alpha = 0.35f),
                             0.5f to Color.Transparent,
-                            1f to Brand.Background
+                            1f to Kc.Background
                         )
                     )
                 )
                 Surface(
                     onClick = onBack,
                     shape = RoundedCornerShape(22.dp),
-                    color = Brand.Background.copy(alpha = 0.6f),
+                    color = Kc.Background.copy(alpha = 0.6f),
                     modifier = Modifier.statusBarsPadding().padding(12.dp).size(44.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
@@ -530,14 +547,14 @@ fun MobileSeriesDetail(seriesId: Int, onBack: () -> Unit, onPlay: () -> Unit) {
                 Modifier.padding(horizontal = 20.dp).padding(top = 0.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(name, fontSize = 32.sp, fontWeight = FontWeight.Black, lineHeight = 34.sp)
+                Text(cleanTitle(name), fontSize = 32.sp, fontWeight = FontWeight.Black, lineHeight = 34.sp)
                 val meta = listOfNotNull(
                     series?.released?.take(4),
                     detail?.seasons?.size?.takeIf { it > 0 }?.let { t.vod.nSeasons(it) },
                     series?.genre,
-                    series?.rating?.takeIf { it.isNotBlank() }?.let { "★ $it" }
+                    ratingOf(series?.rating)?.let { "★ $it" }
                 ).filter { it.isNotBlank() }.joinToString(" · ")
-                if (meta.isNotBlank()) Text(meta, fontSize = 14.sp, color = Brand.TextSecondary)
+                if (meta.isNotBlank()) Text(meta, fontSize = 14.sp, color = Kc.TextSecondary)
 
                 if (detail != null && detail.episodes.isNotEmpty()) {
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -614,7 +631,7 @@ fun MobileSeriesDetail(seriesId: Int, onBack: () -> Unit, onPlay: () -> Unit) {
                         Switch(
                             checked = state.autoNext,
                             onCheckedChange = viewModel::setAutoNext,
-                            colors = SwitchDefaults.colors(checkedTrackColor = Brand.Accent)
+                            colors = SwitchDefaults.colors(checkedTrackColor = Kc.Accent)
                         )
                     }
                 }
@@ -658,11 +675,11 @@ private fun EpisodeRow(episode: Episode, progress: Float?, label: String, onClic
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(label, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
             episode.durationSecs?.takeIf { it > 0 }?.let {
-                Text(durationOf(it * 1000L), fontSize = 13.sp, color = Brand.TextSecondary)
+                Text(durationOf(it * 1000L), fontSize = 13.sp, color = Kc.TextSecondary)
             }
         }
         if (progress != null && progress >= 0.95f) {
-            Icon(Icons.Filled.Check, contentDescription = null, tint = Brand.Live)
+            Icon(Icons.Filled.Check, contentDescription = null, tint = Kc.Live)
         }
     }
 }

@@ -35,7 +35,7 @@ import com.safir.iptv.ui.i18n.AppLanguage
 import com.safir.iptv.ui.i18n.AppLocale
 import com.safir.iptv.ui.i18n.LocalStrings
 import com.safir.iptv.ui.i18n.stringsFor
-import com.safir.iptv.ui.theme.Brand
+
 import com.safir.iptv.util.PictureInPicture
 import com.safir.iptv.util.SleepTimer
 import com.safir.iptv.util.supportsPictureInPicture
@@ -57,6 +57,7 @@ class MobileActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        requestedOrientation = baseOrientation(this)
         setUpPictureInPicture()
 
         AppLocale.set(AppLanguage.fromTag(settings.language))
@@ -70,7 +71,7 @@ class MobileActivity : ComponentActivity() {
                     if (language.isRtl) LayoutDirection.Rtl else LayoutDirection.Ltr
             ) {
                 KaracastMobileTheme {
-                    Box(Modifier.fillMaxSize().background(Brand.Background)) {
+                    Box(Modifier.fillMaxSize().screenBackground()) {
                         // Erst das Gerät (eine APK kann auf einem Fernseher landen),
                         // dann die Lizenz, dann die App.
                         TvGate {
@@ -141,6 +142,17 @@ private fun SleepWatcher(onExpired: () -> Unit) {
     }
 }
 
+/**
+ * Handys hochkant — dafür ist die Oberfläche gebaut; quer geht nur der Player.
+ * Tablets drehen frei.
+ */
+fun baseOrientation(context: Context): Int =
+    if (context.resources.configuration.smallestScreenWidthDp in 1 until 600) {
+        ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+    } else {
+        ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+    }
+
 tailrec fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this
     is ContextWrapper -> baseContext.findActivity()
@@ -160,7 +172,6 @@ fun PlayerChrome(landscape: Boolean = true) {
     val activity = LocalContext.current.findActivity() ?: return
     val view = LocalView.current
     DisposableEffect(landscape) {
-        val before = activity.requestedOrientation
         if (landscape) {
             activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         }
@@ -169,12 +180,9 @@ fun PlayerChrome(landscape: Boolean = true) {
         controller.hide(WindowInsetsCompat.Type.systemBars())
         view.keepScreenOn = true
         onDispose {
-            activity.requestedOrientation =
-                if (before == ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE) {
-                    ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-                } else {
-                    before
-                }
+            // Zurück zur Grundlage, nicht zu „unbestimmt“: mit gesperrter
+            // Drehung bliebe ein Handy sonst quer liegen, nachdem der Film vorbei ist.
+            activity.requestedOrientation = baseOrientation(activity)
             controller.show(WindowInsetsCompat.Type.systemBars())
             view.keepScreenOn = false
         }

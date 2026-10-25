@@ -59,7 +59,7 @@ import com.safir.iptv.domain.model.Program
 import com.safir.iptv.ui.i18n.LocalStrings
 import com.safir.iptv.ui.login.SetupMode
 import com.safir.iptv.ui.reminders.rememberReminderNotice
-import com.safir.iptv.ui.theme.Brand
+
 import com.safir.iptv.ui.vod.VodPlayback
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -281,7 +281,7 @@ private fun MobileNavHost(startDestination: String) {
             val t = LocalStrings.current.reminders
             Surface(
                 shape = RoundedCornerShape(16.dp),
-                color = Brand.SurfaceHigh,
+                color = Kc.SurfaceHigh,
                 shadowElevation = 8.dp,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
@@ -291,16 +291,16 @@ private fun MobileNavHost(startDestination: String) {
             ) {
                 Row(Modifier.padding(start = 16.dp, end = 6.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(t.soon, fontSize = 12.sp, color = Brand.AccentSoft, fontWeight = FontWeight.Bold)
+                        Text(t.soon, fontSize = 12.sp, color = Kc.AccentSoft, fontWeight = FontWeight.Bold)
                         Text(reminder.title, fontWeight = FontWeight.Bold, maxLines = 1)
                         Text(
                             t.startsAt(clockOf(reminder.startMs), reminder.channelName),
                             fontSize = 13.sp,
-                            color = Brand.TextSecondary,
+                            color = Kc.TextSecondary,
                             maxLines = 1
                         )
                     }
-                    TextButton(onClick = { notice.close() }) { Text(t.dismiss, color = Brand.TextSecondary) }
+                    TextButton(onClick = { notice.close() }) { Text(t.dismiss, color = Kc.TextSecondary) }
                     TextButton(onClick = { notice.switch() }) { Text(t.switchNow, fontWeight = FontWeight.Bold) }
                 }
             }
@@ -327,6 +327,8 @@ private fun MainTabs(
     var tab by rememberSaveable { mutableStateOf(MainTab.START) }
     var liveSearch by rememberSaveable { mutableStateOf(false) }
     val mini by MiniPlayback.current.collectAsStateWithLifecycle()
+    val movies: com.safir.iptv.ui.vod.MoviesViewModel =
+        androidx.lifecycle.viewmodel.compose.viewModel(factory = com.safir.iptv.ui.AppViewModelFactory)
 
     // Zurück führt erst zum Start, dann aus der App.
     BackHandler(enabled = tab != MainTab.START) { tab = MainTab.START }
@@ -340,7 +342,8 @@ private fun MainTabs(
     }
 
     Scaffold(
-        containerColor = Brand.Background,
+        modifier = Modifier.screenBackground(),
+        containerColor = Color.Transparent,
         bottomBar = {
             Column {
                 mini?.let { item ->
@@ -350,8 +353,8 @@ private fun MainTabs(
                         onClose = { MiniPlayback.close() }
                     )
                 }
-                HorizontalDivider(color = Brand.Border, thickness = 1.dp)
-                NavigationBar(containerColor = Color(0xFF10131E), tonalElevation = 0.dp) {
+                HorizontalDivider(color = Kc.Border.copy(alpha = 0.6f), thickness = 1.dp)
+                NavigationBar(containerColor = Kc.NavBar, tonalElevation = 0.dp) {
                     MainTab.entries.forEach { entry ->
                         val (label, icon) = entry.labelAndIcon(t)
                         NavigationBarItem(
@@ -363,11 +366,11 @@ private fun MainTabs(
                             icon = { Icon(icon, contentDescription = null) },
                             label = { Text(label, fontSize = 11.sp, maxLines = 1) },
                             colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = Brand.Accent,
-                                selectedTextColor = Brand.Accent,
-                                indicatorColor = Color.Transparent,
-                                unselectedIconColor = Brand.TextSecondary,
-                                unselectedTextColor = Brand.TextSecondary
+                                selectedIconColor = Kc.Accent,
+                                selectedTextColor = Kc.Accent,
+                                indicatorColor = Kc.Accent.copy(alpha = 0.18f),
+                                unselectedIconColor = Kc.TextSecondary,
+                                unselectedTextColor = Kc.TextSecondary
                             )
                         )
                     }
@@ -375,13 +378,20 @@ private fun MainTabs(
             }
         }
     ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding).background(Brand.Background)) {
+        Box(Modifier.fillMaxSize().padding(padding)) {
             when (tab) {
                 MainTab.START -> MobileStartScreen(
                     playingId = mini?.channel?.id,
                     onTapChannel = { c, cat -> tapChannel(c, cat) },
                     onPlayVod = onPlayVod,
-                    onOpenLive = { tab = MainTab.LIVE },
+                    onOpenTab = { tab = it },
+                    onOpenMovie = { movie ->
+                        // Dasselbe ViewModel wie im Reiter Filme: dort geht das
+                        // Blatt zum Film gleich auf.
+                        movies.open(movie)
+                        tab = MainTab.MOVIES
+                    },
+                    onOpenSeries = onOpenSeries,
                     onSearch = {
                         liveSearch = true
                         tab = MainTab.LIVE

@@ -3,6 +3,7 @@ package com.safir.iptv.mobile
 import android.view.ViewGroup
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -60,6 +61,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.foundation.lazy.itemsIndexed
+import com.safir.iptv.ui.vod.MoviesViewModel
+import com.safir.iptv.ui.vod.SeriesViewModel
+import androidx.compose.material.icons.filled.LiveTv
+import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.VideoLibrary
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
@@ -89,7 +98,7 @@ import com.safir.iptv.domain.model.RECENT_CATEGORY_ID
 import com.safir.iptv.ui.AppViewModelFactory
 import com.safir.iptv.ui.channels.ChannelsViewModel
 import com.safir.iptv.ui.i18n.LocalStrings
-import com.safir.iptv.ui.theme.Brand
+
 import com.safir.iptv.ui.vod.VodPlayback
 import com.safir.iptv.util.buildPlayer
 import com.safir.iptv.util.repairSilentAudio
@@ -121,7 +130,9 @@ fun MobileStartScreen(
     playingId: String?,
     onTapChannel: (Channel, String) -> Unit,
     onPlayVod: () -> Unit,
-    onOpenLive: () -> Unit,
+    onOpenTab: (MainTab) -> Unit,
+    onOpenMovie: (com.safir.iptv.domain.model.Movie) -> Unit,
+    onOpenSeries: (Int) -> Unit,
     onSearch: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
@@ -136,12 +147,19 @@ fun MobileStartScreen(
     val favorites by favoriteFlow.collectAsStateWithLifecycle(initialValue = emptyList())
     val nowNext = rememberNowNext(remember(recent, favorites) { (recent + favorites).distinctBy { it.id } })
 
+    // Dieselben ViewModels wie in den Reitern Filme und Serien: was hier geladen
+    // wird, steht dort schon bereit, und ein Tipp auf ein Plakat öffnet es dort.
+    val movies: MoviesViewModel = viewModel(factory = AppViewModelFactory)
+    val series: SeriesViewModel = viewModel(factory = AppViewModelFactory)
+    val movieState by movies.state.collectAsStateWithLifecycle()
+    val seriesState by series.state.collectAsStateWithLifecycle()
+
     Column(
         Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(bottom = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(22.dp)
+            .padding(bottom = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         Row(
             Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 8.dp),
@@ -152,6 +170,22 @@ fun MobileStartScreen(
             RoundIconButton(Icons.Filled.Search, t.search, onSearch)
             Spacer(Modifier.width(8.dp))
             RoundIconButton(Icons.Filled.Settings, t.settings, onOpenSettings)
+        }
+
+        // Vier Wege hinein, groß und farbig — wer die App zum ersten Mal öffnet,
+        // sieht sofort, was es gibt.
+        Column(
+            Modifier.padding(horizontal = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                QuickTile(t.liveTv, Icons.Filled.LiveTv, TileLive, Modifier.weight(1f)) { onOpenTab(MainTab.LIVE) }
+                QuickTile(t.movies, Icons.Filled.Movie, TileMovies, Modifier.weight(1f)) { onOpenTab(MainTab.MOVIES) }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                QuickTile(t.series, Icons.Filled.VideoLibrary, TileSeries, Modifier.weight(1f)) { onOpenTab(MainTab.SERIES) }
+                QuickTile(t.guide, Icons.Filled.DateRange, TileGuide, Modifier.weight(1f)) { onOpenTab(MainTab.GUIDE) }
+            }
         }
 
         if (resume.isNotEmpty()) {
@@ -174,15 +208,35 @@ fun MobileStartScreen(
 
         if (recent.isNotEmpty()) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                SectionHeader(t.recentlyWatched, m.seeAll, onOpenLive)
+                SectionHeader(t.recentlyWatched, m.seeAll) { onOpenTab(MainTab.LIVE) }
                 ChannelCardRow(recent.take(20), nowNext, playingId) { onTapChannel(it, RECENT_CATEGORY_ID) }
             }
         }
 
         if (favorites.isNotEmpty()) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                SectionHeader(t.favorites, m.seeAll, onOpenLive)
+                SectionHeader(t.favorites, m.seeAll) { onOpenTab(MainTab.LIVE) }
                 ChannelCardRow(favorites, nowNext, playingId) { onTapChannel(it, FAVORITES_CATEGORY_ID) }
+            }
+        }
+
+        if (movieState.movies.isNotEmpty()) {
+            val name = movieState.categories.firstOrNull { it.id == movieState.selectedCategoryId }?.name
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                SectionHeader(cleanTitle(name ?: t.movies), m.seeAll) { onOpenTab(MainTab.MOVIES) }
+                PosterRow(movieState.movies.take(20).map { Triple("m${it.id}", it.name, it.posterUrl) }) { index ->
+                    onOpenMovie(movieState.movies[index])
+                }
+            }
+        }
+
+        if (seriesState.series.isNotEmpty()) {
+            val name = seriesState.categories.firstOrNull { it.id == seriesState.selectedCategoryId }?.name
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                SectionHeader(cleanTitle(name ?: t.series), m.seeAll) { onOpenTab(MainTab.SERIES) }
+                PosterRow(seriesState.series.take(20).map { Triple("s${it.id}", it.name, it.posterUrl) }) { index ->
+                    onOpenSeries(seriesState.series[index].id)
+                }
             }
         }
 
@@ -192,12 +246,75 @@ fun MobileStartScreen(
     }
 }
 
+private val TileLive = Brush.linearGradient(listOf(Color(0xFFFF9A2E), Color(0xFFFF4D1A)))
+private val TileMovies = Brush.linearGradient(listOf(Color(0xFF8B5CF6), Color(0xFF5B21B6)))
+private val TileSeries = Brush.linearGradient(listOf(Color(0xFF14B8A6), Color(0xFF0E7490)))
+private val TileGuide = Brush.linearGradient(listOf(Color(0xFF3B82F6), Color(0xFF1E3A8A)))
+
+@Composable
+private fun QuickTile(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    brush: Brush,
+    modifier: Modifier,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier
+            .height(76.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(brush)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp)
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.95f),
+            modifier = Modifier.size(26.dp).align(Alignment.TopStart)
+        )
+        Text(
+            label,
+            color = Color.White,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            modifier = Modifier.align(Alignment.BottomStart)
+        )
+    }
+}
+
+/** Eine Reihe Plakate (Schlüssel, Titel, Bild); gemeldet wird die Stelle. */
+@Composable
+private fun PosterRow(items: List<Triple<String, String, String?>>, onTap: (Int) -> Unit) {
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 20.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        itemsIndexed(items, key = { _, item -> item.first }) { index, item ->
+            Column(
+                Modifier.width(112.dp).clip(RoundedCornerShape(12.dp)).clickable { onTap(index) },
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Poster(item.third, cleanTitle(item.second), Modifier.fillMaxWidth().height(168.dp))
+                Text(
+                    cleanTitle(item.second),
+                    fontSize = 12.sp,
+                    color = Kc.TextSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
 @Composable
 fun RoundIconButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(22.dp),
-        color = Brand.Surface,
+        color = Kc.Surface,
         modifier = Modifier.size(44.dp)
     ) {
         Box(contentAlignment = Alignment.Center) {
@@ -217,7 +334,7 @@ private fun ResumeCard(item: ContinueItem, onClick: () -> Unit) {
             Box(Modifier.fillMaxSize().background(BottomScrim))
             Box(
                 Modifier.align(Alignment.Center).size(46.dp).clip(RoundedCornerShape(23.dp))
-                    .background(Brand.Background.copy(alpha = 0.6f)),
+                    .background(Kc.Background.copy(alpha = 0.6f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Color.White)
@@ -232,7 +349,7 @@ private fun ResumeCard(item: ContinueItem, onClick: () -> Unit) {
         Text(
             text = listOf(item.title, item.subtitle).filter { it.isNotBlank() }.joinToString(" · "),
             fontSize = 13.sp,
-            color = Brand.TextSecondary,
+            color = Kc.TextSecondary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
@@ -258,7 +375,7 @@ private fun ChannelCardRow(
                     .width(150.dp)
                     .height(112.dp)
                     .clip(RoundedCornerShape(14.dp))
-                    .background(if (playing) Brand.SurfaceHigh else Brand.Surface)
+                    .background(if (playing) Kc.SurfaceHigh else Kc.Surface)
                     .clickable { onTap(channel) }
                     .padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(5.dp)
@@ -269,21 +386,21 @@ private fun ChannelCardRow(
                     if (playing) {
                         LiveDot()
                         Spacer(Modifier.width(5.dp))
-                        Text(LocalStrings.current.live, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Brand.Live)
+                        Text(LocalStrings.current.live, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Kc.Live)
                     }
                 }
                 Text(
-                    channel.name,
+                    cleanTitle(channel.name),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    color = if (playing) Brand.AccentSoft else Brand.TextPrimary
+                    color = if (playing) Kc.AccentSoft else Kc.TextPrimary
                 )
                 Text(
                     info?.now?.title.orEmpty(),
                     fontSize = 12.sp,
-                    color = Brand.TextSecondary,
+                    color = Kc.TextSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -350,7 +467,7 @@ fun MobileLiveScreen(
             ) {
                 Text(t.liveTv, style = MaterialTheme.typography.headlineMedium)
                 Spacer(Modifier.width(10.dp))
-                if (total > 0) Text(m.nChannels(total), fontSize = 14.sp, color = Brand.TextSecondary)
+                if (total > 0) Text(m.nChannels(total), fontSize = 14.sp, color = Kc.TextSecondary)
                 Spacer(Modifier.weight(1f))
                 RoundIconButton(Icons.Filled.Search, t.searchChannel) { searching = true }
             }
@@ -360,7 +477,7 @@ fun MobileLiveScreen(
         if (!searching || query.isBlank()) {
             ChipRow(categories, key = { it.id }, state = chipState) { category ->
                 KcChip(
-                    label = category.name,
+                    label = cleanTitle(category.name),
                     selected = category.id == selected,
                     count = category.channelCount.takeIf { it > 0 },
                     onClick = { viewModel.selectCategory(category.id) }
@@ -368,12 +485,16 @@ fun MobileLiveScreen(
             }
             Spacer(Modifier.height(6.dp))
         }
-        Text(
-            m.tapHint,
-            fontSize = 12.sp,
-            color = Brand.TextSecondary,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
-        )
+        // Der Hinweis nur, solange noch nichts läuft — danach weiß man es.
+        if (playingId == null) {
+            Text(
+                m.tapHint,
+                fontSize = 12.sp,
+                color = Kc.AccentSoft,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
+            )
+        }
+        Spacer(Modifier.height(4.dp))
 
         if (channels.isEmpty()) {
             EmptyHint(t.noChannels)
@@ -382,9 +503,22 @@ fun MobileLiveScreen(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 items(channels, key = { it.id }) { channel ->
+                    // Viele Anbieter setzen Trennzeilen wie „##### ULUSAL #####“
+                    // als Kanal in die Liste. Das ist eine Überschrift, kein Sender.
+                    if (isSeparator(channel.name)) {
+                        Text(
+                            channel.name.trim(' ', '#', '=', '*', '~', '-', '_', '|').trim(),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Kc.AccentSoft,
+                            letterSpacing = 1.sp,
+                            modifier = Modifier.padding(start = 8.dp, top = 14.dp, bottom = 2.dp)
+                        )
+                        return@items
+                    }
                     ChannelRow(
                         channel = channel,
                         info = channel.epgId?.let { nowNext[it] },
@@ -432,8 +566,8 @@ fun SearchBar(
             keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
             shape = RoundedCornerShape(23.dp),
             colors = TextFieldDefaults.colors(
-                focusedContainerColor = Brand.Surface,
-                unfocusedContainerColor = Brand.Surface,
+                focusedContainerColor = Kc.Surface,
+                unfocusedContainerColor = Kc.Surface,
                 focusedIndicatorColor = Color.Transparent,
                 unfocusedIndicatorColor = Color.Transparent
             ),
@@ -454,9 +588,12 @@ private fun ChannelRow(
     Row(
         Modifier
             .fillMaxWidth()
-            .height(64.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(if (playing) Color(0xFF1C2132) else Color.Transparent)
+            .height(68.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (playing) Kc.SurfaceHigh else Kc.Surface.copy(alpha = 0.7f))
+            .then(
+                if (playing) Modifier.border(1.5.dp, Kc.Accent, RoundedCornerShape(14.dp)) else Modifier
+            )
             .combinedClickable(onClick = onTap, onLongClick = onToggleFavorite)
             .padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -464,7 +601,7 @@ private fun ChannelRow(
         Text(
             channel.number.takeIf { it > 0 }?.toString().orEmpty(),
             fontSize = 13.sp,
-            color = Brand.TextSecondary,
+            color = Kc.TextSecondary,
             modifier = Modifier.width(30.dp),
             maxLines = 1
         )
@@ -478,10 +615,10 @@ private fun ChannelRow(
                     Spacer(Modifier.width(6.dp))
                 }
                 Text(
-                    channel.name,
+                    cleanTitle(channel.name),
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (playing) Brand.AccentSoft else Brand.TextPrimary,
+                    color = if (playing) Kc.AccentSoft else Kc.TextPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -491,7 +628,7 @@ private fun ChannelRow(
                 Text(
                     "${clockOf(now.startMs)} · ${now.title}",
                     fontSize = 13.sp,
-                    color = Brand.TextSecondary,
+                    color = Kc.TextSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -502,11 +639,16 @@ private fun ChannelRow(
             Icon(
                 if (channel.isFavorite) Icons.Filled.Star else Icons.Filled.StarBorder,
                 contentDescription = LocalStrings.current.favorite,
-                tint = if (channel.isFavorite) Brand.Accent else Brand.TextSecondary.copy(alpha = 0.6f)
+                tint = if (channel.isFavorite) Kc.Accent else Kc.TextSecondary.copy(alpha = 0.6f)
             )
         }
     }
 }
+
+/** Eine Trennzeile des Anbieters („##### SPORT #####“) statt eines Senders. */
+fun isSeparator(name: String): Boolean = SeparatorPattern.matches(name.trim())
+
+private val SeparatorPattern = Regex("""^[#=*~\-_|]{3,}.*[#=*~\-_|]{3,}$|^[#=*~]{3,}.*""")
 
 // =============================================================== Mini-Player
 
@@ -527,7 +669,15 @@ fun MiniPlayer(
     val channel = item.channel
 
     val player = remember {
-        buildPlayer(context, minBufferMs = 2_500, maxBufferMs = 15_000).apply { playWhenReady = true }
+        // Kurzer Puffer wie bei der Vorschau am Fernseher. Achtung: Media3 verlangt
+        // bufferAfterRebufferMs ≤ minBufferMs, sonst stürzt der Aufbau ab.
+        buildPlayer(
+            context,
+            minBufferMs = 2_000,
+            maxBufferMs = 10_000,
+            bufferForPlaybackMs = 800,
+            bufferAfterRebufferMs = 1_500
+        ).apply { playWhenReady = true }
     }
     var paused by remember { mutableStateOf(false) }
     var buffering by remember { mutableStateOf(true) }
@@ -597,7 +747,7 @@ fun MiniPlayer(
     Surface(
         onClick = onExpand,
         shape = RoundedCornerShape(14.dp),
-        color = Brand.SurfaceHigh,
+        color = Kc.SurfaceHigh,
         shadowElevation = 6.dp,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp).height(64.dp)
     ) {
@@ -626,16 +776,16 @@ fun MiniPlayer(
                         modifier = Modifier.fillMaxSize()
                     )
                     if (buffering && !failed) {
-                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = Brand.Accent)
+                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = Kc.Accent)
                     }
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(channel.name, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(cleanTitle(channel.name), fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(
                         info?.now?.title.orEmpty(),
                         fontSize = 12.sp,
-                        color = Brand.TextSecondary,
+                        color = Kc.TextSecondary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -658,7 +808,7 @@ fun MiniPlayer(
                 Surface(
                     onClick = onExpand,
                     shape = RoundedCornerShape(20.dp),
-                    color = Brand.Accent,
+                    color = Kc.Accent,
                     contentColor = Color(0xFF101010),
                     modifier = Modifier.size(40.dp)
                 ) {
@@ -667,7 +817,7 @@ fun MiniPlayer(
                     }
                 }
                 IconButton(onClick = onClose) {
-                    Icon(Icons.Filled.Close, contentDescription = m.close, tint = Brand.TextSecondary)
+                    Icon(Icons.Filled.Close, contentDescription = m.close, tint = Kc.TextSecondary)
                 }
             }
             ThinProgress(

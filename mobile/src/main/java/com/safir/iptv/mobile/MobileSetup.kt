@@ -55,7 +55,7 @@ import com.safir.iptv.ui.AppViewModelFactory
 import com.safir.iptv.ui.i18n.LocalStrings
 import com.safir.iptv.ui.login.SetupMode
 import com.safir.iptv.ui.login.SetupViewModel
-import com.safir.iptv.ui.theme.Brand
+
 
 /**
  * Zugang einrichten: Xtream Codes oder M3U-Link. Dieselbe Logik wie am
@@ -79,7 +79,7 @@ fun MobileSetupScreen(
     Column(
         Modifier
             .fillMaxSize()
-            .background(Brand.Background)
+            .screenBackground()
             .windowInsetsPadding(WindowInsets.safeDrawing)
             .imePadding()
             .verticalScroll(rememberScrollState())
@@ -104,7 +104,7 @@ fun MobileSetupScreen(
                 if (mode == SetupMode.ADD) t.sources.addTitle else m.setupTitle,
                 style = MaterialTheme.typography.headlineSmall
             )
-            Text(t.loginNote, fontSize = 14.sp, color = Brand.TextSecondary)
+            Text(t.loginNote, fontSize = 14.sp, color = Kc.TextSecondary)
 
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                 listOf(SourceType.XTREAM to m.xtream, SourceType.M3U to m.m3u).forEachIndexed { index, (type, label) ->
@@ -194,10 +194,10 @@ fun MobileSetupScreen(
                     } else {
                         LinearProgressIndicator(Modifier.fillMaxWidth())
                     }
-                    Text(t.longPlaylistHint, fontSize = 12.sp, color = Brand.TextSecondary)
+                    Text(t.longPlaylistHint, fontSize = 12.sp, color = Kc.TextSecondary)
                 }
 
-                is SyncState.Failed -> Text(sync.message, color = Brand.Danger, fontSize = 14.sp)
+                is SyncState.Failed -> Text(sync.message, color = Kc.Danger, fontSize = 14.sp)
                 else -> Unit
             }
 

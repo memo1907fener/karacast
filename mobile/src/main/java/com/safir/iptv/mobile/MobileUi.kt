@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -42,40 +43,97 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.compose.AsyncImagePainter
-import com.safir.iptv.ui.theme.Brand
+
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 /*
- * Die Bausteine der Handy-Oberfläche, im Stil von Entwurf A: dunkler Grund,
- * ein Orange, abgerundete Flächen, Chips statt Seitenleisten. Farben kommen aus
- * [Brand] — dieselben wie am Fernseher.
+ * Die Bausteine der Handy-Oberfläche, im Stil von Entwurf A: abgerundete
+ * Flächen, Chips statt Seitenleisten, ein kräftiges Orange.
  */
 
+/**
+ * Die Farben der Handy-App.
+ *
+ * Dasselbe Orange wie am Fernseher, aber ein helleres, wärmeres Dunkel: der
+ * Fernseher steht in einem dunklen Zimmer drei Meter entfernt, das Handy liegt
+ * in der Hand, oft bei Tageslicht — dort wirkte das fast schwarze TV-Schema
+ * trist. Flächen heben sich deutlicher ab, Nebentext ist heller.
+ */
+object Kc {
+    val Accent = Color(0xFFFF7A00)
+    val AccentSoft = Color(0xFFFFB347)
+    val AccentDeep = Color(0xFFFF4D1A)
+    val Background = Color(0xFF0E1124)
+    val Surface = Color(0xFF1B2140)
+    val SurfaceHigh = Color(0xFF283058)
+    val Border = Color(0xFF39416A)
+    val TextPrimary = Color(0xFFF5F6FB)
+    val TextSecondary = Color(0xFFAEB6D0)
+    val Danger = Color(0xFFFF5A5A)
+    val Live = Color(0xFF3DDC84)
+    val NavBar = Color(0xFF141831)
+
+    /** Orange Verlauf für Hauptknöpfe und den aktiven Chip. */
+    val AccentBrush: Brush = Brush.linearGradient(listOf(Color(0xFFFF9A2E), AccentDeep))
+
+    /**
+     * Der Grund hinter allen Seiten: oben ein warmer Schimmer aus Orange und
+     * Violett, nach unten das ruhige Dunkelblau.
+     */
+    val ScreenBrush: Brush = Brush.verticalGradient(
+        0f to Color(0xFF241A3F),
+        0.35f to Color(0xFF141834),
+        1f to Background
+    )
+}
+
+/**
+ * Ein Titel ohne die Kürzel, die Anbieter davorschreiben: „NF - The Irishman“
+ * → „The Irishman“, „[TR] TRT 1“ → „TRT 1“, „VOD - NETFLIX“ → „NETFLIX“. Nur
+ * für die Anzeige; gesucht und abgespielt wird mit dem echten Namen.
+ */
+fun cleanTitle(raw: String): String {
+    val cleaned = raw.replace(TitlePrefix, "").trim()
+    return cleaned.ifBlank { raw.trim() }
+}
+
+private val TitlePrefix = Regex("""^(?:\s*(?:\[[^\]]{1,12}\]|\|[^|]{1,12}\||[A-Z0-9]{2,4}\s+[-|]\s))+""")
+
+/** "7.576" → "7,6" (je nach Sprache), Unsinn bleibt weg. */
+fun ratingOf(raw: String?): String? {
+    val value = raw?.trim()?.replace(',', '.')?.toDoubleOrNull() ?: return null
+    if (value <= 0.0) return null
+    return String.format(Locale.getDefault(), "%.1f", value)
+}
+
+/** Hintergrund einer ganzen Seite. */
+fun Modifier.screenBackground(): Modifier = this.background(Kc.ScreenBrush)
+
 private val MobileColors = darkColorScheme(
-    primary = Brand.Accent,
+    primary = Kc.Accent,
     onPrimary = Color(0xFF101010),
-    primaryContainer = Brand.Accent,
+    primaryContainer = Kc.Accent,
     onPrimaryContainer = Color(0xFF101010),
-    secondary = Brand.AccentSoft,
+    secondary = Kc.AccentSoft,
     onSecondary = Color(0xFF101010),
-    secondaryContainer = Brand.SurfaceHigh,
-    onSecondaryContainer = Brand.TextPrimary,
-    background = Brand.Background,
-    onBackground = Brand.TextPrimary,
-    surface = Brand.Background,
-    onSurface = Brand.TextPrimary,
-    surfaceVariant = Brand.SurfaceHigh,
-    onSurfaceVariant = Brand.TextSecondary,
-    surfaceContainerLowest = Brand.Background,
-    surfaceContainerLow = Color(0xFF10131E),
-    surfaceContainer = Brand.Surface,
-    surfaceContainerHigh = Brand.Surface,
-    surfaceContainerHighest = Brand.SurfaceHigh,
-    outline = Brand.Border,
-    outlineVariant = Brand.Border,
-    error = Brand.Danger,
+    secondaryContainer = Kc.SurfaceHigh,
+    onSecondaryContainer = Kc.TextPrimary,
+    background = Kc.Background,
+    onBackground = Kc.TextPrimary,
+    surface = Kc.Background,
+    onSurface = Kc.TextPrimary,
+    surfaceVariant = Kc.SurfaceHigh,
+    onSurfaceVariant = Kc.TextSecondary,
+    surfaceContainerLowest = Kc.Background,
+    surfaceContainerLow = Kc.NavBar,
+    surfaceContainer = Kc.Surface,
+    surfaceContainerHigh = Kc.Surface,
+    surfaceContainerHighest = Kc.SurfaceHigh,
+    outline = Kc.Border,
+    outlineVariant = Kc.Border,
+    error = Kc.Danger,
     onError = Color(0xFF101010)
 )
 
@@ -99,7 +157,7 @@ fun BrandMark(size: Dp = 34.dp) {
     Canvas(Modifier.size(size)) {
         val r = this.size.minDimension * 0.28f
         drawRoundRect(
-            brush = Brush.verticalGradient(listOf(Color(0xFFFFA23A), Brand.Accent)),
+            brush = Brush.verticalGradient(listOf(Color(0xFFFFA23A), Kc.Accent)),
             cornerRadius = androidx.compose.ui.geometry.CornerRadius(r, r)
         )
         val w = this.size.width
@@ -134,7 +192,7 @@ fun ChannelBadge(
     Box(
         modifier
             .clip(RoundedCornerShape(corner))
-            .background(Brand.SurfaceHigh),
+            .background(Kc.SurfaceHigh),
         contentAlignment = Alignment.Center
     ) {
         var loaded by remember(url) { mutableStateOf(false) }
@@ -143,7 +201,7 @@ fun ChannelBadge(
                 text = initials(name),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Black,
-                color = Brand.TextSecondary,
+                color = Kc.TextSecondary,
                 maxLines = 1
             )
         }
@@ -221,7 +279,7 @@ fun placeholderColor(seed: String): Color =
 fun ThinProgress(
     progress: Float,
     modifier: Modifier = Modifier,
-    track: Color = Brand.Border,
+    track: Color = Kc.Border,
     height: Dp = 3.dp
 ) {
     Box(
@@ -234,7 +292,7 @@ fun ThinProgress(
             Modifier
                 .fillMaxWidth(progress.coerceIn(0f, 1f))
                 .height(height)
-                .background(Brand.Accent)
+                .background(Kc.Accent)
         )
     }
 }
@@ -249,7 +307,7 @@ fun SectionHeader(title: String, action: String? = null, onAction: (() -> Unit)?
         if (action != null && onAction != null) {
             Text(
                 text = action,
-                color = Brand.AccentSoft,
+                color = Kc.AccentSoft,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier
@@ -272,12 +330,16 @@ fun KcChip(
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(18.dp),
-        color = if (selected) Brand.Accent else Brand.Surface,
-        contentColor = if (selected) Color(0xFF101010) else Brand.TextPrimary,
+        color = if (selected) Color.Transparent else Kc.Surface,
+        contentColor = if (selected) Color.White else Kc.TextPrimary,
+        border = if (selected) null else androidx.compose.foundation.BorderStroke(1.dp, Kc.Border),
         modifier = Modifier.height(36.dp)
     ) {
         Row(
-            Modifier.padding(horizontal = 14.dp),
+            Modifier
+                .fillMaxHeight()
+                .then(if (selected) Modifier.background(Kc.AccentBrush) else Modifier)
+                .padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
@@ -300,7 +362,7 @@ fun KcChip(
 }
 
 private fun chipCountColor(selected: Boolean): Color =
-    if (selected) Color(0xFF101010).copy(alpha = 0.7f) else Brand.TextSecondary
+    if (selected) Color.White.copy(alpha = 0.8f) else Kc.TextSecondary
 
 /** Eine waagrechte Chipleiste über die ganze Breite. */
 @Composable
@@ -335,7 +397,7 @@ fun EmptyHint(title: String, body: String? = null, modifier: Modifier = Modifier
             Text(
                 body,
                 style = MaterialTheme.typography.bodyMedium,
-                color = Brand.TextSecondary,
+                color = Kc.TextSecondary,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
         }
@@ -345,7 +407,7 @@ fun EmptyHint(title: String, body: String? = null, modifier: Modifier = Modifier
 /** Grüner Punkt vor einem laufenden Kanal. */
 @Composable
 fun LiveDot(size: Dp = 7.dp) {
-    Box(Modifier.size(size).clip(RoundedCornerShape(size / 2)).background(Brand.Live))
+    Box(Modifier.size(size).clip(RoundedCornerShape(size / 2)).background(Kc.Live))
 }
 
 private val clockFormat get() = SimpleDateFormat("HH:mm", Locale.getDefault())
@@ -365,5 +427,5 @@ fun durationOf(ms: Long): String {
 val BottomScrim: Brush = Brush.verticalGradient(
     0f to Color.Transparent,
     0.45f to Color.Transparent,
-    1f to Brand.Background.copy(alpha = 0.92f)
+    1f to Kc.Background.copy(alpha = 0.92f)
 )

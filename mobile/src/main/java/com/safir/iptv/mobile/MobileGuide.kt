@@ -60,7 +60,7 @@ import com.safir.iptv.domain.model.Program
 import com.safir.iptv.ui.AppViewModelFactory
 import com.safir.iptv.ui.guide.GuideViewModel
 import com.safir.iptv.ui.i18n.LocalStrings
-import com.safir.iptv.ui.theme.Brand
+
 import kotlinx.coroutines.delay
 
 /** Wie breit eine Minute im Raster ist. Zwei Stunden ≈ eine Handybreite. */
@@ -84,7 +84,9 @@ fun MobileGuideScreen(
     val t = LocalStrings.current
     val m = LocalMobileStrings.current
     val viewModel: GuideViewModel = viewModel(factory = AppViewModelFactory)
-    val channels by viewModel.channels.collectAsStateWithLifecycle()
+    val allChannels by viewModel.channels.collectAsStateWithLifecycle()
+    // Trennzeilen des Anbieters haben kein Programm — im Raster wären sie leere Zeilen.
+    val channels = remember(allChannels) { allChannels.filterNot { isSeparator(it.name) } }
     val programs by viewModel.programs.collectAsStateWithLifecycle()
     val loading by viewModel.loading.collectAsStateWithLifecycle()
     val reminders by viewModel.reminders.collectAsStateWithLifecycle()
@@ -135,7 +137,7 @@ fun MobileGuideScreen(
                         Text(
                             clockOf(at),
                             fontSize = 12.sp,
-                            color = Brand.TextSecondary,
+                            color = Kc.TextSecondary,
                             modifier = Modifier.offset(x = MINUTE * minute + 4.dp)
                         )
                         minute += 30
@@ -202,7 +204,7 @@ private fun NowMarker(windowStart: Long, now: Long, label: Boolean = false) {
                 .offset(x = MINUTE * minutes - 2.dp)
                 .width(3.dp)
                 .fillMaxHeight()
-                .background(Brand.Accent)
+                .background(Kc.Accent)
         )
     } else {
         Box(
@@ -210,7 +212,7 @@ private fun NowMarker(windowStart: Long, now: Long, label: Boolean = false) {
                 .offset(x = MINUTE * minutes)
                 .width(2.dp)
                 .fillMaxHeight()
-                .background(Brand.Accent)
+                .background(Kc.Accent)
         )
     }
 }
@@ -233,7 +235,7 @@ private fun GuideRow(
                 .fillMaxHeight()
                 .padding(start = 12.dp, end = 4.dp, top = 2.dp, bottom = 2.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(Brand.Surface),
+                .background(Kc.Surface),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -242,7 +244,7 @@ private fun GuideRow(
             Text(
                 channel.number.takeIf { it > 0 }?.toString() ?: channel.name,
                 fontSize = 10.sp,
-                color = Brand.TextSecondary,
+                color = Kc.TextSecondary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -279,14 +281,14 @@ private fun GuideRow(
                             program.title,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (past) Brand.TextSecondary else Brand.TextPrimary,
+                            color = if (past) Kc.TextSecondary else Kc.TextPrimary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             "${clockOf(program.startMs)}–${clockOf(program.endMs)}",
                             fontSize = 11.sp,
-                            color = Brand.TextSecondary,
+                            color = Kc.TextSecondary,
                             maxLines = 1
                         )
                     }
@@ -314,7 +316,7 @@ private fun ProgramSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = Brand.Surface
+        containerColor = Kc.Surface
     ) {
         Column(
             Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp),
@@ -326,7 +328,7 @@ private fun ProgramSheet(
                 Text(
                     "${channel.name} · ${clockOf(program.startMs)} – ${clockOf(program.endMs)}",
                     fontSize = 13.sp,
-                    color = Brand.TextSecondary
+                    color = Kc.TextSecondary
                 )
             }
             Text(program.title, style = MaterialTheme.typography.titleLarge)
@@ -362,12 +364,12 @@ private fun ProgramSheet(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp)
-                        .then(if (reminded) Modifier.border(1.dp, Brand.Accent, RoundedCornerShape(24.dp)) else Modifier)
+                        .then(if (reminded) Modifier.border(1.dp, Kc.Accent, RoundedCornerShape(24.dp)) else Modifier)
                 ) {
                     Icon(
                         if (reminded) Icons.Filled.NotificationsActive else Icons.Filled.Notifications,
                         contentDescription = null,
-                        tint = if (reminded) Brand.Accent else Brand.TextPrimary
+                        tint = if (reminded) Kc.Accent else Kc.TextPrimary
                     )
                     Spacer(Modifier.width(6.dp))
                     Text(if (reminded) m.reminderOn else m.remind)

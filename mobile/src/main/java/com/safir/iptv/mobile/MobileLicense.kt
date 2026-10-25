@@ -67,7 +67,7 @@ import com.safir.iptv.domain.model.LicenseState
 import com.safir.iptv.domain.model.LicenseStatus
 import com.safir.iptv.ui.i18n.LocalStrings
 import com.safir.iptv.ui.i18n.PlayStrings
-import com.safir.iptv.ui.theme.Brand
+
 import com.safir.iptv.util.CompanionApps
 import com.safir.iptv.util.CompanionInstall
 import com.safir.iptv.util.DeviceIdentity
@@ -111,7 +111,7 @@ fun TvGate(content: @Composable () -> Unit) {
             )
             Text(
                 t.device.mobileOnTvBody,
-                color = Brand.TextSecondary,
+                color = Kc.TextSecondary,
                 textAlign = TextAlign.Center
             )
             Spacer(Modifier.height(8.dp))
@@ -140,7 +140,7 @@ fun TvGate(content: @Composable () -> Unit) {
                     }
                 )
             }
-            problem?.let { Text(it, color = Brand.Danger, textAlign = TextAlign.Center) }
+            problem?.let { Text(it, color = Kc.Danger, textAlign = TextAlign.Center) }
         }
     }
 }
@@ -189,7 +189,7 @@ fun MobileLicenseGate(content: @Composable () -> Unit) {
                     text = if (state.daysLeft <= 1) t.license.lastDay else t.license.daysLeft(state.daysLeft),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
-                    color = if (state.shouldWarn) Brand.Accent else Brand.TextPrimary,
+                    color = if (state.shouldWarn) Kc.Accent else Kc.TextPrimary,
                     modifier = Modifier
                         .clip(RoundedCornerShape(16.dp))
                         .background(Color.Black.copy(alpha = 0.75f))
@@ -219,7 +219,7 @@ fun UnlockScreen(
     Column(
         Modifier
             .fillMaxSize()
-            .background(Brand.Background)
+            .screenBackground()
             .windowInsetsPadding(WindowInsets.safeDrawing)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 24.dp, vertical = 16.dp),
@@ -263,7 +263,7 @@ fun UnlockScreen(
                 else -> ""
             }
             if (body.isNotBlank()) {
-                Text(body, color = Brand.TextSecondary, textAlign = TextAlign.Center)
+                Text(body, color = Kc.TextSecondary, textAlign = TextAlign.Center)
             }
 
             if (!active && !blocked) {
@@ -272,7 +272,7 @@ fun UnlockScreen(
                         .fillMaxWidth()
                         .padding(vertical = 8.dp)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(Brand.Surface)
+                        .background(Kc.Surface)
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
@@ -281,7 +281,7 @@ fun UnlockScreen(
                             Icon(
                                 Icons.Filled.Check,
                                 contentDescription = null,
-                                tint = Brand.Accent,
+                                tint = Kc.Accent,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(Modifier.size(10.dp))
@@ -324,7 +324,7 @@ private fun PlayOffersMobile(licenses: LicenseRepository, showOffers: Boolean) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                     Spacer(Modifier.size(10.dp))
-                    Text(t.loading, color = Brand.TextSecondary)
+                    Text(t.loading, color = Kc.TextSecondary)
                 }
             }
             // Abos zuerst, der Einmalkauf als letzte, hervorgehobene Karte.
@@ -342,7 +342,7 @@ private fun PlayOffersMobile(licenses: LicenseRepository, showOffers: Boolean) {
                 Text(
                     t.sameAccount,
                     fontSize = 12.sp,
-                    color = Brand.TextSecondary,
+                    color = Kc.TextSecondary,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -368,7 +368,7 @@ private fun PlayOffersMobile(licenses: LicenseRepository, showOffers: Boolean) {
         note?.let {
             Text(
                 it,
-                color = if (state.pending) Brand.Accent else Brand.Danger,
+                color = if (state.pending) Kc.Accent else Kc.Danger,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -388,12 +388,12 @@ private fun OfferCard(
         onClick = onClick,
         enabled = enabled,
         shape = RoundedCornerShape(16.dp),
-        color = if (highlight) Brand.Accent else Brand.Surface,
-        contentColor = if (highlight) Color(0xFF101010) else Brand.TextPrimary,
+        color = if (highlight) Kc.Accent else Kc.Surface,
+        contentColor = if (highlight) Color(0xFF101010) else Kc.TextPrimary,
         modifier = Modifier
             .fillMaxWidth()
             .then(
-                if (highlight) Modifier else Modifier.border(1.dp, Brand.Border, RoundedCornerShape(16.dp))
+                if (highlight) Modifier else Modifier.border(1.dp, Kc.Border, RoundedCornerShape(16.dp))
             )
     ) {
         Row(
@@ -475,7 +475,7 @@ private fun DirectActivation(licenses: LicenseRepository, state: LicenseState, b
                 t.license.price,
                 fontWeight = FontWeight.Black,
                 fontSize = 22.sp,
-                color = Brand.Accent,
+                color = Kc.Accent,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -493,18 +493,18 @@ private fun DirectActivation(licenses: LicenseRepository, state: LicenseState, b
             ) {
                 Text(m.buyOnline, fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
-            Text(m.buyHint, fontSize = 13.sp, color = Brand.TextSecondary, textAlign = TextAlign.Center)
+            Text(m.buyHint, fontSize = 13.sp, color = Kc.TextSecondary, textAlign = TextAlign.Center)
         }
 
         Column(
             Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(16.dp))
-                .background(Brand.Surface)
+                .background(Kc.Surface)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(t.license.deviceCode, fontSize = 12.sp, color = Brand.TextSecondary)
+            Text(t.license.deviceCode, fontSize = 12.sp, color = Kc.TextSecondary)
             Text(
                 DeviceIdentity.formatted(state.deviceCode),
                 fontSize = 22.sp,
@@ -525,12 +525,12 @@ private fun DirectActivation(licenses: LicenseRepository, state: LicenseState, b
             Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(16.dp))
-                .background(Brand.Surface)
+                .background(Kc.Surface)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(t.license.redeemTitle, fontWeight = FontWeight.Bold)
-            Text(t.license.redeemHint, fontSize = 13.sp, color = Brand.TextSecondary)
+            Text(t.license.redeemHint, fontSize = 13.sp, color = Kc.TextSecondary)
             OutlinedTextField(
                 value = code,
                 onValueChange = { code = it.uppercase().take(12) },
@@ -552,7 +552,7 @@ private fun DirectActivation(licenses: LicenseRepository, state: LicenseState, b
                 Text(t.license.redeem)
             }
             message?.let {
-                Text(it, color = if (it == t.license.activated) Brand.Live else Brand.Danger)
+                Text(it, color = if (it == t.license.activated) Kc.Live else Kc.Danger)
             }
         }
     }
