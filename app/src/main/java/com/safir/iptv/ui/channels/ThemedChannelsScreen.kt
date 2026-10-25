@@ -100,6 +100,7 @@ import com.safir.iptv.ui.components.TvTextField
 import com.safir.iptv.ui.components.alsoTappable
 import com.safir.iptv.ui.components.asDigit
 import com.safir.iptv.ui.components.FocusMemory
+import com.safir.iptv.ui.components.TopBarSearch
 import com.safir.iptv.ui.components.rememberFocus
 import com.safir.iptv.ui.components.rememberFocusMemory
 import com.safir.iptv.ui.components.rememberNumberEntry
@@ -338,6 +339,11 @@ internal fun ThemedChannelsScreen(
             pane != Pane.GROUPS -> scope.launch { focusGroups() }
             else -> onBackToDashboard()
         }
+    }
+
+    // „Suche“ in der Kopfleiste.
+    LaunchedEffect(Unit) {
+        TopBarSearch.requests.collect { if (!viewModel.searchMode.value) viewModel.enterSearch() }
     }
 
     LaunchedEffect(numberMiss) {
@@ -639,7 +645,7 @@ private fun KinoLayout(ui: LiveUi) {
             )
     ) {
         Column(Modifier.fillMaxSize()) {
-            LiveTopBar(ui = ui, searchPill = false, modifier = ui.paneModifier(Pane.TABS))
+            // Die Kopfleiste liegt jetzt über allen Bereichen (AppTopBar).
 
             Row(
                 Modifier
@@ -813,7 +819,7 @@ private fun KinoChannelRow(ui: LiveUi, channel: Channel, modifier: Modifier) {
 private fun MosaikLayout(ui: LiveUi) {
     val s = LocalStrings.current
     Column(Modifier.fillMaxSize().background(Brand.Background)) {
-        LiveTopBar(ui = ui, searchPill = true, modifier = ui.paneModifier(Pane.TABS))
+        // Die Kopfleiste liegt jetzt über allen Bereichen (AppTopBar).
 
         LazyRow(
             state = ui.groupsState,
@@ -1129,14 +1135,6 @@ private fun ReceiverLayout(ui: LiveUi) {
                     maxLines = 1
                 )
                 Spacer(Modifier.weight(1f))
-                NavTab(label = s.home, onClick = ui.onHome)
-                NavTab(label = s.movies, onClick = ui.onMovies)
-                NavTab(label = s.series, onClick = ui.onSeries)
-                NavTab(label = s.guide, onClick = ui.onGuide)
-                RoundIcon(icon = Icons.Default.Search, description = s.search, onClick = ui.onSearch)
-                RoundIcon(icon = Icons.Default.Settings, description = s.settings, onClick = ui.onSettings)
-                Spacer(Modifier.width(6.dp))
-                Clock(large = true)
             }
             Spacer(Modifier.height(6.dp))
 
@@ -1302,40 +1300,6 @@ private fun ReceiverRow(ui: LiveUi, channel: Channel, modifier: Modifier) {
 }
 
 // ============================================================ gemeinsame Teile
-
-@Composable
-private fun LiveTopBar(ui: LiveUi, searchPill: Boolean, modifier: Modifier = Modifier) {
-    val s = LocalStrings.current
-    Row(
-        modifier
-            .fillMaxWidth()
-            .height(50.dp)
-            .padding(horizontal = 24.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        BrandMark()
-        Spacer(Modifier.width(14.dp))
-        NavTab(label = s.home, onClick = ui.onHome)
-        ActiveNavTab(label = s.liveTv)
-        NavTab(label = s.movies, onClick = ui.onMovies)
-        NavTab(label = s.series, onClick = ui.onSeries)
-        NavTab(label = s.guide, onClick = ui.onGuide)
-        Spacer(Modifier.weight(1f))
-        if (searchPill) {
-            SearchPill(
-                text = if (ui.searchMode && ui.query.isNotBlank()) ui.query else s.searchChannel,
-                onClick = ui.onSearch,
-                modifier = Modifier.width(200.dp)
-            )
-        } else {
-            RoundIcon(icon = Icons.Default.Search, description = s.search, onClick = ui.onSearch)
-        }
-        RoundIcon(icon = Icons.Default.Settings, description = s.settings, onClick = ui.onSettings)
-        Spacer(Modifier.width(8.dp))
-        Clock(large = true)
-    }
-}
 
 @Composable
 private fun BrandMark(modifier: Modifier = Modifier) {

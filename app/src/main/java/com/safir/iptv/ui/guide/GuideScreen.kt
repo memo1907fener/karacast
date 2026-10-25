@@ -93,7 +93,7 @@ fun GuideScreen(
     Column(Modifier.fillMaxSize().background(Brand.Background)) {
 
         Row(
-            Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+            Modifier.padding(horizontal = 24.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(

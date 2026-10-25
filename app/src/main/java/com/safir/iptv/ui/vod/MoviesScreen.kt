@@ -20,6 +20,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,6 +49,7 @@ import com.safir.iptv.domain.model.Movie
 import com.safir.iptv.domain.model.MovieDetail
 import com.safir.iptv.ui.AppViewModelFactory
 import com.safir.iptv.ui.components.EmptyState
+import com.safir.iptv.ui.components.TopBarSearch
 import com.safir.iptv.ui.components.TvButton
 import com.safir.iptv.ui.components.alsoTappable
 import com.safir.iptv.ui.i18n.LocalStrings
@@ -71,30 +74,87 @@ fun MoviesScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val continueItems by viewModel.continueWatching.collectAsStateWithLifecycle()
     val favorites by viewModel.favorites.collectAsStateWithLifecycle()
+    val preview by viewModel.preview.collectAsStateWithLifecycle()
 
     if (!state.supported) {
         UnsupportedSource(title = t.movies, message = t.vod.onlyXtream, onBack = onBack)
         return
     }
 
+    // „Suche“ in der Kopfleiste.
+    LaunchedEffect(Unit) {
+        TopBarSearch.requests.collect { viewModel.selectCategory(SEARCH_CATEGORY_ID) }
+    }
+
+    // Was rechts groß steht: das angewählte Cover — oder, bevor eins angewählt
+    // ist, das erste der Kategorie, damit die Fläche nie leer ist.
+    var focusedMovie by remember { mutableStateOf<Movie?>(null) }
+    var focusedContinue by remember { mutableStateOf<ContinueItem?>(null) }
+    val shown = when (state.selectedCategoryId) {
+        SEARCH_CATEGORY_ID -> state.results
+        VOD_FAVORITES_CATEGORY_ID -> favorites
+        VOD_CONTINUE_CATEGORY_ID -> emptyList()
+        else -> state.movies
+    }
+    LaunchedEffect(state.selectedCategoryId) {
+        focusedMovie = null
+        focusedContinue = null
+    }
+    val previewMovie = focusedMovie ?: shown.firstOrNull()
+    LaunchedEffect(previewMovie?.id) { previewMovie?.let(viewModel::preview) }
+
+    // Die Suche und die eigenen Regale vor den Kategorien des Anbieters: wer
+    // schon weiß, was er will, soll nicht an hundert Kategorien vorbei müssen.
+    val categories = remember(state.categories, continueItems.isNotEmpty(), t) {
+        buildList {
+            add(Category(SEARCH_CATEGORY_ID, t.vod.search))
+            if (continueItems.isNotEmpty()) add(Category(VOD_CONTINUE_CATEGORY_ID, t.vod.continueWatching))
+            add(Category(VOD_FAVORITES_CATEGORY_ID, t.vod.favorites))
+            addAll(state.categories)
+        }
+    }
+    val selectedName = categories.firstOrNull { it.id == state.selectedCategoryId }?.name.orEmpty()
+
     Box(Modifier.fillMaxSize()) {
         CatalogFrame(
             title = t.movies,
-            hint = t.vod.gridHint,
-            // The search and the favourites go above the provider's own shelves:
-            // they are what somebody who already knows what they want reaches for,
-            // and a hundred categories is a long way to walk past them.
-            categories = remember(state.categories, t) {
-                listOf(
-                    Category(SEARCH_CATEGORY_ID, t.vod.search),
-                    Category(VOD_FAVORITES_CATEGORY_ID, t.vod.favorites)
-                ) + state.categories
-            },
+            categories = categories,
             selectedCategoryId = state.selectedCategoryId,
             loadingCategories = state.loadingCategories,
             onSelectCategory = viewModel::selectCategory,
-            onBack = onBack
+            preview = {
+                val resumed = focusedContinue ?: continueItems.firstOrNull()
+                if (state.selectedCategoryId == VOD_CONTINUE_CATEGORY_ID && resumed != null) {
+                    CatalogPreview(
+                        posterUrl = resumed.posterUrl,
+                        title = resumed.title,
+                        facts = t.vod.continueAt(resumed.positionMs.asTimeLabel()),
+                        plot = null,
+                        footer = t.vod.gridHint,
+                        progress = resumed.progress
+                    )
+                } else if (previewMovie != null) {
+                    val detail = preview?.takeIf { it.first == previewMovie.id }?.second
+                    CatalogPreview(
+                        posterUrl = detail?.posterUrl?.takeIf { it.isNotBlank() } ?: previewMovie.posterUrl,
+                        title = previewMovie.name,
+                        facts = listOfNotNull(
+                            detail?.released?.takeIf { it.isNotBlank() }?.take(4),
+                            detail?.genre?.takeIf { it.isNotBlank() },
+                            detail?.durationSecs?.takeIf { it > 0 }?.let { t.nMinutes(it / 60) },
+                            (detail?.rating ?: previewMovie.rating)
+                                ?.takeIf { it.isNotBlank() && it != "0" }
+                                ?.let { "★ $it" }
+                        ).joinToString("  ·  "),
+                        plot = detail?.plot,
+                        footer = t.vod.gridHint
+                    )
+                } else {
+                    CatalogPreview(posterUrl = null, title = null, facts = null, plot = null, footer = t.vod.gridHint)
+                }
+            }
         ) {
+            val onFocusMovie: (Movie) -> Unit = { focusedMovie = it }
             when (state.selectedCategoryId) {
                 SEARCH_CATEGORY_ID -> SearchPane(
                     query = state.query,
@@ -103,29 +163,27 @@ fun MoviesScreen(
                     error = state.error,
                     resultCount = state.results.size
                 ) {
-                    MovieGrid(state.results, viewModel::open)
+                    MovieGrid(state.results, viewModel::open, onFocusMovie)
                 }
 
-                VOD_FAVORITES_CATEGORY_ID -> if (favorites.isEmpty()) {
-                    EmptyState(title = t.vod.noFavorites, message = t.vod.favoritesHint)
-                } else {
-                    Column(Modifier.fillMaxSize()) {
-                        Text(
-                            text = t.vod.nTitles(favorites.size),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Brand.TextSecondary
-                        )
-                        Spacer(Modifier.height(12.dp))
-                        MovieGrid(favorites, viewModel::open)
+                VOD_CONTINUE_CATEGORY_ID -> {
+                    CatalogHeader(t.vod.continueWatching, null) {
+                        TvButton(onClick = viewModel::clearContinueWatching) { Text(t.vod.clearList) }
+                    }
+                    ContinueGrid(continueItems, onPlay = onResume, onFocus = { focusedContinue = it })
+                }
+
+                VOD_FAVORITES_CATEGORY_ID -> {
+                    CatalogHeader(t.vod.favorites, favorites.size)
+                    if (favorites.isEmpty()) {
+                        EmptyState(title = t.vod.noFavorites, message = t.vod.favoritesHint)
+                    } else {
+                        MovieGrid(favorites, viewModel::open, onFocusMovie)
                     }
                 }
 
-                else -> Column(Modifier.fillMaxSize()) {
-                    ContinueRow(
-                        items = continueItems,
-                        onPlay = onResume,
-                        onClear = viewModel::clearContinueWatching
-                    )
+                else -> {
+                    CatalogHeader(selectedName, state.movies.size)
                     if (state.movies.isEmpty()) {
                         CatalogPlaceholder(
                             loading = state.loadingItems,
@@ -134,13 +192,7 @@ fun MoviesScreen(
                             emptyMessage = t.vod.emptyCategory
                         )
                     } else {
-                        Text(
-                            text = t.vod.nTitles(state.movies.size),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Brand.TextSecondary
-                        )
-                        Spacer(Modifier.height(12.dp))
-                        MovieGrid(state.movies, viewModel::open)
+                        MovieGrid(state.movies, viewModel::open, onFocusMovie)
                     }
                 }
             }
@@ -165,7 +217,7 @@ fun MoviesScreen(
 
 /** The same poster grid whichever shelf it is drawn for. */
 @Composable
-private fun MovieGrid(movies: List<Movie>, onOpen: (Movie) -> Unit) {
+private fun MovieGrid(movies: List<Movie>, onOpen: (Movie) -> Unit, onFocus: (Movie) -> Unit) {
     PosterGrid(
         items = movies
     ) { movie, tileModifier ->
@@ -175,7 +227,8 @@ private fun MovieGrid(movies: List<Movie>, onOpen: (Movie) -> Unit) {
             badge = movie.rating?.takeIf { it.isNotBlank() && it != "0" },
             onClick = { onOpen(movie) },
             modifier = tileModifier,
-            fixedHeight = true
+            fixedHeight = true,
+            onFocused = { onFocus(movie) }
         )
     }
 }

@@ -14,6 +14,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.navigation.compose.currentBackStackEntryAsState
+import com.safir.iptv.domain.model.LiveLayout
+import com.safir.iptv.ui.components.AppTopBar
+import com.safir.iptv.ui.components.TopBarSearch
+import com.safir.iptv.ui.components.TopTab
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -138,12 +148,68 @@ fun AppNavigation(
         }
     }
 
+    // Die Kopfleiste über Live TV, Filmen, Serien und dem Programm. Sie liegt
+    // außerhalb der Navigation und bleibt beim Wechsel einfach stehen.
+    val backStack by navController.currentBackStackEntryAsState()
+    val route = backStack?.destination?.route
+    val topTab = when (route) {
+        Routes.CHANNELS_PATTERN ->
+            if (container.settings.liveLayout != LiveLayout.CLASSIC) TopTab.LIVE else null
+        Routes.MOVIES -> TopTab.MOVIES
+        Routes.SERIES, Routes.SERIES_DETAIL -> TopTab.SERIES
+        Routes.GUIDE -> TopTab.GUIDE
+        else -> null
+    }
+    fun openTab(tab: TopTab) {
+        if (tab == topTab && route != Routes.SERIES_DETAIL) return
+        val target = when (tab) {
+            TopTab.HOME -> {
+                navController.navigate(Routes.DASHBOARD) { popUpTo(0) { inclusive = true } }
+                return
+            }
+            TopTab.LIVE -> Routes.CHANNELS
+            TopTab.MOVIES -> Routes.MOVIES
+            TopTab.SERIES -> Routes.SERIES
+            TopTab.GUIDE -> Routes.GUIDE
+        }
+        // Nebeneinander statt übereinander: Zurück führt aus jedem Bereich zum Start.
+        navController.navigate(target) {
+            popUpTo(Routes.DASHBOARD)
+            launchSingleTop = true
+        }
+    }
+
     Box(
         Modifier
             .fillMaxSize()
             .onPreviewKeyEvent { notice.handleKey(it) }
     ) {
-        NavHost(navController = navController, startDestination = startDestination) {
+        Column(Modifier.fillMaxSize()) {
+        if (topTab != null && !inPip) {
+            AppTopBar(
+                active = topTab,
+                onTab = { openTab(it) },
+                onSearch = {
+                    if (topTab == TopTab.GUIDE) {
+                        navController.navigate(Routes.CHANNELS_SEARCH) { popUpTo(Routes.DASHBOARD) }
+                    } else {
+                        TopBarSearch.requests.tryEmit(Unit)
+                    }
+                },
+                onSettings = { navController.navigate(Routes.SETTINGS) }
+            )
+        }
+        NavHost(
+            navController = navController,
+            startDestination = startDestination,
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            // Kurz überblenden statt der langen Standard-Blende: der Wechsel
+            // zwischen den Bereichen soll sich sofort anfühlen.
+            enterTransition = { fadeIn(tween(160)) },
+            exitTransition = { fadeOut(tween(120)) },
+            popEnterTransition = { fadeIn(tween(160)) },
+            popExitTransition = { fadeOut(tween(120)) }
+        ) {
 
             composable(
                 route = Routes.SETUP_PATTERN,
@@ -430,6 +496,7 @@ fun AppNavigation(
                 }
                 null -> Unit
             }
+        }
         }
 
         // Below the clock the player keeps in that corner, not on top of it.

@@ -33,6 +33,12 @@ import kotlinx.coroutines.launch
 const val SEARCH_CATEGORY_ID = "__vod_search__"
 const val VOD_FAVORITES_CATEGORY_ID = "__vod_favorites__"
 
+/** „Weiterschauen“ als eigene Kategorie, statt als Reihe über den Covern. */
+const val VOD_CONTINUE_CATEGORY_ID = "__vod_continue__"
+
+/** Die Regale, die die App selbst füllt — ohne Anfrage beim Anbieter. */
+private val LocalShelves = setOf(SEARCH_CATEGORY_ID, VOD_FAVORITES_CATEGORY_ID, VOD_CONTINUE_CATEGORY_ID)
+
 /** How long a letter is allowed to be the last one before the search goes out. */
 private const val TYPING_PAUSE_MS = 350L
 
@@ -122,9 +128,9 @@ class MoviesViewModel(
             it.copy(selectedCategoryId = categoryId, movies = emptyList(), error = null)
         }
         itemsJob?.cancel()
-        // The two shelves the app adds have nothing to fetch: one is a text field,
-        // the other is already in memory.
-        if (categoryId == SEARCH_CATEGORY_ID || categoryId == VOD_FAVORITES_CATEGORY_ID) {
+        // The shelves the app adds have nothing to fetch: one is a text field,
+        // the others are already in memory.
+        if (categoryId in LocalShelves) {
             _state.update { it.copy(loadingItems = false) }
             return
         }
@@ -210,9 +216,38 @@ class MoviesViewModel(
 
     fun close() = _state.update { it.copy(opened = null, openedDetail = null) }
 
+    // -------------------------------------------- die große Ansicht rechts
+
+    private val previewCache = HashMap<Int, MovieDetail>()
+    private val _preview = MutableStateFlow<Pair<Int, MovieDetail>?>(null)
+
+    /** Handlung und Angaben zum angewählten Film: (Film-Id, Angaben). */
+    val preview: StateFlow<Pair<Int, MovieDetail>?> = _preview.asStateFlow()
+    private var previewJob: Job? = null
+
+    /**
+     * Der Fokus steht auf [movie]. Die Angaben werden erst nach einem kurzen
+     * Moment geholt — wer schnell über die Cover fährt, löst keine Anfragen aus —
+     * und dann behalten.
+     */
+    fun preview(movie: Movie) {
+        previewJob?.cancel()
+        previewCache[movie.id]?.let { cached ->
+            _preview.value = movie.id to cached
+            return
+        }
+        previewJob = viewModelScope.launch {
+            delay(PREVIEW_PAUSE_MS)
+            val detail = runCatching { catalog.movieDetail(movie.id) }.getOrNull() ?: return@launch
+            previewCache[movie.id] = detail
+            _preview.value = movie.id to detail
+        }
+    }
+
     private companion object {
         /** One letter matches half the catalogue, which is not an answer. */
         const val MIN_QUERY = 2
+        const val PREVIEW_PAUSE_MS = 450L
     }
 }
 
@@ -298,7 +333,7 @@ class SeriesViewModel(
             it.copy(selectedCategoryId = categoryId, series = emptyList(), error = null)
         }
         itemsJob?.cancel()
-        if (categoryId == SEARCH_CATEGORY_ID || categoryId == VOD_FAVORITES_CATEGORY_ID) {
+        if (categoryId in LocalShelves) {
             _state.update { it.copy(loadingItems = false) }
             return
         }

@@ -1,6 +1,25 @@
 package com.safir.iptv.ui.vod
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.tv.material3.Border
+import com.safir.iptv.ui.components.FocusMemory
+import com.safir.iptv.ui.components.rememberFocus
+import com.safir.iptv.ui.components.restoreFocus
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -56,119 +75,338 @@ import com.safir.iptv.ui.i18n.LocalStrings
 import com.safir.iptv.ui.theme.Brand
 import com.safir.iptv.util.asTimeLabel
 
+/** Der Grund hinter den Glasflächen — derselbe wie in der Kino-Ansicht von Live TV. */
+private val CatalogGround = Color(0xFF06080E)
+private val Glass = Color(0xCC12161F)
+
 /**
- * The shell both catalogues share: the provider's categories down the left, the
- * posters in the space that is left. The same two-pane shape as the live list, so
- * films are somewhere already familiar rather than somewhere new.
+ * Der Rahmen für Filme und Serien — gebaut wie die Kino-Ansicht von Live TV,
+ * damit sich alle drei Bereiche gleich bedienen: links die Kategorien, in der
+ * Mitte die Cover, rechts groß das, was gerade angewählt ist. Die Kopfleiste
+ * darüber gehört der Navigation (AppTopBar) und bleibt beim Wechsel stehen.
+ *
+ * Die Cover folgen der Kategorie unter dem Fokus nach einem kurzen Moment,
+ * genau wie die Kanäle den Gruppen folgen.
  */
 @Composable
 fun CatalogFrame(
     title: String,
-    hint: String,
     categories: List<Category>,
     selectedCategoryId: String?,
     loadingCategories: Boolean,
     onSelectCategory: (String) -> Unit,
-    onBack: () -> Unit,
-    content: @Composable BoxScope.() -> Unit
+    preview: @Composable ColumnScope.() -> Unit,
+    content: @Composable ColumnScope.() -> Unit
 ) {
     val t = LocalStrings.current
-
-    Row(Modifier.fillMaxSize().background(Brand.Background)) {
-
-        Column(
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(CatalogGround)
+            .background(
+                Brush.radialGradient(
+                    0f to Brand.Accent.copy(alpha = 0.10f),
+                    1f to Color.Transparent,
+                    center = Offset(Float.POSITIVE_INFINITY, 0f),
+                    radius = 1400f
+                )
+            )
+    ) {
+        Row(
             Modifier
-                .width(320.dp)
-                .fillMaxHeight()
-                .background(Brand.Surface)
-                .padding(vertical = 24.dp)
+                .fillMaxSize()
+                .padding(start = 24.dp, end = 24.dp, top = 2.dp, bottom = 18.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = Brand.TextPrimary,
-                modifier = Modifier.padding(horizontal = 24.dp)
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = hint,
-                style = MaterialTheme.typography.labelSmall,
-                color = Brand.TextSecondary,
-                modifier = Modifier.padding(horizontal = 24.dp)
-            )
-            Spacer(Modifier.height(16.dp))
+            Column(
+                Modifier
+                    .weight(0.21f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Glass)
+                    .padding(horizontal = 7.dp, vertical = 10.dp)
+            ) {
+                Text(
+                    text = title.uppercase(),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp,
+                    color = Brand.TextSecondary,
+                    maxLines = 1,
+                    modifier = Modifier.padding(start = 8.dp, bottom = 6.dp)
+                )
+                when {
+                    loadingCategories -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = Brand.Accent)
+                    }
 
-            when {
-                loadingCategories -> Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = Brand.Accent)
-                }
-
-                categories.isEmpty() -> Box(
-                    Modifier.weight(1f),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = t.noCategories,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Brand.TextSecondary
-                    )
-                }
-
-                else -> LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(3.dp)
-                ) {
-                    items(categories) { category ->
-                        CategoryLine(
-                            name = category.name,
-                            selected = category.id == selectedCategoryId,
-                            onSelect = { onSelectCategory(category.id) }
+                    categories.isEmpty() -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = t.noCategories,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Brand.TextSecondary
                         )
                     }
+
+                    else -> CategoryList(
+                        categories = categories,
+                        selectedCategoryId = selectedCategoryId,
+                        onSelect = onSelectCategory,
+                        modifier = Modifier.weight(1f).fillMaxWidth()
+                    )
                 }
             }
 
-            Spacer(Modifier.height(14.dp))
-            Box(Modifier.padding(horizontal = 24.dp)) {
-                TvButton(onClick = onBack) { Text(t.back) }
-            }
-        }
+            Column(
+                Modifier
+                    .weight(0.51f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Glass)
+                    .padding(horizontal = 10.dp, vertical = 10.dp),
+                content = content
+            )
 
-        Box(
-            Modifier
-                .weight(1f)
-                .fillMaxHeight()
-                .padding(horizontal = 32.dp, vertical = 24.dp),
-            content = content
+            Column(
+                Modifier
+                    .weight(0.28f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Glass),
+                content = preview
+            )
+        }
+    }
+}
+
+/** Kategoriename und Anzahl über den Covern. */
+@Composable
+fun CatalogHeader(name: String, count: Int?, action: (@Composable () -> Unit)? = null) {
+    val t = LocalStrings.current
+    Row(
+        Modifier.fillMaxWidth().padding(start = 6.dp, end = 4.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = name,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            color = Brand.TextPrimary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false)
+        )
+        if (count != null && count > 0) {
+            Spacer(Modifier.width(8.dp))
+            Text(text = t.vod.nTitles(count), fontSize = 12.sp, color = Brand.TextSecondary, maxLines = 1)
+        }
+        Spacer(Modifier.weight(1f))
+        action?.invoke()
+    }
+}
+
+/**
+ * Die Kategorien. Die gewählte ist orange; wohin der Fokus geht, dorthin folgen
+ * die Cover nach einem kurzen Moment. Wer von rechts zurückkommt, landet auf der
+ * gewählten Kategorie, nicht irgendwo auf gleicher Höhe.
+ */
+@Composable
+private fun CategoryList(
+    categories: List<Category>,
+    selectedCategoryId: String?,
+    onSelect: (String) -> Unit,
+    modifier: Modifier
+) {
+    val listState = rememberLazyListState()
+    val selectedRequester = remember { FocusRequester() }
+    var hovered by remember { mutableStateOf<String?>(null) }
+    val select by rememberUpdatedState(onSelect)
+
+    LaunchedEffect(hovered) {
+        val id = hovered ?: return@LaunchedEffect
+        if (id == selectedCategoryId) return@LaunchedEffect
+        delay(CATEGORY_FOLLOW_MS)
+        select(id)
+    }
+
+    LazyColumn(
+        state = listState,
+        modifier = modifier
+            .focusProperties {
+                enter = {
+                    val index = categories.indexOfFirst { it.id == selectedCategoryId }
+                    val visible = listState.layoutInfo.visibleItemsInfo.any { it.index == index }
+                    if (index >= 0 && visible) selectedRequester else FocusRequester.Default
+                }
+            }
+            .focusGroup(),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        items(categories, key = { it.id }) { category ->
+            val selected = category.id == selectedCategoryId
+            CategoryLine(
+                name = category.name,
+                selected = selected,
+                onFocused = { hovered = category.id },
+                onSelect = { select(category.id) },
+                modifier = if (selected) Modifier.focusRequester(selectedRequester) else Modifier
+            )
+        }
+    }
+}
+
+/** Wie lange der Fokus auf einer Kategorie stehen muss, bis die Cover folgen. */
+private const val CATEGORY_FOLLOW_MS = 320L
+
+@Composable
+private fun CategoryLine(
+    name: String,
+    selected: Boolean,
+    onFocused: () -> Unit,
+    onSelect: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val shape = RoundedCornerShape(9.dp)
+    Surface(
+        onClick = onSelect,
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = if (selected) Brand.Accent else Color.Transparent,
+            focusedContainerColor = if (selected) Brand.Accent else Color.White.copy(alpha = 0.14f),
+            pressedContainerColor = Brand.Accent,
+            contentColor = if (selected) Brand.Background else Color(0xFFDDE2EC),
+            focusedContentColor = if (selected) Brand.Background else Brand.TextPrimary,
+            pressedContentColor = Brand.Background
+        ),
+        shape = ClickableSurfaceDefaults.shape(shape),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+        border = ClickableSurfaceDefaults.border(
+            focusedBorder = Border(border = BorderStroke(2.dp, Brand.TextPrimary), shape = shape)
+        ),
+        modifier = modifier
+            .fillMaxWidth()
+            .alsoTappable(onSelect)
+            .onFocusChanged { if (it.isFocused) onFocused() }
+    ) {
+        Text(
+            text = name,
+            fontSize = 14.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
         )
     }
 }
 
+/**
+ * Rechts das Angewählte, groß: Cover, Titel, die wichtigsten Angaben, die
+ * Handlung — wie die laufende Sendung in der Kino-Ansicht. Hinter allem liegt
+ * das Cover selbst, stark abgedunkelt, damit die Fläche die Farbe des Films hat.
+ */
 @Composable
-private fun CategoryLine(name: String, selected: Boolean, onSelect: () -> Unit) {
-    Surface(
-        onClick = onSelect,
-        colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (selected) Brand.SurfaceHigh else Color.Transparent,
-            focusedContainerColor = Brand.Accent,
-            pressedContainerColor = Brand.Accent,
-            contentColor = if (selected) Brand.TextPrimary else Brand.TextSecondary,
-            focusedContentColor = Brand.Background,
-            pressedContentColor = Brand.Background
-        ),
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
-        modifier = Modifier.fillMaxWidth().alsoTappable(onSelect)
+fun CatalogPreview(
+    posterUrl: String?,
+    title: String?,
+    facts: String?,
+    plot: String?,
+    footer: String,
+    progress: Float? = null
+) {
+    Box(Modifier.fillMaxSize()) {
+        if (!posterUrl.isNullOrBlank()) {
+            AsyncImage(
+                model = posterUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                alpha = 0.22f,
+                modifier = Modifier.fillMaxSize()
+            )
+            Box(
+                Modifier.fillMaxSize().background(
+                    Brush.verticalGradient(
+                        0f to Color.Transparent,
+                        0.55f to CatalogGround.copy(alpha = 0.75f),
+                        1f to CatalogGround.copy(alpha = 0.95f)
+                    )
+                )
+            )
+        }
+        Column(Modifier.fillMaxSize().padding(14.dp)) {
+            if (title == null) {
+                Spacer(Modifier.weight(1f))
+                Text(text = footer, fontSize = 12.sp, color = Brand.TextSecondary)
+                return@Column
+            }
+            Row {
+                Box(
+                    Modifier
+                        .width(104.dp)
+                        .aspectRatio(2f / 3f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Brand.SurfaceHigh)
+                ) {
+                    if (posterUrl.isNullOrBlank()) {
+                        PosterFallback(title)
+                    } else {
+                        AsyncImage(
+                            model = posterUrl,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    if (progress != null) {
+                        ThinBar(progress, Modifier.align(Alignment.BottomStart))
+                    }
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Brand.TextPrimary,
+                        lineHeight = 21.sp,
+                        maxLines = 4,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (!facts.isNullOrBlank()) {
+                        Spacer(Modifier.height(6.dp))
+                        Text(text = facts, fontSize = 12.sp, color = Brand.AccentSoft, lineHeight = 16.sp, maxLines = 3)
+                    }
+                }
+            }
+            if (!plot.isNullOrBlank()) {
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = plot,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
+                    color = Color(0xFFC9D1E0),
+                    maxLines = 9,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Spacer(Modifier.weight(1f))
+            Text(text = footer, fontSize = 11.sp, color = Brand.TextSecondary, maxLines = 2)
+        }
+    }
+}
+
+/** Fortschritt eines angefangenen Titels, unten auf dem Cover. */
+@Composable
+private fun ThinBar(progress: Float, modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .fillMaxWidth()
+            .height(4.dp)
+            .background(Color.Black.copy(alpha = 0.6f))
     ) {
-        Text(
-            text = name,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp)
+        Box(
+            Modifier
+                .fillMaxWidth(progress.coerceIn(0f, 1f))
+                .height(4.dp)
+                .background(Brand.Accent)
         )
     }
 }
@@ -190,7 +428,11 @@ fun PosterTile(
      * Höhe aus der Breite zu bestimmen — nur so ist die Reihenhöhe genau die
      * gerechnete, und nur dann passt beim Rollen immer eine ganze Reihe ins Bild.
      */
-    fixedHeight: Boolean = false
+    fixedHeight: Boolean = false,
+    /** Wird angewählt — für die große Ansicht rechts. */
+    onFocused: () -> Unit = {},
+    /** Bei angefangenen Titeln: wie weit, als Balken unten auf dem Cover. */
+    progress: Float? = null
 ) {
     Surface(
         onClick = onClick,
@@ -204,7 +446,9 @@ fun PosterTile(
         ),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp)),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f),
-        modifier = modifier.alsoTappable(onClick)
+        modifier = modifier
+            .alsoTappable(onClick)
+            .onFocusChanged { if (it.isFocused) onFocused() }
     ) {
         Column(
             if (fixedHeight) Modifier.fillMaxHeight().padding(6.dp) else Modifier.padding(6.dp)
@@ -232,6 +476,9 @@ fun PosterTile(
                         modifier = Modifier.fillMaxSize(),
                         onState = { shown = it is AsyncImagePainter.State.Success }
                     )
+                }
+                if (progress != null) {
+                    ThinBar(progress, Modifier.align(Alignment.BottomStart))
                 }
                 if (!badge.isNullOrBlank()) {
                     Text(
@@ -280,10 +527,14 @@ fun <T> PosterGrid(
     modifier: Modifier = Modifier,
     tile: @Composable (T, Modifier) -> Unit
 ) {
+    // Zurück aus den Kategorien: auf das Cover, das zuletzt angewählt war.
+    val gridState = rememberLazyGridState()
+    val memory = remember(items) { FocusMemory() }
     BoxWithConstraints(modifier.fillMaxSize()) {
         val metrics = posterMetrics(maxWidth, maxHeight)
 
         LazyVerticalGrid(
+            state = gridState,
             columns = GridCells.Fixed(metrics.columns),
             horizontalArrangement = Arrangement.spacedBy(GRID_GAP),
             verticalArrangement = Arrangement.spacedBy(GRID_GAP),
@@ -291,12 +542,15 @@ fun <T> PosterGrid(
             // Anwählen leicht an, und ohne diesen Platz schneidet das Raster
             // genau das an, was gerade ausgewählt ist.
             contentPadding = PaddingValues(FOCUS_ROOM),
-            modifier = Modifier.fillMaxWidth().height(metrics.gridHeight)
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(metrics.gridHeight)
+                .restoreFocus(memory, { gridState.layoutInfo.visibleItemsInfo.map { it.index } })
         ) {
             // Bewusst ohne Schlüssel: ein Anbieter darf dieselbe Kennung zweimal
             // liefern, und doppelte Schlüssel lassen die Liste abstürzen.
-            items(items) { item ->
-                tile(item, Modifier.height(metrics.tileHeight))
+            itemsIndexed(items) { index, item ->
+                tile(item, Modifier.height(metrics.tileHeight).rememberFocus(memory, index))
             }
         }
     }
@@ -376,6 +630,27 @@ private fun PosterFallback(title: String) {
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier.padding(10.dp)
     )
+}
+
+/** Die angefangenen Titel als Cover-Raster, mit Fortschritt und Uhrzeit. */
+@Composable
+fun ContinueGrid(
+    items: List<ContinueItem>,
+    onPlay: (ContinueItem) -> Unit,
+    onFocus: (ContinueItem) -> Unit
+) {
+    PosterGrid(items = items) { item, tileModifier ->
+        PosterTile(
+            title = if (item.subtitle.isBlank()) item.title else "${item.title} · ${item.subtitle}",
+            posterUrl = item.posterUrl,
+            badge = item.positionMs.asTimeLabel(),
+            onClick = { onPlay(item) },
+            modifier = tileModifier,
+            fixedHeight = true,
+            onFocused = { onFocus(item) },
+            progress = item.progress
+        )
+    }
 }
 
 /**
@@ -532,7 +807,7 @@ fun SearchPane(
     val t = LocalStrings.current
 
     Column(Modifier.fillMaxSize()) {
-        Box(Modifier.width(560.dp)) {
+        Box(Modifier.fillMaxWidth()) {
             TvTextField(
                 value = query,
                 onValueChange = onQuery,
