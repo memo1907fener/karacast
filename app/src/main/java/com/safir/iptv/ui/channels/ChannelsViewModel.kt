@@ -1,5 +1,6 @@
 package com.safir.iptv.ui.channels
 
+import com.safir.iptv.util.isSeparatorName
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.safir.iptv.data.prefs.SettingsStore
@@ -87,7 +88,7 @@ class ChannelsViewModel(
 
     /** Provider categories with the three virtual ones pinned to the top. */
     val categories: StateFlow<List<Category>> =
-        combine(playlists.observeCategories(), AppLocale.current) { provided, _ ->
+        combine(playlists.observeLiveCategories(), AppLocale.current) { provided, _ ->
             val t = AppLocale.strings
             buildList {
                 add(Category(FAVORITES_CATEGORY_ID, t.favorites))
@@ -202,7 +203,8 @@ class ChannelsViewModel(
      * than doing nothing.
      */
     fun jumpToNumber(number: Int) {
-        val list = channels.value
+        // Trennzeilen („##### SPORT #####“) sind kein Ziel — sie haben keinen Stream.
+        val list = channels.value.filterNot { isSeparatorName(it.name) }
         if (list.isEmpty()) return
         val exact = list.firstOrNull { it.number == number }
         val target = exact ?: list.lastOrNull { it.number < number } ?: list.first()

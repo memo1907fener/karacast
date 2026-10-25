@@ -15,14 +15,20 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import kotlinx.coroutines.delay
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -198,15 +204,38 @@ fun SeriesDetailScreen(
                     }
                 }
                 Spacer(Modifier.height(10.dp))
+                // Beim Öffnen steht der Fokus gleich auf der Folge, mit der es
+                // weitergeht (oder auf der ersten) — vorher stand er nirgends, und
+                // der erste Druck auf die Fernbedienung ging verloren.
+                val episodesState = rememberLazyListState()
+                val startRequester = remember { FocusRequester() }
+                val startIndex = remember(state.episodes) {
+                    state.episodes.indexOfLast { viewModel.resumeMs(it) > 0L }.takeIf { it >= 0 } ?: 0
+                }
+                LaunchedEffect(state.episodes) {
+                    if (state.episodes.isEmpty()) return@LaunchedEffect
+                    episodesState.scrollToItem((startIndex - 1).coerceAtLeast(0))
+                    for (attempt in 0 until 10) {
+                        delay(50)
+                        if (runCatching { startRequester.requestFocus() }.isSuccess) break
+                    }
+                }
                 LazyColumn(
+                    state = episodesState,
                     verticalArrangement = Arrangement.spacedBy(5.dp),
                     contentPadding = PaddingValues(bottom = 24.dp)
                 ) {
-                    items(state.episodes) { episode ->
+                    itemsIndexed(state.episodes) { index, episode ->
                         val resume = viewModel.resumeMs(episode)
                         val season = state.episodes
                         EpisodeLine(
-                            title = episode.label(t.vod.episode),
+                            modifier = if (index == startIndex) Modifier.focusRequester(startRequester) else Modifier,
+                            // „NF - Serie (2025) - S01E01 - Folge 1“: der Serienname
+                            // steht schon groß darüber.
+                            title = episode.label(t.vod.episode)
+                                .removePrefix(detail.series.name)
+                                .trimStart(' ', '-', '–', '|', ':')
+                                .ifBlank { episode.label(t.vod.episode) },
                             detail = listOfNotNull(
                                 episode.durationSecs?.takeIf { it > 0 }
                                     ?.let { t.nMinutes(it / 60) },
@@ -265,7 +294,8 @@ private fun EpisodeLine(
     title: String,
     detail: String,
     plot: String?,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Surface(
         onClick = onClick,
@@ -279,7 +309,7 @@ private fun EpisodeLine(
         ),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp)),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
-        modifier = Modifier.fillMaxWidth().alsoTappable(onClick)
+        modifier = modifier.fillMaxWidth().alsoTappable(onClick)
     ) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 11.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

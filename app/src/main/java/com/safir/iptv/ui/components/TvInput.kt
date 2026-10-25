@@ -6,6 +6,7 @@ import android.text.Editable
 import android.text.InputType
 import android.text.TextWatcher
 import android.view.Gravity
+import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
@@ -55,10 +56,17 @@ fun TvTextField(
     placeholder: String = "",
     kind: TvFieldKind = TvFieldKind.TEXT,
     /** Takes the initial focus. Done in View-world; Compose cannot focus into an interop view. */
-    autoFocus: Boolean = false
+    autoFocus: Boolean = false,
+    /**
+     * ▼ (and Enter on the keyboard) out of the field. Without it the View-world
+     * searches for the next view below — and in a Compose screen it finds none,
+     * so the focus simply vanished (the search field in Live TV did exactly that).
+     */
+    onMoveDown: (() -> Unit)? = null
 ) {
     var focused by remember { mutableStateOf(false) }
     val currentOnValueChange by rememberUpdatedState(onValueChange)
+    val currentOnMoveDown by rememberUpdatedState(onMoveDown)
     val shape = RoundedCornerShape(10.dp)
 
     Column(
@@ -97,7 +105,21 @@ fun TvTextField(
                             actionId == EditorInfo.IME_ACTION_DONE
                         ) {
                             hideKeyboard(view)
-                            view.focusSearch(View.FOCUS_DOWN)?.requestFocus()
+                            val down = currentOnMoveDown
+                            if (down != null) down() else view.focusSearch(View.FOCUS_DOWN)?.requestFocus()
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    setOnKeyListener { view, keyCode, event ->
+                        val down = currentOnMoveDown
+                        if (down != null &&
+                            event.action == KeyEvent.ACTION_DOWN &&
+                            (keyCode == KeyEvent.KEYCODE_DPAD_DOWN || keyCode == KeyEvent.KEYCODE_ENTER)
+                        ) {
+                            hideKeyboard(view)
+                            down()
                             true
                         } else {
                             false
@@ -106,6 +128,9 @@ fun TvTextField(
                     if (autoFocus) post { requestFocus() }
                 }
             },
+            // Leaving the screen must not leave the keyboard behind: after the
+            // setup form it stayed open over the start screen.
+            onRelease = { hideKeyboard(it) },
             update = { editText ->
                 // Guarded so the TextWatcher's own emission cannot loop back in.
                 if (editText.text.toString() != value) {

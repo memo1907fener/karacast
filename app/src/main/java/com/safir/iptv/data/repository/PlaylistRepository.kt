@@ -1,5 +1,9 @@
 package com.safir.iptv.data.repository
 
+import com.safir.iptv.data.local.CategoryRow
+import com.safir.iptv.util.COUNTRY_PREFIX
+import com.safir.iptv.util.CountryGroups
+import com.safir.iptv.util.isSeparatorName
 import androidx.room.withTransaction
 import com.safir.iptv.data.local.AppDatabase
 import com.safir.iptv.data.local.CategoryEntity
@@ -155,7 +159,26 @@ class PlaylistRepository(
             rows.map { Category(it.id, it.name, it.channelCount) }
         }
 
+    /**
+     * Die Gruppen, wie Live TV sie zeigt: auf Wunsch nach Land zusammengefasst
+     * („[DE] SPORT“, „[DE] FILME“ … → „Deutschland“). Sortieren, Kindersicherung
+     * und eigene Gruppen arbeiten weiter mit den einzelnen Kategorien
+     * ([observeCategories]).
+     */
+    fun observeLiveCategories(): Flow<List<Category>> = combine(
+        observeCategories(),
+        settings.groupByCountry,
+        AppLocale.current
+    ) { categories, byCountry, language ->
+        if (!byCountry) {
+            categories
+        } else {
+            CountryGroups.merge(categories, language.tag) { it.id.startsWith(GROUP_PREFIX) }
+        }
+    }
+
     fun observeChannels(categoryId: String): Flow<List<Channel>> {
+        if (categoryId.startsWith(COUNTRY_PREFIX)) return observeCountry(categoryId.removePrefix(COUNTRY_PREFIX))
         // Re-reads the group on every edit, so membership, hidden channels and the
         // user's order all reach the list that is currently on screen.
         if (categoryId.startsWith(GROUP_PREFIX)) {
@@ -201,6 +224,59 @@ class PlaylistRepository(
             }
         }
     }
+
+    /**
+     * Alle Kanäle eines Landes, Kategorie für Kategorie in der Reihenfolge des
+     * Nutzers. Jede Kategorie beginnt mit einer Überschrift — außer der Anbieter
+     * hat selbst schon eine Trennzeile an ihren Anfang gesetzt.
+     */
+    private fun observeCountry(code: String): Flow<List<Channel>> =
+        combine(
+            perSource { channelDao.observeCategories(it) },
+            settings.categoryOrder,
+            settings.activeSourceId,
+            settings.parentalRevision
+        ) { rows, order, sourceId, _ ->
+            val rank = order.withIndex().associate { (index, id) -> id to index }
+            val members = rows
+                .filter { CountryGroups.codeOf(it.name) == code && !settings.isLiveBlocked(it.id, it.name) }
+                .sortedBy { rank[it.id] ?: Int.MAX_VALUE }
+            sourceId to members
+        }.flatMapLatest { (sourceId, members) ->
+            if (members.isEmpty()) {
+                flowOf(emptyList<Channel>())
+            } else {
+                combine(channelDao.observeByCategories(sourceId, members.map { it.id }), settings.channelSort) { rows, sort ->
+                    val byCategory = rows
+                        .filterNot { settings.isLiveBlocked(it.categoryId, it.categoryName) }
+                        .map { it.toDomain() }
+                        .groupBy { it.categoryId }
+                    members.flatMap { category ->
+                        var list = byCategory[category.id].orEmpty()
+                        if (sort == ChannelSort.NAME) {
+                            list = list.filterNot { isSeparatorName(it.name) }.sortedBy { it.name.lowercase() }
+                        }
+                        when {
+                            list.isEmpty() -> emptyList()
+                            isSeparatorName(list.first().name) -> list
+                            else -> listOf(countryHeader(sourceId, category)) + list
+                        }
+                    }
+                }
+            }
+        }
+
+    /** Eine Überschrift im Stil der Trennzeilen der Anbieter — die Listen kennen die schon. */
+    private fun countryHeader(sourceId: Long, category: CategoryRow) = Channel(
+        id = "hdr:$sourceId:${category.id}",
+        name = "##### ${CountryGroups.subName(category.name)} #####",
+        logoUrl = null,
+        categoryId = category.id,
+        categoryName = category.name,
+        streamUrl = "",
+        epgId = null,
+        number = 0
+    )
 
     /**
      * Every channel a group draws from, hidden ones included, in the user's order —

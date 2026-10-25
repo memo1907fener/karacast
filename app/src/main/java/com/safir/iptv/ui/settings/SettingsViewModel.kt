@@ -51,6 +51,7 @@ data class SettingsUiState(
     val resumeLastChannel: Boolean = false,
     val previewEnabled: Boolean = true,
     val liveLayout: LiveLayout = LiveLayout.CLASSIC,
+    val groupByCountry: Boolean = true,
     val previewMuted: Boolean = false,
     val groupCount: Int = 0,
     /** Null = Live TV shows the overview; otherwise the list it jumps straight into. */
@@ -201,6 +202,11 @@ class SettingsViewModel(
         _state.update { it.copy(resumeLastChannel = value) }
     }
 
+    fun setGroupByCountry(value: Boolean) {
+        settings.setGroupByCountry(value)
+        _state.update { it.copy(groupByCountry = value) }
+    }
+
     fun setLiveLayout(value: LiveLayout) {
         settings.liveLayout = value
         _state.update { it.copy(liveLayout = value) }
@@ -272,6 +278,7 @@ class SettingsViewModel(
                     resumeLastChannel = settings.resumeLastChannel,
                     previewEnabled = settings.previewEnabled,
                     liveLayout = settings.liveLayout,
+                    groupByCountry = settings.groupByCountry.value,
                     previewMuted = settings.previewMuted,
                     groupCount = settings.groups.value.size,
                     liveDirectCategoryId = settings.liveDirectCategoryId,

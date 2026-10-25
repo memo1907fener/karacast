@@ -109,6 +109,7 @@ class SettingsStore(context: Context) {
     private fun reload() {
         _activeSourceId.value = prefs.getLong(KEY_ACTIVE_SOURCE, 1L)
         _channelSort.value = readSort()
+        _groupByCountry.value = prefs.getBoolean(KEY_BY_COUNTRY, true)
         _homeScreenRow.value = prefs.getBoolean(KEY_HOME_ROW, true)
         _parentalRevision.value = ParentalRevision(
             prefs.getBoolean(KEY_PARENTAL, false),
@@ -191,6 +192,19 @@ class SettingsStore(context: Context) {
     fun setChannelSort(value: ChannelSort) {
         prefs.edit { putString(KEY_CHANNEL_SORT, value.name) }
         _channelSort.value = value
+    }
+
+    /**
+     * Kategorien in Live TV nach Land zusammenfassen: „[DE] SPORT“, „[DE] FILME“
+     * … stehen dann als ein Eintrag „Deutschland“ in der Gruppenliste. An, weil
+     * die meisten Anbieter Dutzende Kategorien pro Land haben.
+     */
+    private val _groupByCountry = MutableStateFlow(prefs.getBoolean(KEY_BY_COUNTRY, true))
+    val groupByCountry: StateFlow<Boolean> = _groupByCountry.asStateFlow()
+
+    fun setGroupByCountry(value: Boolean) {
+        prefs.edit { putBoolean(KEY_BY_COUNTRY, value) }
+        _groupByCountry.value = value
     }
 
     private fun readSort(): ChannelSort =
@@ -635,6 +649,7 @@ class SettingsStore(context: Context) {
         const val KEY_LIVE_LAYOUT = "live_layout"
         const val KEY_LIVE_DIRECT = "live_direct_category"
         const val KEY_CHANNEL_SORT = "channel_sort"
+        const val KEY_BY_COUNTRY = "group_by_country"
         const val KEY_ASPECT = "aspect_mode"
         const val KEY_AUTOSTART = "auto_start_on_boot"
         const val KEY_AUTO_RECOVER = "auto_recover"

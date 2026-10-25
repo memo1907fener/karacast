@@ -627,6 +627,13 @@ private fun DisplaySection(state: SettingsUiState, viewModel: SettingsViewModel)
             onToggle = { viewModel.setResumeLastChannel(!state.resumeLastChannel) }
         )
         Spacer(Modifier.height(12.dp))
+        ToggleRow(
+            title = t.byCountry,
+            subtitle = t.byCountryHint,
+            checked = state.groupByCountry,
+            onToggle = { viewModel.setGroupByCountry(!state.groupByCountry) }
+        )
+        Spacer(Modifier.height(12.dp))
         // Vier Ansichten für Live TV — eine Auswahl, kein Schalter.
         Text(
             text = t.layout.settingTitle,

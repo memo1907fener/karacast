@@ -661,6 +661,4 @@ private fun ChannelRow(
 }
 
 /** Eine Trennzeile des Anbieters („##### SPORT #####“) statt eines Senders. */
-fun isSeparator(name: String): Boolean = SeparatorPattern.matches(name.trim())
-
-private val SeparatorPattern = Regex("""^[#=*~\-_|]{3,}.*[#=*~\-_|]{3,}$|^[#=*~]{3,}.*""")
+fun isSeparator(name: String): Boolean = com.safir.iptv.util.isSeparatorName(name)

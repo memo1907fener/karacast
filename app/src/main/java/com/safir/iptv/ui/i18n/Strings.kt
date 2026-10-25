@@ -163,6 +163,9 @@ data class Strings(
     val displaySection: String = "Anzeige",
     val clockWhilePlaying: String = "Uhr während der Wiedergabe",
     val clockWhilePlayingHint: String = "Digitale Uhrzeit oben rechts, dauerhaft sichtbar.",
+    val byCountry: String = "Kategorien nach Land zusammenfassen",
+    val byCountryHint: String = "„[DE] Sport“, „[DE] Filme“ … stehen als ein Eintrag „Deutschland“ in den Gruppen, " +
+        "darin alle Kanäle mit Überschriften.",
     val resumeLast: String = "Zuletzt gesehenen Kanal beim Start öffnen",
     val resumeLastHint: String = "Die App springt beim Öffnen direkt in die Wiedergabe. " +
         "Mit Zurück kommst du zur Kanalliste.",
@@ -930,6 +933,9 @@ private val Turkish = Strings(
     displaySection = "Görünüm",
     clockWhilePlaying = "Oynatma sırasında saat",
     clockWhilePlayingHint = "Sağ üstte dijital saat, sürekli görünür.",
+    byCountry = "Kategorileri ülkeye göre birleştir",
+    byCountryHint = "„[TR] Ulusal“, „[TR] Spor“ … gruplarda tek bir „Türkiye“ girişi olur, " +
+        "içinde başlıklarla tüm kanallar.",
     resumeLast = "Açılışta son izlenen kanalı aç",
     resumeLastHint = "Uygulama açılır açılmaz oynatmaya girer. " +
         "Geri tuşuyla kanal listesine dönersin.",
@@ -1558,6 +1564,9 @@ private val English = Strings(
     displaySection = "Display",
     clockWhilePlaying = "Clock during playback",
     clockWhilePlayingHint = "Digital clock at the top right, always visible.",
+    byCountry = "Combine categories by country",
+    byCountryHint = "“[DE] Sport”, “[DE] Films” … become one entry “Germany” in the groups, " +
+        "with every channel under headings.",
     resumeLast = "Open the last watched channel at start",
     resumeLastHint = "The app goes straight into playback when it opens. " +
         "Back takes you to the channel list.",
@@ -2188,6 +2197,9 @@ private val Arabic = Strings(
     displaySection = "العرض",
     clockWhilePlaying = "الساعة أثناء التشغيل",
     clockWhilePlayingHint = "ساعة رقمية أعلى اليمين، ظاهرة دائماً.",
+    byCountry = "دمج الفئات حسب البلد",
+    byCountryHint = "تصبح فئات مثل „[AR] أخبار“ و„[AR] رياضة“ إدخالاً واحداً في المجموعات، " +
+        "مع جميع القنوات تحت عناوين.",
     resumeLast = "فتح آخر قناة تمت مشاهدتها عند البدء",
     resumeLastHint = "يبدأ التطبيق بالتشغيل مباشرة عند فتحه. زر الرجوع يعيدك إلى قائمة القنوات.",
     previewWhileBrowsing = "معاينة أثناء التصفح",

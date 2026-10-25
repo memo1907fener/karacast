@@ -126,13 +126,34 @@ fun PlayerScreen(
         viewModel.start(channelId, categoryId, archiveStartMs, archiveDurationMin)
     }
 
+    // Lief der Kanal schon in der Vorschau, wird derselbe Player übernommen:
+    // kein neues Verbinden, das Bild wird nur größer (siehe PlayerHandoff).
+    val handed = remember { if (archiveStartMs == 0L) PlayerHandoff.take(channelId) else null }
     val exoPlayer = remember {
-        val bufferMs = viewModel.bufferSeconds * 1_000
-        buildPlayer(context, minBufferMs = bufferMs, maxBufferMs = bufferMs * 6)
-            .apply {
-                playWhenReady = true
-                applyLanguagePreferences(viewModel.audioLanguage, viewModel.subtitleLanguage)
-            }
+        val player = handed?.player ?: run {
+            val bufferMs = viewModel.bufferSeconds * 1_000
+            buildPlayer(context, minBufferMs = bufferMs, maxBufferMs = bufferMs * 6)
+        }
+        player.apply {
+            playWhenReady = true
+            volume = 1f
+            applyLanguagePreferences(viewModel.audioLanguage, viewModel.subtitleLanguage)
+        }
+    }
+    /** Der übernommene Stream ist schon geladen — das erste Laden entfällt. */
+    val skipFirstLoad = remember { booleanArrayOf(handed != null) }
+    /** Zurück an die Vorschau gegeben: dann nicht freigeben. */
+    val handedBack = remember { booleanArrayOf(false) }
+
+    // Zurück: kam der Player aus der Vorschau, geht er dorthin zurück und läuft
+    // weiter — mit dem Kanal, der gerade spielt.
+    val exit: () -> Unit = {
+        val channel = state.channel
+        if (handed != null && !handedBack[0] && channel != null && state.error == null) {
+            PlayerHandoff.give(exoPlayer, channel)
+            handedBack[0] = true
+        }
+        onExit()
     }
 
     // Staying awake is handled once for the whole app by the activity window,
@@ -141,7 +162,7 @@ fun PlayerScreen(
         PictureInPicture.setPlaying(true)
         onDispose {
             PictureInPicture.setPlaying(false)
-            runCatching { exoPlayer.release() }
+            if (!handedBack[0]) runCatching { exoPlayer.release() }
         }
     }
     val inPip by PictureInPicture.active.collectAsStateWithLifecycle()
@@ -184,6 +205,9 @@ fun PlayerScreen(
             }
         }
         exoPlayer.addListener(listener)
+        // Ein übernommener Player läuft schon: ohne das stünde der Ladekreis,
+        // bis sich zufällig der Zustand ändert.
+        viewModel.onBuffering(exoPlayer.playbackState == Player.STATE_BUFFERING)
         onDispose { exoPlayer.removeListener(listener) }
     }
 
@@ -192,6 +216,13 @@ fun PlayerScreen(
     val streamUrl = state.channel?.streamUrl
     LaunchedEffect(streamUrl, mediaToken) {
         val url = streamUrl ?: return@LaunchedEffect
+        if (skipFirstLoad[0]) {
+            skipFirstLoad[0] = false
+            if (handed?.channel?.streamUrl == url && exoPlayer.currentMediaItem != null) {
+                exoPlayer.play()
+                return@LaunchedEffect
+            }
+        }
         delay(350L)
         val item = MediaItem.Builder()
             .setUri(url)
@@ -277,7 +308,7 @@ fun PlayerScreen(
                             state.colorBarVisible -> viewModel.leaveColorBar()
                             state.channelListVisible -> viewModel.setChannelListVisible(false)
                             state.infoVisible -> viewModel.toggleInfo()
-                            else -> onExit()
+                            else -> exit()
                         }
                         true
                     }
@@ -436,6 +467,8 @@ fun PlayerScreen(
                 }
             },
             update = { it.resizeMode = resize },
+            // Geht der Player zurück an die Vorschau, darf diese Fläche ihn nicht festhalten.
+            onRelease = { it.player = null },
             modifier = Modifier.fillMaxSize()
         )
 
@@ -455,7 +488,7 @@ fun PlayerScreen(
                 // otherwise it reads like the app has given up when it has not.
                 note = if (state.recovering) s.recovery.stillTrying else null,
                 onRetry = viewModel::retry,
-                onExit = onExit
+                onExit = exit
             )
         }
 

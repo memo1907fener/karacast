@@ -1,5 +1,6 @@
 package com.safir.iptv.ui.player
 
+import com.safir.iptv.util.isSeparatorName
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.safir.iptv.data.prefs.SettingsStore
@@ -232,9 +233,14 @@ class PlayerViewModel(
     private fun step(delta: Int) {
         val current = _state.value
         if (current.archiveLabel != null || current.playlist.isEmpty()) return
-        val index = current.index.takeIf { it >= 0 } ?: 0
-        val target = ((index + delta) % current.playlist.size + current.playlist.size) %
-            current.playlist.size
+        val size = current.playlist.size
+        var target = current.index.takeIf { it >= 0 } ?: 0
+        // Trennzeilen („##### SPORT #####“) haben keinen Stream — weiter bis zum
+        // nächsten echten Kanal, höchstens einmal rundherum.
+        for (step in 0 until size) {
+            target = ((target + delta) % size + size) % size
+            if (!isSeparatorName(current.playlist[target].name)) break
+        }
         onChannelSelected(current.playlist[target])
     }
 
@@ -247,9 +253,10 @@ class PlayerViewModel(
     fun jumpToNumber(number: Int) {
         val list = _state.value.playlist
         if (list.isEmpty()) return
-        val target = list.firstOrNull { it.number == number }
-            ?: list.lastOrNull { it.number < number }
-            ?: list.first()
+        val real = list.filterNot { isSeparatorName(it.name) }.ifEmpty { list }
+        val target = real.firstOrNull { it.number == number }
+            ?: real.lastOrNull { it.number < number }
+            ?: real.first()
         onChannelSelected(target)
     }
 

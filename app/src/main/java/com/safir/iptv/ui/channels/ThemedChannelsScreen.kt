@@ -4,6 +4,7 @@ import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +24,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -97,6 +99,7 @@ import com.safir.iptv.ui.components.ProgressLine
 import com.safir.iptv.ui.components.TvTextField
 import com.safir.iptv.ui.components.alsoTappable
 import com.safir.iptv.ui.components.asDigit
+import com.safir.iptv.ui.components.FocusMemory
 import com.safir.iptv.ui.components.rememberFocus
 import com.safir.iptv.ui.components.rememberFocusMemory
 import com.safir.iptv.ui.components.rememberNumberEntry
@@ -105,8 +108,10 @@ import com.safir.iptv.ui.components.submitNow
 import com.safir.iptv.ui.i18n.LocalStrings
 import com.safir.iptv.ui.theme.Brand
 import com.safir.iptv.util.asClock
+import com.safir.iptv.ui.player.PlayerHandoff
 import com.safir.iptv.util.buildPlayer
 import com.safir.iptv.util.formatDuration
+import com.safir.iptv.util.isSeparatorName
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -153,6 +158,14 @@ private class LiveUi(
     val previewFailed: Boolean,
     val groupsState: LazyListState,
     val groupsRequester: FocusRequester,
+    /** Die senkrechte Kanalliste (Kino, Receiver) — hier, damit auch die Knöpfe rechts zurückfinden. */
+    val channelListState: LazyListState,
+    /** Welche Kanalzeile zuletzt den Fokus hatte. */
+    val channelMemory: FocusMemory,
+    /** „Vollbild“ rechts — Ziel von ▶ aus der Kanalliste. */
+    val actionsRequester: FocusRequester,
+    /** ▼ aus dem Suchfeld: auf den ersten Treffer. */
+    val onSearchDown: () -> Unit,
     val onFocusCategory: (String) -> Unit,
     val onOpenCategory: (String) -> Unit,
     val onChannel: (Channel) -> Unit,
@@ -211,6 +224,9 @@ internal fun ThemedChannelsScreen(
 
     val groupsState = rememberLazyListState()
     val groupsRequester = remember { FocusRequester() }
+    val channelListState = rememberLazyListState()
+    val channelMemory = rememberFocusMemory()
+    val actionsRequester = remember { FocusRequester() }
 
     // ------------------------------------------------------------ first focus
     var searchOpened by rememberSaveable { mutableStateOf(false) }
@@ -248,6 +264,18 @@ internal fun ThemedChannelsScreen(
     // Gruppenliste. Ohne Fokus wirkte die Fernbedienung tot.
     LaunchedEffect(categories.isNotEmpty()) {
         if (categories.isEmpty()) return@LaunchedEffect
+        delay(900)
+        // Nicht dazwischenfunken, solange ein Kanal den Fokus gleich bekommt
+        // (zurück aus dem Vollbild): sonst landete er in den Gruppen.
+        if (!anyPaneFocused && !viewModel.searchMode.value && viewModel.focusTargetId.value == null) {
+            focusGroups()
+        }
+    }
+
+    // Und falls dieser Sprung ins Leere ging (Kanal nicht mehr in der Liste):
+    // dann eben die Gruppen — nie ohne Fokus, sonst wirkt die Fernbedienung tot.
+    LaunchedEffect(focusTargetId) {
+        if (focusTargetId != null || categories.isEmpty()) return@LaunchedEffect
         delay(900)
         if (!anyPaneFocused && !viewModel.searchMode.value) focusGroups()
     }
@@ -325,9 +353,18 @@ internal fun ThemedChannelsScreen(
     val previewMuted = remember { viewModel.previewMuted }
     var previewFailed by remember { mutableStateOf(false) }
 
+    // Zurück aus dem Vollbild: dessen Player läuft hier gleich weiter, ohne
+    // neu zu verbinden (siehe PlayerHandoff).
+    val adopted = remember { if (previewEnabled) PlayerHandoff.takeAny() else null }
+    val handedOff = remember { booleanArrayOf(false) }
     val previewPlayer = remember {
         if (!previewEnabled) {
             null
+        } else if (adopted != null) {
+            adopted.player.apply {
+                playWhenReady = true
+                volume = if (previewMuted) 0f else 1f
+            }
         } else {
             buildPlayer(
                 context,
@@ -355,8 +392,9 @@ internal fun ThemedChannelsScreen(
         previewPlayer?.addListener(listener)
         onDispose {
             previewPlayer?.removeListener(listener)
-            // Gibt den Verbindungsplatz beim Anbieter sofort wieder frei.
-            previewPlayer?.release()
+            // Gibt den Verbindungsplatz beim Anbieter sofort wieder frei — außer
+            // das Vollbild hat den Player eben übernommen.
+            if (!handedOff[0]) previewPlayer?.release()
         }
     }
 
@@ -365,8 +403,10 @@ internal fun ThemedChannelsScreen(
     // Was in der Vorschau läuft, wählt man mit OK — nicht der Fokus. Blättern kostet
     // so keine Verbindung zum Anbieter, und die Vorschau bleibt stehen, während man
     // sich durch andere Gruppen bewegt.
-    var playing by remember { mutableStateOf<Channel?>(null) }
+    var playing by remember { mutableStateOf(adopted?.channel) }
     var playingCategory by remember { mutableStateOf<String?>(null) }
+    /** Dieser Kanal läuft schon im übernommenen Player — nicht noch einmal laden. */
+    val alreadyLoaded = remember { arrayOf(adopted?.channel?.id) }
 
     // Beim Öffnen läuft der zuletzt gesehene Kanal schon in der Vorschau.
     // Nur bei der ersten Liste — später, beim Blättern durch eine Gruppe, die ihn
@@ -387,9 +427,15 @@ internal fun ThemedChannelsScreen(
     // Aus der aktuellen Liste nachgeschlagen, wo es geht: der gemerkte Kanal ist
     // eine Momentaufnahme, und ohne das bliebe nach „Favorit“ der Stern leer.
     val playingNow: Channel? = playing?.let { p -> channels.firstOrNull { it.id == p.id } ?: p }
+    val nowNextCache = remember { HashMap<String, NowNext>() }
 
     LaunchedEffect(playing?.id) {
         val player = previewPlayer ?: return@LaunchedEffect
+        if (playing?.id != null && playing?.id == alreadyLoaded[0]) {
+            alreadyLoaded[0] = null
+            return@LaunchedEffect
+        }
+        alreadyLoaded[0] = null
         player.stop()
         previewFailed = false
         val channel = playing ?: return@LaunchedEffect
@@ -408,6 +454,12 @@ internal fun ThemedChannelsScreen(
     }
 
     fun openFullscreen(channel: Channel) {
+        // Läuft er schon in der Vorschau, nimmt das Vollbild denselben Player:
+        // kein neues Laden, das Bild wird nur groß.
+        if (previewPlayer != null && playing?.id == channel.id && !previewFailed && !handedOff[0]) {
+            PlayerHandoff.give(previewPlayer, channel)
+            handedOff[0] = true
+        }
         // Stammt der Kanal aus einer anderen Gruppe als der angezeigten, schaltet
         // der Player durch die Gruppe, aus der er gestartet wurde.
         val inList = channels.any { it.id == channel.id }
@@ -425,7 +477,13 @@ internal fun ThemedChannelsScreen(
         channels = channels,
         nowNext = nowNextMap,
         playing = playingNow,
-        playingNowNext = playingNow?.epgId?.let { nowNextMap[it] },
+        playingNowNext = playingNow?.let { channel ->
+            // Die Sendungen kommen mit der angezeigten Liste; wechselt man die
+            // Gruppe, fehlte dem laufenden Kanal sonst plötzlich seine Sendung.
+            val fresh = channel.epgId?.let { nowNextMap[it] }
+            if (fresh != null) nowNextCache[channel.id] = fresh
+            fresh ?: nowNextCache[channel.id]
+        },
         searchMode = searchMode,
         query = query,
         focusTargetId = focusTargetId,
@@ -434,6 +492,12 @@ internal fun ThemedChannelsScreen(
         previewFailed = previewFailed,
         groupsState = groupsState,
         groupsRequester = groupsRequester,
+        channelListState = channelListState,
+        channelMemory = channelMemory,
+        actionsRequester = actionsRequester,
+        onSearchDown = {
+            channels.firstOrNull { !isSeparatorName(it.name) }?.let { viewModel.focusChannel(it.id) }
+        },
         onFocusCategory = { id ->
             hoveredCategory = id
             if (id != jumpTarget) jumpTarget = null
@@ -552,35 +616,28 @@ internal fun ThemedChannelsScreen(
 // ===================================================================== A: Kino
 
 /**
- * Das Live-Bild füllt den ganzen Hintergrund; Gruppen und Kanäle liegen als
- * halbdurchsichtige Spalten darüber, unten rechts groß die laufende Sendung.
+ * Gruppen und Kanäle links, rechts groß das Live-Bild in einem Rahmen, darunter
+ * die laufende Sendung und die Knöpfe. Das Bild läuft hier schon richtig — ein
+ * zweites OK macht es nur groß, ohne neu zu laden (siehe PlayerHandoff).
  */
 @Composable
 private fun KinoLayout(ui: LiveUi) {
     val s = LocalStrings.current
-    Box(Modifier.fillMaxSize().background(KinoGround)) {
-        PreviewSurface(ui = ui, showHint = false, modifier = Modifier.fillMaxSize())
-        // Abdunkeln: links fast dicht, damit die Listen lesbar bleiben; rechts
-        // bleibt das Bild sichtbar; unten wieder dunkler für die Sendung.
-        Box(
-            Modifier.fillMaxSize().background(
-                Brush.horizontalGradient(
-                    0f to KinoGround.copy(alpha = 0.97f),
-                    0.48f to KinoGround.copy(alpha = 0.92f),
-                    0.72f to KinoGround.copy(alpha = 0.35f),
-                    1f to KinoGround.copy(alpha = 0.5f)
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(KinoGround)
+            // Ein Hauch Orange hinter dem Bild, damit die rechte Seite nicht
+            // schwarz in schwarz steht.
+            .background(
+                Brush.radialGradient(
+                    0f to Brand.Accent.copy(alpha = 0.10f),
+                    1f to Color.Transparent,
+                    center = androidx.compose.ui.geometry.Offset(Float.POSITIVE_INFINITY, 0f),
+                    radius = 1400f
                 )
             )
-        )
-        Box(
-            Modifier.fillMaxSize().background(
-                Brush.verticalGradient(
-                    0.5f to Color.Transparent,
-                    1f to KinoGround.copy(alpha = 0.96f)
-                )
-            )
-        )
-
+    ) {
         Column(Modifier.fillMaxSize()) {
             LiveTopBar(ui = ui, searchPill = false, modifier = ui.paneModifier(Pane.TABS))
 
@@ -589,11 +646,11 @@ private fun KinoLayout(ui: LiveUi) {
                     .weight(1f)
                     .fillMaxWidth()
                     .padding(start = 24.dp, end = 24.dp, top = 2.dp, bottom = 18.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Column(
                     Modifier
-                        .weight(0.19f)
+                        .weight(0.22f)
                         .fillMaxHeight()
                         .clip(RoundedCornerShape(14.dp))
                         .background(Glass)
@@ -625,18 +682,32 @@ private fun KinoLayout(ui: LiveUi) {
                     }
                 }
 
-                Column(Modifier.weight(0.48f).fillMaxHeight()) {
+                Column(Modifier.weight(0.45f).fillMaxHeight()) {
+                    val frame = RoundedCornerShape(14.dp)
+                    PreviewSurface(
+                        ui = ui,
+                        showHint = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(16f / 9f)
+                            .clip(frame)
+                            .border(
+                                width = 1.dp,
+                                color = if (ui.playing != null) Brand.Accent.copy(alpha = 0.55f) else Color.White.copy(alpha = 0.08f),
+                                shape = frame
+                            )
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    NowInfo(channel = ui.playing, nowNext = ui.playingNowNext, large = false)
+                    Spacer(Modifier.weight(1f))
                     Text(
                         text = s.layout.hint,
-                        fontSize = 12.sp,
-                        color = Color.White.copy(alpha = 0.72f),
+                        fontSize = 11.sp,
+                        color = TextDim,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.align(Alignment.End)
+                        modifier = Modifier.padding(bottom = 8.dp)
                     )
-                    Spacer(Modifier.weight(1f))
-                    NowInfo(channel = ui.playing, nowNext = ui.playingNowNext, large = true)
-                    Spacer(Modifier.height(14.dp))
                     ActionButtons(ui = ui, modifier = ui.paneModifier(Pane.DETAIL))
                 }
             }
@@ -901,7 +972,15 @@ private fun ChannelGrid(ui: LiveUi, modifier: Modifier) {
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            items(ui.channels, key = { it.id }) { channel ->
+            items(
+                ui.channels,
+                key = { it.id },
+                span = { if (isSeparatorName(it.name)) GridItemSpan(maxLineSpan) else GridItemSpan(1) }
+            ) { channel ->
+                if (isSeparatorName(channel.name)) {
+                    SeparatorHeader(channel.name)
+                    return@items
+                }
                 MosaikTile(
                     ui = ui,
                     channel = channel,
@@ -1436,6 +1515,7 @@ private fun SearchFieldIfNeeded(ui: LiveUi) {
         label = s.searchChannel,
         placeholder = s.typeName,
         autoFocus = true,
+        onMoveDown = ui.onSearchDown,
         modifier = Modifier.padding(bottom = 8.dp)
     )
 }
@@ -1532,11 +1612,13 @@ private fun ChannelColumnList(
     row: @Composable (Channel, Modifier) -> Unit
 ) {
     val s = LocalStrings.current
-    val listState = rememberLazyListState()
+    val listState = ui.channelListState
     val jumpRequester = remember { FocusRequester() }
-    val memory = rememberFocusMemory()
+    val memory = ui.channelMemory
 
-    LaunchedEffect(ui.channels.firstOrNull()?.id) {
+    // Neue Liste fängt oben an. Auch Suche und „Alle Kanäle“ zählen als neue
+    // Liste, selbst wenn sie mit derselben Zeile beginnen wie die vorige Gruppe.
+    LaunchedEffect(ui.channels.firstOrNull()?.id, ui.channels.size, ui.searchMode) {
         if (ui.focusTargetId == null) listState.scrollToItem(0)
     }
 
@@ -1568,12 +1650,19 @@ private fun ChannelColumnList(
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             items(ui.channels, key = { it.id }) { channel ->
-                row(
-                    channel,
-                    Modifier
-                        .rememberFocus(memory, channel.id)
-                        .then(if (channel.id == ui.focusTargetId) Modifier.focusRequester(jumpRequester) else Modifier)
-                )
+                if (isSeparatorName(channel.name)) {
+                    SeparatorHeader(channel.name)
+                } else {
+                    row(
+                        channel,
+                        Modifier
+                            .rememberFocus(memory, channel.id)
+                            .then(if (channel.id == ui.focusTargetId) Modifier.focusRequester(jumpRequester) else Modifier)
+                            // ▶ geht zu „Vollbild“ — nicht zu dem, was zufällig auf
+                            // gleicher Höhe liegt (oben war das der Reiter „Programm“).
+                            .focusProperties { right = if (ui.playing != null) ui.actionsRequester else FocusRequester.Default }
+                    )
+                }
             }
         }
     }
@@ -1604,6 +1693,8 @@ private fun PreviewSurface(ui: LiveUi, showHint: Boolean, modifier: Modifier) {
                     }
                 },
                 update = { it.player = previewPlayer },
+                // Übernimmt das Vollbild den Player, darf diese Fläche ihn nicht festhalten.
+                onRelease = { it.player = null },
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -1694,7 +1785,11 @@ private fun ActionButtons(ui: LiveUi, modifier: Modifier = Modifier) {
             primary = true,
             enabled = channel != null,
             onClick = ui.onFullscreen,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier
+                .weight(1f)
+                .focusRequester(ui.actionsRequester)
+                // ◀ zurück auf die Kanalzeile, von der man kam.
+                .focusProperties { left = ui.channelEntry() }
         )
         ActionButton(
             label = s.favorite,
@@ -1782,4 +1877,30 @@ private fun Channel.nowOf(map: Map<String, NowNext>): NowNext? = epgId?.let { ma
 private fun LiveUi.selectedGroupRequester(): FocusRequester {
     val visible = groupsState.layoutInfo.visibleItemsInfo.any { it.key == selectedCategoryId }
     return if (visible) groupsRequester else FocusRequester.Default
+}
+
+/** Zurück in die Kanalliste: auf die zuletzt gewählte Zeile, wenn sie im Bild ist. */
+private fun LiveUi.channelEntry(): FocusRequester {
+    val key = channelMemory.key ?: return FocusRequester.Default
+    val visible = channelListState.layoutInfo.visibleItemsInfo.any { it.key == key }
+    return if (visible) channelMemory.requester else FocusRequester.Default
+}
+
+/**
+ * Eine Trennzeile des Anbieters („##### SPORT #####“) als Überschrift: ohne
+ * Stream, also auch nicht anwählbar — der Fokus springt darüber hinweg.
+ */
+@Composable
+private fun SeparatorHeader(raw: String) {
+    val title = raw.trim().trim('#', '=', '*', '~', '-', '_', '|', ' ')
+    Text(
+        text = title.ifBlank { raw.trim() }.uppercase(),
+        fontSize = 11.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 1.sp,
+        color = Brand.AccentSoft,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, top = 10.dp, bottom = 4.dp)
+    )
 }
