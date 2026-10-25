@@ -4,6 +4,12 @@ import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -68,38 +74,11 @@ object MobileRoutes {
     const val SETUP_PATTERN = "setup?mode={mode}"
     fun setup(mode: SetupMode) = "setup?mode=${mode.name}"
     const val MAIN = "main"
-    const val PLAYER = "player/{channelId}/{categoryId}"
-    const val ARCHIVE = "archive/{channelId}/{start}/{duration}"
-    const val VOD = "vod"
     const val SERIES = "series/{seriesId}"
     const val SETTINGS = "settings"
     const val UNLOCK = "unlock"
 
-    fun player(channelId: String, categoryId: String) =
-        "player/${Uri.encode(channelId)}/${Uri.encode(categoryId)}"
-
-    fun archive(channelId: String, startMs: Long, minutes: Int) =
-        "archive/${Uri.encode(channelId)}/$startMs/$minutes"
-
     fun series(id: Int) = "series/$id"
-}
-
-/**
- * Was im Mini-Player läuft. Lebt außerhalb der Bildschirme, weil er über allen
- * Reitern liegt und nach dem Vollbild weiterlaufen soll.
- */
-object MiniPlayback {
-    data class Item(val channel: Channel, val categoryId: String)
-
-    val current = MutableStateFlow<Item?>(null)
-
-    fun show(channel: Channel, categoryId: String) {
-        current.value = Item(channel, categoryId)
-    }
-
-    fun close() {
-        current.value = null
-    }
 }
 
 /** Ein angefangener Film oder eine Folge, wieder als Wiedergabe-Auftrag. */
@@ -146,23 +125,24 @@ private fun MobileNavHost(startDestination: String) {
     val notice = rememberReminderNotice(container.reminders) { reminder ->
         scope.launch {
             PlaylistRepository.sourceIdOf(reminder.channelId)?.let { container.sources.switchTo(it) }
-            if (nav.currentDestination?.route == MobileRoutes.PLAYER) nav.popBackStack()
-            nav.navigate(MobileRoutes.player(reminder.channelId, container.settings.homeCategoryId))
+            PlayerLayer.playLive(reminder.channelId, container.settings.homeCategoryId)
         }
     }
 
     fun openPlayer(channel: Channel, categoryId: String) {
-        // Das Vollbild übernimmt den Stream: der Mini-Player gibt seinen vorher
-        // ab — viele Anbieter erlauben nur eine Verbindung gleichzeitig — und
-        // kommt erst wieder, wenn das Vollbild ganz weg ist (siehe PLAYER).
-        MiniPlayback.close()
-        nav.navigate(MobileRoutes.player(channel.id, categoryId))
+        PlayerLayer.playLive(channel, categoryId, expand = true)
     }
 
     fun openArchive(channel: Channel, program: Program) {
-        val minutes = (program.durationMs / 60_000L).toInt().coerceAtLeast(1)
-        nav.navigate(MobileRoutes.archive(channel.id, program.startMs, minutes))
+        PlayerLayer.playArchive(channel, program)
     }
+
+    // Das kleine Fenster sitzt über der Reiterleiste, wenn es sie gibt, sonst
+    // am unteren Rand.
+    val backStack by nav.currentBackStackEntryAsState()
+    val onMain = backStack?.destination?.route == MobileRoutes.MAIN
+    val navBars = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val miniInset = navBars + if (onMain) 81.dp else 0.dp
 
     Box(Modifier.fillMaxSize()) {
         NavHost(navController = nav, startDestination = startDestination) {
@@ -179,7 +159,7 @@ private fun MobileNavHost(startDestination: String) {
                 MobileSetupScreen(
                     mode = mode,
                     onConnected = {
-                        MiniPlayback.close()
+                        PlayerLayer.close()
                         nav.navigate(MobileRoutes.MAIN) { popUpTo(0) { inclusive = true } }
                     },
                     onCancel = if (mode == SetupMode.FIRST) null else { { nav.popBackStack() } }
@@ -190,55 +170,10 @@ private fun MobileNavHost(startDestination: String) {
                 MainTabs(
                     onOpenPlayer = { c, cat -> openPlayer(c, cat) },
                     onOpenArchive = { c, p -> openArchive(c, p) },
-                    onPlayVod = { nav.navigate(MobileRoutes.VOD) },
+                    onPlayVod = { PlayerLayer.playVod() },
                     onOpenSeries = { nav.navigate(MobileRoutes.series(it)) },
                     onOpenSettings = { nav.navigate(MobileRoutes.SETTINGS) }
                 )
-            }
-
-            composable(
-                route = MobileRoutes.PLAYER,
-                arguments = listOf(
-                    navArgument("channelId") { type = NavType.StringType },
-                    navArgument("categoryId") { type = NavType.StringType }
-                )
-            ) { entry ->
-                val categoryId = entry.arguments?.getString("categoryId") ?: ALL_CATEGORY_ID
-                var lastPlayed by remember { mutableStateOf<Channel?>(null) }
-                // Vor dem Player angemeldet, also nach ihm abgebaut: erst wenn sein
-                // Stream freigegeben ist, spielt der Mini-Player weiter.
-                DisposableEffect(Unit) {
-                    onDispose { lastPlayed?.let { MiniPlayback.show(it, categoryId) } }
-                }
-                MobileLivePlayer(
-                    channelId = entry.arguments?.getString("channelId").orEmpty(),
-                    categoryId = categoryId,
-                    onExit = { last ->
-                        lastPlayed = last
-                        nav.popBackStack()
-                    }
-                )
-            }
-
-            composable(
-                route = MobileRoutes.ARCHIVE,
-                arguments = listOf(
-                    navArgument("channelId") { type = NavType.StringType },
-                    navArgument("start") { type = NavType.LongType },
-                    navArgument("duration") { type = NavType.IntType }
-                )
-            ) { entry ->
-                MobileLivePlayer(
-                    channelId = entry.arguments?.getString("channelId").orEmpty(),
-                    categoryId = ALL_CATEGORY_ID,
-                    archiveStartMs = entry.arguments?.getLong("start") ?: 0L,
-                    archiveDurationMin = entry.arguments?.getInt("duration") ?: 0,
-                    onExit = { nav.popBackStack() }
-                )
-            }
-
-            composable(MobileRoutes.VOD) {
-                MobileVodPlayer(onExit = { nav.popBackStack() })
             }
 
             composable(
@@ -248,7 +183,7 @@ private fun MobileNavHost(startDestination: String) {
                 MobileSeriesDetail(
                     seriesId = entry.arguments?.getInt("seriesId") ?: 0,
                     onBack = { nav.popBackStack() },
-                    onPlay = { nav.navigate(MobileRoutes.VOD) }
+                    onPlay = { PlayerLayer.playVod() }
                 )
             }
 
@@ -258,11 +193,11 @@ private fun MobileNavHost(startDestination: String) {
                     onEditSource = { nav.navigate(MobileRoutes.setup(SetupMode.EDIT)) },
                     onAddSource = { nav.navigate(MobileRoutes.setup(SetupMode.ADD)) },
                     onSourceSwitched = {
-                        MiniPlayback.close()
+                        PlayerLayer.close()
                         nav.navigate(MobileRoutes.MAIN) { popUpTo(0) { inclusive = true } }
                     },
                     onDisconnected = {
-                        MiniPlayback.close()
+                        PlayerLayer.close()
                         nav.navigate(MobileRoutes.setup(SetupMode.FIRST)) { popUpTo(0) { inclusive = true } }
                     },
                     onOpenUnlock = { nav.navigate(MobileRoutes.UNLOCK) }
@@ -276,7 +211,10 @@ private fun MobileNavHost(startDestination: String) {
             }
         }
 
-        // Die Erinnerung, oben über allem — aber nicht über einem laufenden Film.
+        // Der Player über allen Seiten: groß oder als kleines Fenster.
+        PlayerLayerHost(bottomInset = miniInset)
+
+        // Die Erinnerung, oben über allem.
         notice.current?.let { reminder ->
             val t = LocalStrings.current.reminders
             Surface(
@@ -326,18 +264,23 @@ private fun MainTabs(
     val t = LocalStrings.current
     var tab by rememberSaveable { mutableStateOf(MainTab.START) }
     var liveSearch by rememberSaveable { mutableStateOf(false) }
-    val mini by MiniPlayback.current.collectAsStateWithLifecycle()
+    val playingId by PlayerLayer.liveChannelId.collectAsStateWithLifecycle()
+    val playerItem by PlayerLayer.item.collectAsStateWithLifecycle()
+    val playerExpanded by PlayerLayer.expanded.collectAsStateWithLifecycle()
+    // Platz für das kleine Fenster, damit es nichts von den Listen verdeckt.
+    val miniShown = playerItem != null && !playerExpanded
     val movies: com.safir.iptv.ui.vod.MoviesViewModel =
         androidx.lifecycle.viewmodel.compose.viewModel(factory = com.safir.iptv.ui.AppViewModelFactory)
 
     // Zurück führt erst zum Start, dann aus der App.
     BackHandler(enabled = tab != MainTab.START) { tab = MainTab.START }
 
+    // Erster Tipp: der Kanal läuft klein unten. Zweiter Tipp: groß.
     fun tapChannel(channel: Channel, categoryId: String) {
-        if (mini?.channel?.id == channel.id) {
-            onOpenPlayer(channel, categoryId)
+        if (playingId == channel.id) {
+            PlayerLayer.expand()
         } else {
-            MiniPlayback.show(channel, categoryId)
+            PlayerLayer.playLive(channel, categoryId, expand = false)
         }
     }
 
@@ -346,13 +289,7 @@ private fun MainTabs(
         containerColor = Color.Transparent,
         bottomBar = {
             Column {
-                mini?.let { item ->
-                    MiniPlayer(
-                        item = item,
-                        onExpand = { onOpenPlayer(item.channel, item.categoryId) },
-                        onClose = { MiniPlayback.close() }
-                    )
-                }
+                if (miniShown) Spacer(Modifier.height(PlayerLayer.MiniHeight))
                 HorizontalDivider(color = Kc.Border.copy(alpha = 0.6f), thickness = 1.dp)
                 NavigationBar(containerColor = Kc.NavBar, tonalElevation = 0.dp) {
                     MainTab.entries.forEach { entry ->
@@ -381,7 +318,7 @@ private fun MainTabs(
         Box(Modifier.fillMaxSize().padding(padding)) {
             when (tab) {
                 MainTab.START -> MobileStartScreen(
-                    playingId = mini?.channel?.id,
+                    playingId = playingId,
                     onTapChannel = { c, cat -> tapChannel(c, cat) },
                     onPlayVod = onPlayVod,
                     onOpenTab = { tab = it },
@@ -400,7 +337,7 @@ private fun MainTabs(
                 )
 
                 MainTab.LIVE -> MobileLiveScreen(
-                    playingId = mini?.channel?.id,
+                    playingId = playingId,
                     startInSearch = liveSearch,
                     onSearchHandled = { liveSearch = false },
                     onTapChannel = { c, cat -> tapChannel(c, cat) }

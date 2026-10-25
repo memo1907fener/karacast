@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.Audiotrack
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Forward10
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
@@ -195,18 +196,24 @@ private class ControlsClock {
  * Bildformat pro Kanal) — nur bedient mit dem Finger: Antippen blendet die
  * Bedienelemente ein und aus, Pfeile schalten um, die Kanalliste kommt von rechts.
  *
- * @param onExit bekommt den Kanal, der zuletzt lief — der Mini-Player spielt ihn
- *   danach weiter.
+ * Lebt nicht als eigene Seite, sondern über allen Seiten ([PlayerLayerHost]):
+ * nach unten gewischt wird es zum kleinen Fenster über der Leiste und spielt
+ * weiter, ohne neu zu verbinden — wie bei YouTube. [collapsed] schaltet nur das
+ * Aussehen um; Player, Stream und Zustand bleiben dieselben.
  */
 @Composable
 fun MobileLivePlayer(
     channelId: String,
     categoryId: String,
-    onExit: (Channel?) -> Unit,
+    collapsed: Boolean,
+    onCollapse: () -> Unit,
+    onExpand: () -> Unit,
+    onClose: () -> Unit,
+    onChannel: (Channel?) -> Unit,
     archiveStartMs: Long = 0L,
     archiveDurationMin: Int = 0
 ) {
-    PlayerChrome()
+    if (!collapsed) PlayerChrome()
     val t = LocalStrings.current
     val m = LocalMobileStrings.current
     val viewModel: PlayerViewModel = viewModel(factory = AppViewModelFactory)
@@ -230,12 +237,14 @@ fun MobileLivePlayer(
         }
     }
 
+    // Bild-in-Bild nur aus dem Vollbild: als kleines Fenster in der App läuft
+    // es schon „nebenher“, beim Verlassen der App hält es an.
+    DisposableEffect(collapsed) {
+        PictureInPicture.setPlaying(!collapsed)
+        onDispose { PictureInPicture.setPlaying(false) }
+    }
     DisposableEffect(Unit) {
-        PictureInPicture.setPlaying(true)
-        onDispose {
-            PictureInPicture.setPlaying(false)
-            runCatching { exoPlayer.release() }
-        }
+        onDispose { runCatching { exoPlayer.release() } }
     }
     val inPip by PictureInPicture.active.collectAsStateWithLifecycle()
 
@@ -304,19 +313,49 @@ fun MobileLivePlayer(
         controls.visible = false
     }
     // Nach dem Umschalten kurz zeigen, wohin man gekommen ist.
-    LaunchedEffect(state.channel?.id) { controls.poke() }
+    LaunchedEffect(state.channel?.id) {
+        controls.poke()
+        onChannel(state.channel)
+    }
 
-    BackHandler {
+    // Zurück verkleinert, statt zu beenden — wie bei YouTube. Beendet wird über
+    // das X am kleinen Fenster.
+    BackHandler(enabled = !collapsed) {
         when {
             sheet != null -> sheet = null
             state.channelListVisible -> viewModel.setChannelListVisible(false)
-            else -> onExit(state.channel)
+            else -> onCollapse()
         }
     }
+
+    // Klein gibt es kein Blatt für Tonspur & Co.; wer es offen ließ, findet es zu.
+    LaunchedEffect(collapsed) { if (collapsed) sheet = null }
+
+    if (collapsed) {
+        val now = state.nowNext?.now
+        CollapsedPlayer(
+            player = exoPlayer,
+            title = cleanTitle(state.channel?.name.orEmpty()),
+            subtitle = state.archiveLabel?.let { "$it · ${now?.title.orEmpty()}" } ?: now?.title.orEmpty(),
+            progress = now?.progressAt(System.currentTimeMillis()) ?: 0f,
+            buffering = state.isBuffering && state.error == null,
+            paused = paused,
+            onTogglePause = {
+                paused = !paused
+                if (paused) exoPlayer.pause() else exoPlayer.play()
+            },
+            onExpand = onExpand,
+            onClose = onClose
+        )
+        return
+    }
+
+    val drag = rememberCollapseDrag(onCollapse)
 
     Box(
         Modifier
             .fillMaxSize()
+            .then(drag.modifier)
             .background(Color.Black)
             .pointerInput(Unit) { detectTapGestures(onTap = { controls.toggle() }) }
     ) {
@@ -357,8 +396,8 @@ fun MobileLivePlayer(
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = { onExit(state.channel) }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = t.back, tint = Color.White)
+                    IconButton(onClick = onCollapse) {
+                        Icon(Icons.Filled.KeyboardArrowDown, contentDescription = m.minimize, tint = Color.White)
                     }
                     if (channel != null) {
                         ChannelBadge(channel.logoUrl, channel.name, Modifier.size(width = 48.dp, height = 32.dp))
@@ -510,7 +549,7 @@ fun MobileLivePlayer(
                 Text(message, color = Color(0xFFC9CFDC), fontSize = 14.sp)
                 if (state.recovering) Text(t.recovery.stillTrying, color = Kc.TextSecondary, fontSize = 13.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedButton(onClick = { onExit(state.channel) }) { Text(t.back) }
+                    OutlinedButton(onClick = onClose) { Text(m.close) }
                     Button(onClick = viewModel::retry) { Text(t.retry) }
                 }
             }
@@ -711,13 +750,19 @@ private fun SheetRow(row: OptionRow) {
  * dieselben Regeln wie am Fernseher.
  */
 @Composable
-fun MobileVodPlayer(onExit: () -> Unit) {
+fun MobileVodPlayer(
+    collapsed: Boolean,
+    onCollapse: () -> Unit,
+    onExpand: () -> Unit,
+    onClose: () -> Unit
+) {
     val opened = remember { VodPlayback.pending }
     if (opened == null) {
-        LaunchedEffect(Unit) { onExit() }
+        LaunchedEffect(Unit) { onClose() }
         return
     }
-    PlayerChrome()
+    if (!collapsed) PlayerChrome()
+    val onExit = onClose
 
     val t = LocalStrings.current
     val m = LocalMobileStrings.current
@@ -783,10 +828,12 @@ fun MobileVodPlayer(onExit: () -> Unit) {
         controls.poke()
     }
 
+    DisposableEffect(collapsed) {
+        PictureInPicture.setPlaying(!collapsed)
+        onDispose { PictureInPicture.setPlaying(false) }
+    }
     DisposableEffect(Unit) {
-        PictureInPicture.setPlaying(true)
         onDispose {
-            PictureInPicture.setPlaying(false)
             runCatching { rememberPosition() }
             runCatching { exoPlayer.release() }
         }
@@ -897,8 +944,8 @@ fun MobileVodPlayer(onExit: () -> Unit) {
         controls.visible = false
     }
 
-    BackHandler {
-        if (sheet != null) sheet = null else onExit()
+    BackHandler(enabled = !collapsed) {
+        if (sheet != null) sheet = null else onCollapse()
     }
 
     fun seekBy(deltaMs: Long) {
@@ -908,9 +955,38 @@ fun MobileVodPlayer(onExit: () -> Unit) {
         controls.poke()
     }
 
+    // Klein gibt es kein Blatt für Tonspur & Co.; wer es offen ließ, findet es zu.
+    LaunchedEffect(collapsed) { if (collapsed) sheet = null }
+
+    if (collapsed) {
+        CollapsedPlayer(
+            player = exoPlayer,
+            title = cleanTitle(request.title),
+            subtitle = request.subtitle,
+            progress = if (durationMs > 0) (positionMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f,
+            buffering = buffering && failure == null,
+            paused = paused,
+            onTogglePause = {
+                paused = !paused
+                if (paused) {
+                    exoPlayer.pause()
+                    rememberPosition()
+                } else {
+                    exoPlayer.play()
+                }
+            },
+            onExpand = onExpand,
+            onClose = onClose
+        )
+        return
+    }
+
+    val drag = rememberCollapseDrag(onCollapse)
+
     Box(
         Modifier
             .fillMaxSize()
+            .then(drag.modifier)
             .background(Color.Black)
             .pointerInput(Unit) {
                 detectTapGestures(
@@ -944,8 +1020,8 @@ fun MobileVodPlayer(onExit: () -> Unit) {
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = onExit) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = t.back, tint = Color.White)
+                    IconButton(onClick = onCollapse) {
+                        Icon(Icons.Filled.KeyboardArrowDown, contentDescription = m.minimize, tint = Color.White)
                     }
                     Column(Modifier.weight(1f)) {
                         Text(cleanTitle(request.title), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -1071,7 +1147,7 @@ fun MobileVodPlayer(onExit: () -> Unit) {
                 Text(t.playbackFailed, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.White)
                 Text(message, color = Color(0xFFC9CFDC), fontSize = 14.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedButton(onClick = onExit) { Text(t.back) }
+                    OutlinedButton(onClick = onClose) { Text(m.close) }
                     Button(onClick = {
                         attempts = 0
                         failure = null
