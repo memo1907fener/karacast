@@ -48,7 +48,7 @@ import kotlinx.coroutines.launch
  * Anders als am Fernseher bleiben Status- und Navigationsleiste sichtbar — auf
  * einem Handy sind sie Teil der Bedienung. Die App zeichnet bis unter sie
  * (edge-to-edge) und hält ihre Inhalte selbst frei; nur der Player blendet sie
- * aus und dreht ins Querformat (siehe [PlayerChrome]).
+ * im Vollbild aus und dreht ins Querformat (siehe [PlayerChrome]).
  */
 class MobileActivity : ComponentActivity() {
 
@@ -160,31 +160,40 @@ tailrec fun Context.findActivity(): Activity? = when (this) {
 }
 
 /**
- * Alles, was ein Player am Fenster verstellt, und das Zurückstellen danach:
- * Querformat, keine Leisten, Bildschirm bleibt an.
+ * Alles, was der große Player am Fenster verstellt, und das Zurückstellen danach.
  *
- * Querformat nur, solange [landscape] gilt — auf einem Tablet, das ohnehin quer
- * liegt, ändert das nichts, auf einem Handy dreht es das Bild so, wie man einen
- * Film eben hält.
+ * Solange er offen ist, bleibt der Bildschirm an. Hochkant (wie bei YouTube)
+ * bleiben die Leisten stehen und das Handy aufrecht; im Vollbild ([fullscreen])
+ * dreht ein Handy ins Querformat und die Leisten verschwinden. Ein Tablet dreht
+ * nie zwangsweise — es liegt ohnehin, wie man es hält.
  */
 @Composable
-fun PlayerChrome(landscape: Boolean = true) {
+fun PlayerChrome(fullscreen: Boolean) {
     val activity = LocalContext.current.findActivity() ?: return
     val view = LocalView.current
-    DisposableEffect(landscape) {
-        if (landscape) {
-            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-        }
-        val controller = WindowCompat.getInsetsController(activity.window, view)
-        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        controller.hide(WindowInsetsCompat.Type.systemBars())
+    val phone = activity.resources.configuration.smallestScreenWidthDp in 1 until 600
+
+    DisposableEffect(Unit) {
         view.keepScreenOn = true
         onDispose {
             // Zurück zur Grundlage, nicht zu „unbestimmt“: mit gesperrter
             // Drehung bliebe ein Handy sonst quer liegen, nachdem der Film vorbei ist.
             activity.requestedOrientation = baseOrientation(activity)
-            controller.show(WindowInsetsCompat.Type.systemBars())
+            WindowCompat.getInsetsController(activity.window, view).show(WindowInsetsCompat.Type.systemBars())
             view.keepScreenOn = false
         }
     }
+    DisposableEffect(fullscreen) {
+        val controller = WindowCompat.getInsetsController(activity.window, view)
+        if (fullscreen) {
+            if (phone) activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller.hide(WindowInsetsCompat.Type.systemBars())
+        } else {
+            activity.requestedOrientation = baseOrientation(activity)
+            controller.show(WindowInsetsCompat.Type.systemBars())
+        }
+        onDispose { }
+    }
+    if (phone) RotateToFullscreen(activity, fullscreen)
 }

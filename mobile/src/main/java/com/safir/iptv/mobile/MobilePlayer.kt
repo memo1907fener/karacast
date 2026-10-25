@@ -37,6 +37,8 @@ import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.Audiotrack
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Forward10
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -48,6 +50,7 @@ import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
@@ -104,6 +107,7 @@ import com.safir.iptv.ui.i18n.LocalStrings
 import com.safir.iptv.ui.player.OptionRow
 import com.safir.iptv.ui.player.OptionsPage
 import com.safir.iptv.ui.player.PlaybackWatchdog
+import com.safir.iptv.ui.player.PlayerUiState
 import com.safir.iptv.ui.player.PlayerViewModel
 import com.safir.iptv.ui.player.aspectRows
 import com.safir.iptv.ui.player.friendlyPlaybackMessage
@@ -111,7 +115,6 @@ import com.safir.iptv.ui.player.selectedTrackName
 import com.safir.iptv.ui.player.sleepRows
 import com.safir.iptv.ui.player.subtitleRows
 import com.safir.iptv.ui.player.trackRows
-
 import com.safir.iptv.ui.vod.VodPlayback
 import com.safir.iptv.util.PictureInPicture
 import com.safir.iptv.util.applyLanguagePreferences
@@ -153,6 +156,8 @@ private fun VideoSurface(player: ExoPlayer, aspect: AspectMode) {
             }
         },
         update = { it.resizeMode = resize },
+        // Hochkant ↔ Vollbild baut das Bild neu; die alte Fläche gibt den Player frei.
+        onRelease = { it.player = null },
         modifier = Modifier.fillMaxSize()
     )
 }
@@ -213,7 +218,8 @@ fun MobileLivePlayer(
     archiveStartMs: Long = 0L,
     archiveDurationMin: Int = 0
 ) {
-    if (!collapsed) PlayerChrome()
+    val forced by PlayerLayer.fullscreen.collectAsStateWithLifecycle()
+    if (!collapsed) PlayerChrome(forced)
     val t = LocalStrings.current
     val m = LocalMobileStrings.current
     val viewModel: PlayerViewModel = viewModel(factory = AppViewModelFactory)
@@ -324,6 +330,7 @@ fun MobileLivePlayer(
         when {
             sheet != null -> sheet = null
             state.channelListVisible -> viewModel.setChannelListVisible(false)
+            forced -> PlayerLayer.fullscreen.value = false
             else -> onCollapse()
         }
     }
@@ -350,267 +357,231 @@ fun MobileLivePlayer(
         return
     }
 
-    val drag = rememberCollapseDrag(onCollapse)
-
-    Box(
-        Modifier
-            .fillMaxSize()
-            .then(drag.modifier)
-            .background(Color.Black)
-            .pointerInput(Unit) { detectTapGestures(onTap = { controls.toggle() }) }
-    ) {
-        VideoSurface(exoPlayer, state.aspectMode)
-        if (inPip) return@Box
-
-        if (state.isBuffering && state.error == null) {
-            CircularProgressIndicator(Modifier.align(Alignment.Center), color = Kc.Accent)
-        }
-
-        if (state.recovering && state.error == null) {
-            Text(
-                if (state.switchedFormat) t.recovery.tryingOtherFormat else t.recovery.reconnecting,
-                color = Color.White,
-                fontSize = 13.sp,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 96.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(Color.Black.copy(alpha = 0.7f))
-                    .padding(horizontal = 14.dp, vertical = 7.dp)
-            )
-        }
-
-        val channel = state.channel
-        AnimatedVisibility(
-            visible = controls.visible || state.error != null,
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier = Modifier.fillMaxSize()
-        ) {
-            Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.displayCutout)) {
-                // ---- oben: zurück, Sender, Werkzeuge
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .background(TopScrim)
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = onCollapse) {
-                        Icon(Icons.Filled.KeyboardArrowDown, contentDescription = m.minimize, tint = Color.White)
-                    }
-                    if (channel != null) {
-                        ChannelBadge(channel.logoUrl, channel.name, Modifier.size(width = 48.dp, height = 32.dp))
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                listOfNotNull(
-                                    channel.number.takeIf { it > 0 }?.toString(),
-                                    cleanTitle(channel.name)
-                                ).joinToString(" · "),
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 17.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            val now = state.nowNext?.now
-                            Text(
-                                state.archiveLabel?.let { "$it · ${now?.title.orEmpty()}" } ?: now?.title.orEmpty(),
-                                color = Color(0xFFC9CFDC),
-                                fontSize = 13.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    } else {
-                        Spacer(Modifier.weight(1f))
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OverlayIcon(Icons.Filled.Audiotrack, t.audioTrack) { sheet = OptionsPage.AUDIO }
-                        OverlayIcon(Icons.Filled.Subtitles, t.subtitles) { sheet = OptionsPage.SUBTITLE }
-                        OverlayIcon(Icons.Filled.AspectRatio, t.aspect) { sheet = OptionsPage.ASPECT }
-                        OverlayIcon(Icons.Filled.Bedtime, t.sleepTimer) { sheet = OptionsPage.SLEEP }
-                        if (state.archiveLabel == null) {
-                            OverlayIcon(
-                                if (channel?.isFavorite == true) Icons.Filled.Star else Icons.Filled.StarBorder,
-                                t.favorite
-                            ) { viewModel.toggleFavorite() }
-                        }
-                    }
-                }
-
-                // ---- Mitte: umschalten und anhalten
-                Row(
-                    Modifier.align(Alignment.Center),
-                    horizontalArrangement = Arrangement.spacedBy(48.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (state.archiveLabel == null) {
-                        OverlayIcon(Icons.Filled.SkipPrevious, m.previousChannel, 52) {
-                            viewModel.previous(); controls.poke()
-                        }
-                    }
-                    Surface(
-                        onClick = {
-                            paused = !paused
-                            if (paused) exoPlayer.pause() else exoPlayer.play()
-                            controls.poke()
-                        },
-                        shape = RoundedCornerShape(36.dp),
-                        color = Kc.Accent,
-                        contentColor = Color(0xFF101010),
-                        modifier = Modifier.size(72.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                if (paused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
-                                contentDescription = if (paused) m.play else m.pause,
-                                modifier = Modifier.size(34.dp)
-                            )
-                        }
-                    }
-                    if (state.archiveLabel == null) {
-                        OverlayIcon(Icons.Filled.SkipNext, m.nextChannel, 52) {
-                            viewModel.next(); controls.poke()
-                        }
-                    }
-                }
-
-                // ---- unten: Sendung, Fortschritt, Kanalliste
-                Column(
-                    Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .background(BottomScrimDark)
-                        .padding(horizontal = 24.dp, vertical = 14.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    val now = state.nowNext?.now
-                    if (now != null && state.archiveLabel == null) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(clockOf(now.startMs), color = Color(0xFFC9CFDC), fontSize = 12.sp)
-                            Spacer(Modifier.width(10.dp))
-                            ThinProgress(
-                                now.progressAt(System.currentTimeMillis()),
-                                Modifier.weight(1f),
-                                track = Color.White.copy(alpha = 0.25f),
-                                height = 4.dp
-                            )
-                            Spacer(Modifier.width(10.dp))
-                            Text(clockOf(now.endMs), color = Color(0xFFC9CFDC), fontSize = 12.sp)
-                        }
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        val next = state.nowNext?.next
-                        Text(
-                            if (next != null) "${t.nextUp}: ${clockOf(next.startMs)} ${next.title}" else "",
-                            color = Color(0xFFC9CFDC),
-                            fontSize = 13.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                        if (state.archiveLabel == null) {
-                            Surface(
-                                onClick = { viewModel.setChannelListVisible(true) },
-                                shape = RoundedCornerShape(20.dp),
-                                color = Color.Black.copy(alpha = 0.6f),
-                                contentColor = Color.White
-                            ) {
-                                Row(
-                                    Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(Icons.AutoMirrored.Filled.List, contentDescription = null, modifier = Modifier.size(18.dp))
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(m.channelList, fontSize = 14.sp)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // ---- Fehler
-        state.error?.let { message ->
-            Column(
-                Modifier
-                    .align(Alignment.Center)
-                    .padding(32.dp)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(Color.Black.copy(alpha = 0.85f))
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(t.playbackFailed, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.White)
-                Text(message, color = Color(0xFFC9CFDC), fontSize = 14.sp)
-                if (state.recovering) Text(t.recovery.stillTrying, color = Kc.TextSecondary, fontSize = 13.sp)
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedButton(onClick = onClose) { Text(m.close) }
-                    Button(onClick = viewModel::retry) { Text(t.retry) }
-                }
-            }
-        }
-
-        // ---- Kanalliste von rechts
-        AnimatedVisibility(
-            visible = state.channelListVisible,
-            enter = slideInHorizontally { it } + fadeIn(),
-            exit = slideOutHorizontally { it } + fadeOut(),
-            modifier = Modifier.align(Alignment.CenterEnd)
-        ) {
-            val listState = rememberLazyListState()
-            LaunchedEffect(Unit) {
-                val index = state.index
-                if (index > 2) listState.scrollToItem(index - 2)
-            }
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .width(340.dp)
-                    .fillMaxHeight()
-                    .background(Kc.Background.copy(alpha = 0.94f))
-                    .windowInsetsPadding(WindowInsets.displayCutout)
-                    .pointerInput(Unit) { detectTapGestures { } },
-                contentPadding = PaddingValues(12.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                items(state.playlist, key = { it.id }) { item ->
-                    val current = item.id == state.channel?.id
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .height(52.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(if (current) Kc.SurfaceHigh else Color.Transparent)
-                            .clickable { viewModel.select(item) }
-                            .padding(horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            item.number.takeIf { it > 0 }?.toString().orEmpty(),
-                            fontSize = 12.sp,
-                            color = Kc.TextSecondary,
-                            modifier = Modifier.width(32.dp)
-                        )
-                        ChannelBadge(item.logoUrl, item.name, Modifier.size(width = 44.dp, height = 30.dp), corner = 7.dp)
-                        Spacer(Modifier.width(10.dp))
-                        Text(
-                            cleanTitle(item.name),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            color = if (current) Kc.AccentSoft else Kc.TextPrimary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
-        }
+    val full = forced || inPip
+    val drag = rememberCollapseDrag(if (full) ({ PlayerLayer.fullscreen.value = false }) else onCollapse)
+    val channel = state.channel
+    val isArchive = state.archiveLabel != null
+    val togglePause = {
+        paused = !paused
+        if (paused) exoPlayer.pause() else exoPlayer.play()
+        controls.poke()
     }
+    val toggleFullscreen = {
+        PlayerLayer.fullscreen.value = !forced
+        controls.poke()
+    }
+    // Die Kanalliste von rechts gibt es nur im Vollbild; hochkant steht sie unter dem Bild.
+    LaunchedEffect(full) { if (!full) viewModel.setChannelListVisible(false) }
+
+    PlayerFrame(
+        full = full,
+        drag = drag,
+        video = {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) { detectTapGestures(onTap = { controls.toggle() }) }
+            ) {
+                VideoSurface(exoPlayer, state.aspectMode)
+                if (inPip) return@Box
+
+                if (state.isBuffering && state.error == null) {
+                    CircularProgressIndicator(Modifier.align(Alignment.Center), color = Kc.Accent)
+                }
+
+                if (state.recovering && state.error == null) {
+                    Text(
+                        if (state.switchedFormat) t.recovery.tryingOtherFormat else t.recovery.reconnecting,
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = if (full) 96.dp else 44.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Color.Black.copy(alpha = 0.7f))
+                            .padding(horizontal = 14.dp, vertical = 7.dp)
+                    )
+                }
+
+                AnimatedVisibility(
+                    visible = controls.visible || state.error != null,
+                    enter = fadeIn(),
+                    exit = fadeOut(),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    if (full) {
+                        LiveFullOverlay(
+                            state = state,
+                            paused = paused,
+                            onCollapse = onCollapse,
+                            onSheet = { sheet = it },
+                            onFavorite = viewModel::toggleFavorite,
+                            onPrevious = { viewModel.previous(); controls.poke() },
+                            onNext = { viewModel.next(); controls.poke() },
+                            onTogglePause = togglePause,
+                            onChannelList = { viewModel.setChannelListVisible(true) },
+                            onExitFullscreen = toggleFullscreen
+                        )
+                    } else {
+                        LiveCompactOverlay(
+                            state = state,
+                            paused = paused,
+                            onCollapse = onCollapse,
+                            onPrevious = { viewModel.previous(); controls.poke() },
+                            onNext = { viewModel.next(); controls.poke() },
+                            onTogglePause = togglePause,
+                            onFullscreen = toggleFullscreen
+                        )
+                    }
+                }
+
+                // ---- Fehler
+                state.error?.let { message ->
+                    Column(
+                        Modifier
+                            .align(Alignment.Center)
+                            .padding(if (full) 32.dp else 12.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(Color.Black.copy(alpha = 0.85f))
+                            .padding(if (full) 24.dp else 14.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(if (full) 12.dp else 6.dp)
+                    ) {
+                        Text(t.playbackFailed, fontWeight = FontWeight.Bold, fontSize = if (full) 18.sp else 15.sp, color = Color.White)
+                        Text(message, color = Color(0xFFC9CFDC), fontSize = 13.sp, maxLines = if (full) 4 else 2, overflow = TextOverflow.Ellipsis)
+                        if (state.recovering && full) Text(t.recovery.stillTrying, color = Kc.TextSecondary, fontSize = 13.sp)
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            OutlinedButton(onClick = onClose) { Text(m.close) }
+                            Button(onClick = viewModel::retry) { Text(t.retry) }
+                        }
+                    }
+                }
+
+                // ---- Kanalliste von rechts (nur im Vollbild)
+                AnimatedVisibility(
+                    visible = full && state.channelListVisible,
+                    enter = slideInHorizontally { it } + fadeIn(),
+                    exit = slideOutHorizontally { it } + fadeOut(),
+                    modifier = Modifier.align(Alignment.CenterEnd)
+                ) {
+                    val listState = rememberLazyListState()
+                    LaunchedEffect(Unit) {
+                        val index = state.index
+                        if (index > 2) listState.scrollToItem(index - 2)
+                    }
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier
+                            .width(340.dp)
+                            .fillMaxHeight()
+                            .background(Kc.Background.copy(alpha = 0.94f))
+                            .windowInsetsPadding(WindowInsets.displayCutout)
+                            .pointerInput(Unit) { detectTapGestures { } },
+                        contentPadding = PaddingValues(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        items(state.playlist, key = { it.id }) { item ->
+                            PlaylistRow(item, current = item.id == state.channel?.id) { viewModel.select(item) }
+                        }
+                    }
+                }
+            }
+        },
+        details = {
+            // ---- hochkant: was läuft, Werkzeuge, die Kanäle dieser Liste
+            val now = state.nowNext?.now
+            val next = state.nowNext?.next
+            Row(
+                Modifier.fillMaxWidth().padding(start = 16.dp, end = 6.dp, top = 14.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (channel != null) {
+                    ChannelBadge(channel.logoUrl, channel.name, Modifier.size(width = 56.dp, height = 38.dp))
+                    Spacer(Modifier.width(12.dp))
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        listOfNotNull(
+                            channel?.number?.takeIf { it > 0 }?.toString(),
+                            cleanTitle(channel?.name.orEmpty())
+                        ).joinToString(" · "),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    val line = state.archiveLabel?.let { "$it · ${now?.title.orEmpty()}" } ?: now?.title.orEmpty()
+                    if (line.isNotBlank()) {
+                        Text(line, fontSize = 14.sp, color = Kc.TextSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+                if (!isArchive && channel != null) {
+                    IconButton(onClick = viewModel::toggleFavorite) {
+                        Icon(
+                            if (channel.isFavorite) Icons.Filled.Star else Icons.Filled.StarBorder,
+                            contentDescription = t.favorite,
+                            tint = if (channel.isFavorite) Kc.Accent else Kc.TextSecondary
+                        )
+                    }
+                }
+            }
+            if (now != null && !isArchive) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(clockOf(now.startMs), color = Kc.TextSecondary, fontSize = 12.sp)
+                    Spacer(Modifier.width(10.dp))
+                    ThinProgress(now.progressAt(System.currentTimeMillis()), Modifier.weight(1f), height = 4.dp)
+                    Spacer(Modifier.width(10.dp))
+                    Text(clockOf(now.endMs), color = Kc.TextSecondary, fontSize = 12.sp)
+                }
+            }
+            if (next != null && !isArchive) {
+                Text(
+                    "${t.nextUp}: ${clockOf(next.startMs)} ${next.title}",
+                    fontSize = 13.sp,
+                    color = Kc.TextSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+                )
+            }
+            ToolRow {
+                ToolChip(Icons.Filled.Audiotrack, t.audioTrack) { sheet = OptionsPage.AUDIO }
+                ToolChip(Icons.Filled.Subtitles, t.subtitles) { sheet = OptionsPage.SUBTITLE }
+                ToolChip(Icons.Filled.AspectRatio, t.aspect) { sheet = OptionsPage.ASPECT }
+                ToolChip(Icons.Filled.Bedtime, t.sleepTimer) { sheet = OptionsPage.SLEEP }
+            }
+            if (!isArchive && state.playlist.isNotEmpty()) {
+                HorizontalDivider(color = Kc.Border.copy(alpha = 0.6f))
+                Text(
+                    m.channelList,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp)
+                )
+                val listState = rememberLazyListState()
+                // Den laufenden Kanal in Sicht halten — auch nach dem Umschalten mit den Pfeilen.
+                LaunchedEffect(state.index) {
+                    val index = state.index
+                    if (index < 0) return@LaunchedEffect
+                    val visible = listState.layoutInfo.visibleItemsInfo.any { it.index == index }
+                    if (!visible) listState.scrollToItem((index - 2).coerceAtLeast(0))
+                }
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    items(state.playlist, key = { it.id }) { item ->
+                        PlaylistRow(item, current = item.id == state.channel?.id) { viewModel.select(item) }
+                    }
+                }
+            }
+        }
+    )
 
     sheet?.let { page ->
         TrackSheet(
@@ -621,6 +592,247 @@ fun MobileLivePlayer(
             onPage = { sheet = it },
             onDismiss = { sheet = null }
         )
+    }
+}
+
+/** Die Bedienung über dem Bild im Vollbild: oben Sender und Werkzeuge, Mitte umschalten. */
+@Composable
+private fun LiveFullOverlay(
+    state: PlayerUiState,
+    paused: Boolean,
+    onCollapse: () -> Unit,
+    onSheet: (OptionsPage) -> Unit,
+    onFavorite: () -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onTogglePause: () -> Unit,
+    onChannelList: () -> Unit,
+    onExitFullscreen: () -> Unit
+) {
+    val t = LocalStrings.current
+    val m = LocalMobileStrings.current
+    val channel = state.channel
+    val isArchive = state.archiveLabel != null
+    Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.displayCutout)) {
+        // ---- oben: verkleinern, Sender, Werkzeuge
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .background(TopScrim)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onCollapse) {
+                Icon(Icons.Filled.KeyboardArrowDown, contentDescription = m.minimize, tint = Color.White)
+            }
+            if (channel != null) {
+                ChannelBadge(channel.logoUrl, channel.name, Modifier.size(width = 48.dp, height = 32.dp))
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        listOfNotNull(
+                            channel.number.takeIf { it > 0 }?.toString(),
+                            cleanTitle(channel.name)
+                        ).joinToString(" · "),
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 17.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    val now = state.nowNext?.now
+                    Text(
+                        state.archiveLabel?.let { "$it · ${now?.title.orEmpty()}" } ?: now?.title.orEmpty(),
+                        color = Color(0xFFC9CFDC),
+                        fontSize = 13.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            } else {
+                Spacer(Modifier.weight(1f))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OverlayIcon(Icons.Filled.Audiotrack, t.audioTrack) { onSheet(OptionsPage.AUDIO) }
+                OverlayIcon(Icons.Filled.Subtitles, t.subtitles) { onSheet(OptionsPage.SUBTITLE) }
+                OverlayIcon(Icons.Filled.AspectRatio, t.aspect) { onSheet(OptionsPage.ASPECT) }
+                OverlayIcon(Icons.Filled.Bedtime, t.sleepTimer) { onSheet(OptionsPage.SLEEP) }
+                if (!isArchive) {
+                    OverlayIcon(
+                        if (channel?.isFavorite == true) Icons.Filled.Star else Icons.Filled.StarBorder,
+                        t.favorite,
+                        onClick = onFavorite
+                    )
+                }
+            }
+        }
+
+        // ---- Mitte: umschalten und anhalten
+        CenterControls(
+            paused = paused,
+            compact = false,
+            left = if (isArchive) null else Icons.Filled.SkipPrevious to m.previousChannel,
+            right = if (isArchive) null else Icons.Filled.SkipNext to m.nextChannel,
+            onLeft = onPrevious,
+            onRight = onNext,
+            onTogglePause = onTogglePause,
+            modifier = Modifier.align(Alignment.Center)
+        )
+
+        // ---- unten: Sendung, Fortschritt, Kanalliste, Vollbild beenden
+        Column(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .background(BottomScrimDark)
+                .padding(horizontal = 24.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            val now = state.nowNext?.now
+            if (now != null && !isArchive) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(clockOf(now.startMs), color = Color(0xFFC9CFDC), fontSize = 12.sp)
+                    Spacer(Modifier.width(10.dp))
+                    ThinProgress(
+                        now.progressAt(System.currentTimeMillis()),
+                        Modifier.weight(1f),
+                        track = Color.White.copy(alpha = 0.25f),
+                        height = 4.dp
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text(clockOf(now.endMs), color = Color(0xFFC9CFDC), fontSize = 12.sp)
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                val next = state.nowNext?.next
+                Text(
+                    if (next != null) "${t.nextUp}: ${clockOf(next.startMs)} ${next.title}" else "",
+                    color = Color(0xFFC9CFDC),
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                if (!isArchive) {
+                    Surface(
+                        onClick = onChannelList,
+                        shape = RoundedCornerShape(20.dp),
+                        color = Color.Black.copy(alpha = 0.6f),
+                        contentColor = Color.White
+                    ) {
+                        Row(
+                            Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.List, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(m.channelList, fontSize = 14.sp)
+                        }
+                    }
+                    Spacer(Modifier.width(8.dp))
+                }
+                IconButton(onClick = onExitFullscreen) {
+                    Icon(Icons.Filled.FullscreenExit, contentDescription = m.exitFullscreen, tint = Color.White)
+                }
+            }
+        }
+    }
+}
+
+/** Die Bedienung über dem Bild hochkant: knapp, der Rest steht unter dem Bild. */
+@Composable
+private fun LiveCompactOverlay(
+    state: PlayerUiState,
+    paused: Boolean,
+    onCollapse: () -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onTogglePause: () -> Unit,
+    onFullscreen: () -> Unit
+) {
+    val m = LocalMobileStrings.current
+    val isArchive = state.archiveLabel != null
+    Box(Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)))
+        IconButton(onClick = onCollapse, modifier = Modifier.align(Alignment.TopStart)) {
+            Icon(Icons.Filled.KeyboardArrowDown, contentDescription = m.minimize, tint = Color.White)
+        }
+        CenterControls(
+            paused = paused,
+            compact = true,
+            left = if (isArchive) null else Icons.Filled.SkipPrevious to m.previousChannel,
+            right = if (isArchive) null else Icons.Filled.SkipNext to m.nextChannel,
+            onLeft = onPrevious,
+            onRight = onNext,
+            onTogglePause = onTogglePause,
+            modifier = Modifier.align(Alignment.Center)
+        )
+        Row(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(start = 12.dp, end = 2.dp, bottom = 2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val now = state.nowNext?.now
+            if (now != null && !isArchive) {
+                Text(clockOf(now.startMs), color = Color(0xFFE0E4EE), fontSize = 11.sp)
+                Spacer(Modifier.width(8.dp))
+                ThinProgress(
+                    now.progressAt(System.currentTimeMillis()),
+                    Modifier.weight(1f),
+                    track = Color.White.copy(alpha = 0.3f),
+                    height = 3.dp
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(clockOf(now.endMs), color = Color(0xFFE0E4EE), fontSize = 11.sp)
+            } else {
+                Spacer(Modifier.weight(1f))
+            }
+            IconButton(onClick = onFullscreen) {
+                Icon(Icons.Filled.Fullscreen, contentDescription = m.fullscreen, tint = Color.White)
+            }
+        }
+    }
+}
+
+/** Zurück, Pause, Vor — groß im Vollbild, kleiner hochkant. */
+@Composable
+private fun CenterControls(
+    paused: Boolean,
+    compact: Boolean,
+    left: Pair<ImageVector, String>?,
+    right: Pair<ImageVector, String>?,
+    onLeft: () -> Unit,
+    onRight: () -> Unit,
+    onTogglePause: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val m = LocalMobileStrings.current
+    val side = if (compact) 42 else 52
+    val main = if (compact) 58 else 72
+    Row(
+        modifier,
+        horizontalArrangement = Arrangement.spacedBy(if (compact) 36.dp else 48.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (left != null) OverlayIcon(left.first, left.second, side, onLeft)
+        Surface(
+            onClick = onTogglePause,
+            shape = RoundedCornerShape((main / 2).dp),
+            color = Kc.Accent,
+            contentColor = Color(0xFF101010),
+            modifier = Modifier.size(main.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    if (paused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
+                    contentDescription = if (paused) m.play else m.pause,
+                    modifier = Modifier.size((main * 0.47f).dp)
+                )
+            }
+        }
+        if (right != null) OverlayIcon(right.first, right.second, side, onRight)
     }
 }
 
@@ -761,7 +973,8 @@ fun MobileVodPlayer(
         LaunchedEffect(Unit) { onClose() }
         return
     }
-    if (!collapsed) PlayerChrome()
+    val forced by PlayerLayer.fullscreen.collectAsStateWithLifecycle()
+    if (!collapsed) PlayerChrome(forced)
     val onExit = onClose
 
     val t = LocalStrings.current
@@ -945,7 +1158,11 @@ fun MobileVodPlayer(
     }
 
     BackHandler(enabled = !collapsed) {
-        if (sheet != null) sheet = null else onCollapse()
+        when {
+            sheet != null -> sheet = null
+            forced -> PlayerLayer.fullscreen.value = false
+            else -> onCollapse()
+        }
     }
 
     fun seekBy(deltaMs: Long) {
@@ -981,182 +1198,287 @@ fun MobileVodPlayer(
         return
     }
 
-    val drag = rememberCollapseDrag(onCollapse)
-
-    Box(
-        Modifier
-            .fillMaxSize()
-            .then(drag.modifier)
-            .background(Color.Black)
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onTap = { controls.toggle() },
-                    // Doppeltippen links/rechts springt — wie man es von jedem
-                    // Videoplayer am Handy kennt.
-                    onDoubleTap = { offset ->
-                        if (offset.x < size.width / 2) seekBy(-10_000L) else seekBy(10_000L)
-                    }
-                )
-            }
-    ) {
-        VideoSurface(exoPlayer, aspectMode)
-        if (inPip) return@Box
-
-        if (buffering && failure == null) {
-            CircularProgressIndicator(Modifier.align(Alignment.Center), color = Kc.Accent)
+    val full = forced || inPip
+    val drag = rememberCollapseDrag(if (full) ({ PlayerLayer.fullscreen.value = false }) else onCollapse)
+    val togglePause = {
+        paused = !paused
+        if (paused) {
+            exoPlayer.pause()
+            rememberPosition()
+        } else {
+            exoPlayer.play()
         }
+        controls.poke()
+    }
+    val toggleFullscreen = {
+        PlayerLayer.fullscreen.value = !forced
+        controls.poke()
+    }
+    val next = VodPlayback.after(request)
 
-        AnimatedVisibility(
-            visible = controls.visible || failure != null,
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier = Modifier.fillMaxSize()
-        ) {
-            Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.displayCutout)) {
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .background(TopScrim)
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = onCollapse) {
-                        Icon(Icons.Filled.KeyboardArrowDown, contentDescription = m.minimize, tint = Color.White)
-                    }
-                    Column(Modifier.weight(1f)) {
-                        Text(cleanTitle(request.title), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        if (request.subtitle.isNotBlank()) {
-                            Text(request.subtitle, color = Color(0xFFC9CFDC), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OverlayIcon(Icons.Filled.Audiotrack, t.audioTrack) { sheet = OptionsPage.AUDIO }
-                        OverlayIcon(Icons.Filled.Subtitles, t.subtitles) { sheet = OptionsPage.SUBTITLE }
-                        OverlayIcon(Icons.Filled.AspectRatio, t.aspect) { sheet = OptionsPage.ASPECT }
-                        OverlayIcon(Icons.Filled.Bedtime, t.sleepTimer) { sheet = OptionsPage.SLEEP }
-                    }
-                }
-
-                Row(
-                    Modifier.align(Alignment.Center),
-                    horizontalArrangement = Arrangement.spacedBy(48.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OverlayIcon(Icons.Filled.Replay10, m.rewind, 52) { seekBy(-10_000L) }
-                    Surface(
-                        onClick = {
-                            paused = !paused
-                            if (paused) {
-                                exoPlayer.pause()
-                                rememberPosition()
-                            } else {
-                                exoPlayer.play()
+    PlayerFrame(
+        full = full,
+        drag = drag,
+        video = {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onTap = { controls.toggle() },
+                            // Doppeltippen links/rechts springt — wie man es von jedem
+                            // Videoplayer am Handy kennt.
+                            onDoubleTap = { offset ->
+                                if (offset.x < size.width / 2) seekBy(-10_000L) else seekBy(10_000L)
                             }
-                            controls.poke()
-                        },
-                        shape = RoundedCornerShape(36.dp),
-                        color = Kc.Accent,
-                        contentColor = Color(0xFF101010),
-                        modifier = Modifier.size(72.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                if (paused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
-                                contentDescription = if (paused) m.play else m.pause,
-                                modifier = Modifier.size(34.dp)
-                            )
-                        }
-                    }
-                    OverlayIcon(Icons.Filled.Forward10, m.forward, 52) { seekBy(10_000L) }
-                }
-
-                Column(
-                    Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .background(BottomScrimDark)
-                        .padding(horizontal = 24.dp, vertical = 8.dp)
-                ) {
-                    val fraction = if (scrubbing) scrubFraction else if (durationMs > 0) {
-                        (positionMs.toFloat() / durationMs).coerceIn(0f, 1f)
-                    } else 0f
-                    Slider(
-                        value = fraction,
-                        onValueChange = {
-                            scrubbing = true
-                            scrubFraction = it
-                            controls.poke()
-                        },
-                        onValueChangeFinished = {
-                            if (durationMs > 0) {
-                                val target = (scrubFraction * durationMs).toLong()
-                                exoPlayer.seekTo(target)
-                                positionMs = target
-                            }
-                            scrubbing = false
-                        },
-                        colors = SliderDefaults.colors(
-                            thumbColor = Kc.Accent,
-                            activeTrackColor = Kc.Accent,
-                            inactiveTrackColor = Color.White.copy(alpha = 0.25f)
-                        ),
-                        modifier = Modifier.fillMaxWidth().height(32.dp)
-                    )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        val shownPos = if (scrubbing) (scrubFraction * durationMs).toLong() else positionMs
-                        Text(
-                            "${durationOf(shownPos)} / ${durationOf(durationMs)}",
-                            color = Color(0xFFC9CFDC),
-                            fontSize = 12.sp,
-                            modifier = Modifier.weight(1f)
                         )
-                        val next = VodPlayback.after(request)
-                        if (next != null) {
-                            Surface(
-                                onClick = {
-                                    rememberPosition()
-                                    playNext(next)
-                                },
-                                shape = RoundedCornerShape(20.dp),
-                                color = Color.Black.copy(alpha = 0.6f),
-                                contentColor = Color.White
+                    }
+            ) {
+                VideoSurface(exoPlayer, aspectMode)
+                if (inPip) return@Box
+
+                if (buffering && failure == null) {
+                    CircularProgressIndicator(Modifier.align(Alignment.Center), color = Kc.Accent)
+                }
+
+                AnimatedVisibility(
+                    visible = controls.visible || failure != null,
+                    enter = fadeIn(),
+                    exit = fadeOut(),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .then(if (full) Modifier.windowInsetsPadding(WindowInsets.displayCutout) else Modifier)
+                            .then(if (full) Modifier else Modifier.background(Color.Black.copy(alpha = 0.35f)))
+                    ) {
+                        if (full) {
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .background(TopScrim)
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Filled.SkipNext, contentDescription = null, modifier = Modifier.size(18.dp))
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(t.vod.nextEpisode, fontSize = 13.sp)
+                                IconButton(onClick = onCollapse) {
+                                    Icon(Icons.Filled.KeyboardArrowDown, contentDescription = m.minimize, tint = Color.White)
+                                }
+                                Column(Modifier.weight(1f)) {
+                                    Text(cleanTitle(request.title), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    if (request.subtitle.isNotBlank()) {
+                                        Text(request.subtitle, color = Color(0xFFC9CFDC), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    }
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    OverlayIcon(Icons.Filled.Audiotrack, t.audioTrack) { sheet = OptionsPage.AUDIO }
+                                    OverlayIcon(Icons.Filled.Subtitles, t.subtitles) { sheet = OptionsPage.SUBTITLE }
+                                    OverlayIcon(Icons.Filled.AspectRatio, t.aspect) { sheet = OptionsPage.ASPECT }
+                                    OverlayIcon(Icons.Filled.Bedtime, t.sleepTimer) { sheet = OptionsPage.SLEEP }
+                                }
+                            }
+                        } else {
+                            IconButton(onClick = onCollapse, modifier = Modifier.align(Alignment.TopStart)) {
+                                Icon(Icons.Filled.KeyboardArrowDown, contentDescription = m.minimize, tint = Color.White)
+                            }
+                        }
+
+                        CenterControls(
+                            paused = paused,
+                            compact = !full,
+                            left = Icons.Filled.Replay10 to m.rewind,
+                            right = Icons.Filled.Forward10 to m.forward,
+                            onLeft = { seekBy(-10_000L) },
+                            onRight = { seekBy(10_000L) },
+                            onTogglePause = togglePause,
+                            modifier = Modifier.align(Alignment.Center)
+                        )
+
+                        Column(
+                            Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .then(if (full) Modifier.background(BottomScrimDark) else Modifier)
+                                .padding(horizontal = if (full) 24.dp else 8.dp, vertical = if (full) 8.dp else 0.dp)
+                        ) {
+                            val fraction = if (scrubbing) scrubFraction else if (durationMs > 0) {
+                                (positionMs.toFloat() / durationMs).coerceIn(0f, 1f)
+                            } else 0f
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (!full) {
+                                    val shownPos = if (scrubbing) (scrubFraction * durationMs).toLong() else positionMs
+                                    Text(
+                                        "${durationOf(shownPos)} / ${durationOf(durationMs)}",
+                                        color = Color(0xFFE0E4EE),
+                                        fontSize = 11.sp,
+                                        modifier = Modifier.padding(start = 6.dp).weight(1f)
+                                    )
+                                    IconButton(onClick = toggleFullscreen) {
+                                        Icon(Icons.Filled.Fullscreen, contentDescription = m.fullscreen, tint = Color.White)
+                                    }
+                                }
+                            }
+                            Slider(
+                                value = fraction,
+                                onValueChange = {
+                                    scrubbing = true
+                                    scrubFraction = it
+                                    controls.poke()
+                                },
+                                onValueChangeFinished = {
+                                    if (durationMs > 0) {
+                                        val target = (scrubFraction * durationMs).toLong()
+                                        exoPlayer.seekTo(target)
+                                        positionMs = target
+                                    }
+                                    scrubbing = false
+                                },
+                                colors = SliderDefaults.colors(
+                                    thumbColor = Kc.Accent,
+                                    activeTrackColor = Kc.Accent,
+                                    inactiveTrackColor = Color.White.copy(alpha = 0.25f)
+                                ),
+                                modifier = Modifier.fillMaxWidth().height(if (full) 32.dp else 24.dp)
+                            )
+                            if (full) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    val shownPos = if (scrubbing) (scrubFraction * durationMs).toLong() else positionMs
+                                    Text(
+                                        "${durationOf(shownPos)} / ${durationOf(durationMs)}",
+                                        color = Color(0xFFC9CFDC),
+                                        fontSize = 12.sp,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    if (next != null) {
+                                        Surface(
+                                            onClick = {
+                                                rememberPosition()
+                                                playNext(next)
+                                            },
+                                            shape = RoundedCornerShape(20.dp),
+                                            color = Color.Black.copy(alpha = 0.6f),
+                                            contentColor = Color.White
+                                        ) {
+                                            Row(Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(Icons.Filled.SkipNext, contentDescription = null, modifier = Modifier.size(18.dp))
+                                                Spacer(Modifier.width(6.dp))
+                                                Text(t.vod.nextEpisode, fontSize = 13.sp)
+                                            }
+                                        }
+                                        Spacer(Modifier.width(8.dp))
+                                    }
+                                    IconButton(onClick = toggleFullscreen) {
+                                        Icon(Icons.Filled.FullscreenExit, contentDescription = m.exitFullscreen, tint = Color.White)
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
-        }
 
-        failure?.let { message ->
-            Column(
-                Modifier
-                    .align(Alignment.Center)
-                    .padding(32.dp)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(Color.Black.copy(alpha = 0.85f))
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(t.playbackFailed, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.White)
-                Text(message, color = Color(0xFFC9CFDC), fontSize = 14.sp)
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedButton(onClick = onClose) { Text(m.close) }
-                    Button(onClick = {
-                        attempts = 0
-                        failure = null
-                        retryToken++
-                    }) { Text(t.retry) }
+                failure?.let { message ->
+                    Column(
+                        Modifier
+                            .align(Alignment.Center)
+                            .padding(if (full) 32.dp else 12.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(Color.Black.copy(alpha = 0.85f))
+                            .padding(if (full) 24.dp else 14.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(if (full) 12.dp else 6.dp)
+                    ) {
+                        Text(t.playbackFailed, fontWeight = FontWeight.Bold, fontSize = if (full) 18.sp else 15.sp, color = Color.White)
+                        Text(message, color = Color(0xFFC9CFDC), fontSize = 13.sp, maxLines = if (full) 4 else 2, overflow = TextOverflow.Ellipsis)
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            OutlinedButton(onClick = onClose) { Text(m.close) }
+                            Button(onClick = {
+                                attempts = 0
+                                failure = null
+                                retryToken++
+                            }) { Text(t.retry) }
+                        }
+                    }
+                }
+            }
+        },
+        details = {
+            // ---- hochkant: Titel, Werkzeuge, die nächsten Folgen
+            Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp)) {
+                Text(
+                    cleanTitle(request.title),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (request.subtitle.isNotBlank()) {
+                    Text(request.subtitle, fontSize = 14.sp, color = Kc.TextSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+                if (durationMs > 0) {
+                    Text(
+                        "${durationOf(positionMs)} / ${durationOf(durationMs)}",
+                        fontSize = 12.sp,
+                        color = Kc.TextSecondary,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+            }
+            ToolRow {
+                ToolChip(Icons.Filled.Audiotrack, t.audioTrack) { sheet = OptionsPage.AUDIO }
+                ToolChip(Icons.Filled.Subtitles, t.subtitles) { sheet = OptionsPage.SUBTITLE }
+                ToolChip(Icons.Filled.AspectRatio, t.aspect) { sheet = OptionsPage.ASPECT }
+                ToolChip(Icons.Filled.Bedtime, t.sleepTimer) { sheet = OptionsPage.SLEEP }
+            }
+            val upcoming = remember(request) {
+                VodPlayback.queue.dropWhile { it.resumeKey != request.resumeKey }.drop(1)
+            }
+            if (upcoming.isNotEmpty()) {
+                HorizontalDivider(color = Kc.Border.copy(alpha = 0.6f))
+                Text(
+                    m.moreEpisodes,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp)
+                )
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    items(upcoming, key = { it.resumeKey }) { episode ->
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable {
+                                    rememberPosition()
+                                    playNext(episode)
+                                }
+                                .padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Poster(
+                                url = episode.posterUrl,
+                                title = episode.subtitle,
+                                modifier = Modifier.size(width = 112.dp, height = 63.dp),
+                                corner = 8.dp,
+                                titleSize = 11
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                episode.subtitle,
+                                fontSize = 14.sp,
+                                fontWeight = if (episode == next) FontWeight.Bold else FontWeight.Medium,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
                 }
             }
         }
-    }
+    )
 
     sheet?.let { page ->
         TrackSheet(

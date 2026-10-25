@@ -96,6 +96,12 @@ object PlayerLayer {
     val item = MutableStateFlow<Item?>(null)
     val expanded = MutableStateFlow(false)
 
+    /**
+     * Groß und quer über den ganzen Bildschirm statt hochkant mit Liste darunter.
+     * Kommt vom Vollbild-Knopf oder vom Querlegen des Handys ([RotateToFullscreen]).
+     */
+    val fullscreen = MutableStateFlow(false)
+
     /** Der Live-Kanal, der gerade läuft (auch nach dem Umschalten im Player). */
     val liveChannelId = MutableStateFlow<String?>(null)
 
@@ -105,12 +111,14 @@ object PlayerLayer {
     fun playLive(channel: Channel, categoryId: String, expand: Boolean) {
         item.value = Live(++counter, channel.id, categoryId)
         liveChannelId.value = channel.id
+        fullscreen.value = false
         expanded.value = expand
     }
 
     fun playLive(channelId: String, categoryId: String) {
         item.value = Live(++counter, channelId, categoryId)
         liveChannelId.value = channelId
+        fullscreen.value = false
         expanded.value = true
     }
 
@@ -118,6 +126,7 @@ object PlayerLayer {
         val minutes = (program.durationMs / 60_000L).toInt().coerceAtLeast(1)
         item.value = Live(++counter, channel.id, com.safir.iptv.domain.model.ALL_CATEGORY_ID, program.startMs, minutes)
         liveChannelId.value = null
+        fullscreen.value = false
         expanded.value = true
     }
 
@@ -125,6 +134,7 @@ object PlayerLayer {
     fun playVod() {
         item.value = Vod(++counter)
         liveChannelId.value = null
+        fullscreen.value = false
         expanded.value = true
     }
 
@@ -133,12 +143,14 @@ object PlayerLayer {
     }
 
     fun collapse() {
+        fullscreen.value = false
         expanded.value = false
     }
 
     fun close() {
         item.value = null
         liveChannelId.value = null
+        fullscreen.value = false
         expanded.value = false
     }
 
@@ -218,8 +230,11 @@ fun PlayerLayerHost(bottomInset: Dp) {
     }
 }
 
-/** Was ein Wisch nach unten mit dem großen Player macht. */
-class CollapseDrag(val modifier: Modifier)
+/**
+ * Was ein Wisch nach unten mit dem großen Player macht: [gesture] gehört auf das
+ * Bild (dort wird gewischt), [visual] auf alles, was dabei mitschrumpfen soll.
+ */
+class CollapseDrag(val visual: Modifier, val gesture: Modifier)
 
 /**
  * Nach unten ziehen verkleinert: das Bild folgt dem Finger, wird dabei kleiner,
@@ -229,9 +244,11 @@ class CollapseDrag(val modifier: Modifier)
 fun rememberCollapseDrag(onCollapse: () -> Unit): CollapseDrag {
     val collapse by rememberUpdatedState(onCollapse)
     var offset by remember { mutableFloatStateOf(0f) }
-    val modifier = Modifier
+    val visual = Modifier
         .graphicsLayer {
-            val height = size.height.coerceAtLeast(1f)
+            // Gemessen an höchstens 600 dp, damit hochkant (ganzer Bildschirm)
+            // und quer gleich weit gewischt werden muss.
+            val height = size.height.coerceIn(1f, 600.dp.toPx())
             val fraction = (offset / height).coerceIn(0f, 1f)
             val scale = 1f - fraction * 0.45f
             transformOrigin = TransformOrigin(0.5f, 1f)
@@ -240,10 +257,11 @@ fun rememberCollapseDrag(onCollapse: () -> Unit): CollapseDrag {
             scaleY = scale
             alpha = 1f - fraction * 0.3f
         }
+    val gesture = Modifier
         .pointerInput(Unit) {
             detectVerticalDragGestures(
                 onDragEnd = {
-                    if (offset > size.height * 0.15f) collapse()
+                    if (offset > 96.dp.toPx()) collapse()
                     offset = 0f
                 },
                 onDragCancel = { offset = 0f },
@@ -253,7 +271,7 @@ fun rememberCollapseDrag(onCollapse: () -> Unit): CollapseDrag {
                 }
             )
         }
-    return CollapseDrag(modifier)
+    return CollapseDrag(visual, gesture)
 }
 
 /**
@@ -328,6 +346,7 @@ fun CollapsedPlayer(
                                 this.player = player
                             }
                         },
+                        onRelease = { it.player = null },
                         modifier = Modifier.fillMaxSize()
                     )
                     if (buffering) {

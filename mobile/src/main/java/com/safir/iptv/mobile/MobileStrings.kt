@@ -22,6 +22,8 @@ data class MobileStrings(
     val emptyStart: String = "Tippe unten auf Live TV und wähle einen Kanal — " +
         "was du zuletzt gesehen hast, steht dann hier.",
     val fullscreen: String = "Vollbild",
+    val exitFullscreen: String = "Vollbild beenden",
+    val moreEpisodes: String = "Weitere Folgen",
     val minimize: String = "Verkleinern",
     val close: String = "Schließen",
     val play: String = "Abspielen",
@@ -81,6 +83,8 @@ private val MobileTurkish = MobileStrings(
     emptyStart = "Aşağıda Canlı TV'ye dokun ve bir kanal seç — en son izlediklerin " +
         "burada görünür.",
     fullscreen = "Tam ekran",
+    exitFullscreen = "Tam ekrandan çık",
+    moreEpisodes = "Sonraki bölümler",
     minimize = "Küçült",
     close = "Kapat",
     play = "Oynat",
@@ -138,6 +142,8 @@ private val MobileEnglish = MobileStrings(
     emptyStart = "Tap Live TV below and pick a channel — what you watched last will " +
         "show up here.",
     fullscreen = "Full screen",
+    exitFullscreen = "Exit full screen",
+    moreEpisodes = "More episodes",
     minimize = "Minimise",
     close = "Close",
     play = "Play",
@@ -194,6 +200,8 @@ private val MobileArabic = MobileStrings(
     emptyStartTitle = "لنبدأ",
     emptyStart = "اضغط على البث المباشر بالأسفل واختر قناة — ما شاهدته مؤخراً سيظهر هنا.",
     fullscreen = "ملء الشاشة",
+    exitFullscreen = "الخروج من ملء الشاشة",
+    moreEpisodes = "الحلقات التالية",
     minimize = "تصغير",
     close = "إغلاق",
     play = "تشغيل",
