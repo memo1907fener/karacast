@@ -1,5 +1,6 @@
 package com.safir.iptv.ui.guide
 
+import com.safir.iptv.util.isSeparatorName
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.safir.iptv.data.prefs.Reminder
@@ -60,7 +61,8 @@ class GuideViewModel(
     val categoryId: String = settings.homeCategoryId
 
     val channels: StateFlow<List<Channel>> = playlists.observeChannels(categoryId)
-        .map { it.take(MAX_ROWS) }
+        // Trennzeilen der Anbieter haben kein Programm — im Raster nur leere Zeilen.
+        .map { list -> list.filterNot { isSeparatorName(it.name) }.take(MAX_ROWS) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val _programs = MutableStateFlow<Map<String, List<Program>>>(emptyMap())

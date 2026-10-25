@@ -16,7 +16,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Tv
+import androidx.compose.foundation.focusGroup
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,22 +58,27 @@ fun AppTopBar(
     modifier: Modifier = Modifier
 ) {
     val s = LocalStrings.current
+    // Wer von unten in die Leiste springt, landet auf dem aktiven Reiter — nicht
+    // auf dem, der zufällig darüber liegt.
+    val activeRequester = remember { FocusRequester() }
     Row(
         modifier
             .fillMaxWidth()
             .height(52.dp)
             .background(Brand.Background)
+            .focusProperties { enter = { activeRequester } }
+            .focusGroup()
             .padding(horizontal = 24.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         BrandMark()
         Spacer(Modifier.width(14.dp))
-        TopTabButton(s.home, active == TopTab.HOME) { onTab(TopTab.HOME) }
-        TopTabButton(s.liveTv, active == TopTab.LIVE) { onTab(TopTab.LIVE) }
-        TopTabButton(s.movies, active == TopTab.MOVIES) { onTab(TopTab.MOVIES) }
-        TopTabButton(s.series, active == TopTab.SERIES) { onTab(TopTab.SERIES) }
-        TopTabButton(s.guide, active == TopTab.GUIDE) { onTab(TopTab.GUIDE) }
+        TopTabButton(s.home, active == TopTab.HOME, activeRequester) { onTab(TopTab.HOME) }
+        TopTabButton(s.liveTv, active == TopTab.LIVE, activeRequester) { onTab(TopTab.LIVE) }
+        TopTabButton(s.movies, active == TopTab.MOVIES, activeRequester) { onTab(TopTab.MOVIES) }
+        TopTabButton(s.series, active == TopTab.SERIES, activeRequester) { onTab(TopTab.SERIES) }
+        TopTabButton(s.guide, active == TopTab.GUIDE, activeRequester) { onTab(TopTab.GUIDE) }
         Spacer(Modifier.weight(1f))
         TopIcon(Icons.Default.Search, s.search, onSearch)
         TopIcon(Icons.Default.Settings, s.settings, onSettings)
@@ -96,7 +106,7 @@ private fun BrandMark() {
 
 /** Ein Reiter. Der aktive ist fett und unterstrichen — und bleibt anwählbar. */
 @Composable
-private fun TopTabButton(label: String, active: Boolean, onClick: () -> Unit) {
+private fun TopTabButton(label: String, active: Boolean, activeRequester: FocusRequester, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         colors = ClickableSurfaceDefaults.colors(
@@ -109,7 +119,9 @@ private fun TopTabButton(label: String, active: Boolean, onClick: () -> Unit) {
         ),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
-        modifier = Modifier.alsoTappable(onClick)
+        modifier = Modifier
+            .then(if (active) Modifier.focusRequester(activeRequester) else Modifier)
+            .alsoTappable(onClick)
     ) {
         Column(
             Modifier.padding(horizontal = 11.dp, vertical = 5.dp),

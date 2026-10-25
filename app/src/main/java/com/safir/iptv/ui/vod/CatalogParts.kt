@@ -20,6 +20,8 @@ import com.safir.iptv.ui.components.FocusMemory
 import com.safir.iptv.ui.components.rememberFocus
 import com.safir.iptv.ui.components.restoreFocus
 import kotlinx.coroutines.delay
+import com.safir.iptv.util.cleanCategoryName
+import com.safir.iptv.util.cleanVodTitle
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -120,7 +122,7 @@ fun CatalogFrame(
         ) {
             Column(
                 Modifier
-                    .weight(0.21f)
+                    .weight(0.20f)
                     .fillMaxHeight()
                     .clip(RoundedCornerShape(14.dp))
                     .background(Glass)
@@ -159,7 +161,7 @@ fun CatalogFrame(
 
             Column(
                 Modifier
-                    .weight(0.51f)
+                    .weight(0.54f)
                     .fillMaxHeight()
                     .clip(RoundedCornerShape(14.dp))
                     .background(Glass)
@@ -169,7 +171,7 @@ fun CatalogFrame(
 
             Column(
                 Modifier
-                    .weight(0.28f)
+                    .weight(0.26f)
                     .fillMaxHeight()
                     .clip(RoundedCornerShape(14.dp))
                     .background(Glass),
@@ -188,7 +190,7 @@ fun CatalogHeader(name: String, count: Int?, action: (@Composable () -> Unit)? =
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = name,
+            text = cleanCategoryName(name),
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             color = Brand.TextPrimary,
@@ -245,7 +247,7 @@ private fun CategoryList(
         items(categories, key = { it.id }) { category ->
             val selected = category.id == selectedCategoryId
             CategoryLine(
-                name = category.name,
+                name = cleanCategoryName(category.name),
                 selected = selected,
                 onFocused = { hovered = category.id },
                 onSelect = { select(category.id) },
@@ -362,7 +364,7 @@ fun CatalogPreview(
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(
-                        text = title,
+                        text = cleanVodTitle(title),
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
                         color = Brand.TextPrimary,
@@ -496,7 +498,7 @@ fun PosterTile(
             }
             Spacer(Modifier.height(6.dp))
             Text(
-                text = title,
+                text = cleanVodTitle(title),
                 style = MaterialTheme.typography.labelMedium,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
@@ -573,7 +575,7 @@ private val FOCUS_ROOM = 8.dp
 private const val TILE_CHROME = 12f + 6f + 17f
 
 /** Unter dieser Breite ist ein Cover kein Cover mehr, sondern eine Briefmarke. */
-private const val MIN_POSTER_WIDTH = 96f
+private const val MIN_POSTER_WIDTH = 74f
 
 /** Und darüber füllt ein einziger Film den halben Bildschirm. */
 private const val MAX_POSTER_WIDTH = 190f

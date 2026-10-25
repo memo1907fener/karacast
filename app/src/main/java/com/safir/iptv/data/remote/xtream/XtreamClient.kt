@@ -231,7 +231,7 @@ class XtreamClient(
             director = info.str("director"),
             genre = info.str("genre"),
             releaseDate = info.str("releasedate", "releaseDate", "release_date"),
-            durationSecs = info.int("duration_secs", "episode_run_time"),
+            durationSecs = durationSecondsOf(info),
             rating = info.str("rating"),
             cover = info.str("movie_image", "cover_big")
         )
@@ -405,4 +405,25 @@ class XtreamClient(
 
         internal fun enc(value: String): String = URLEncoder.encode(value, "UTF-8")
     }
+}
+
+/**
+ * Die Laufzeit eines Films in Sekunden. Die Panels sind sich uneins: „duration“
+ * als „01:52:00“, „duration_secs“ mal richtig, mal 0 oder Unsinn, und
+ * „episode_run_time“ in Minuten. Deshalb in dieser Reihenfolge, und was unter
+ * fünf Minuten liegt, gilt als falsch (daher kam „1 Minuten“).
+ */
+internal fun durationSecondsOf(info: JsonObject): Int? {
+    info.str("duration")?.let { text ->
+        val parts = text.trim().split(':').mapNotNull { it.trim().toIntOrNull() }
+        val secs = when (parts.size) {
+            3 -> parts[0] * 3600 + parts[1] * 60 + parts[2]
+            2 -> parts[0] * 60 + parts[1]
+            else -> null
+        }
+        if (secs != null && secs >= 300) return secs
+    }
+    info.int("duration_secs")?.takeIf { it >= 300 }?.let { return it }
+    info.int("episode_run_time")?.takeIf { it in 5..600 }?.let { return it * 60 }
+    return null
 }

@@ -56,7 +56,7 @@ import com.safir.iptv.util.asClock
 /** Horizontal scale of the grid. 4dp a minute puts a half-hour show at 120dp. */
 private val MINUTE_WIDTH = 4.dp
 private val CHANNEL_COLUMN = 220.dp
-private val ROW_HEIGHT = 62.dp
+private val ROW_HEIGHT = 52.dp
 
 private fun Long.toWidth(): Dp = (this / 60_000f * MINUTE_WIDTH.value).dp
 

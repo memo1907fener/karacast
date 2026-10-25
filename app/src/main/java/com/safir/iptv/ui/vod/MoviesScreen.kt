@@ -1,5 +1,6 @@
 package com.safir.iptv.ui.vod
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -56,6 +57,7 @@ import com.safir.iptv.ui.i18n.LocalStrings
 import com.safir.iptv.ui.theme.Brand
 import com.safir.iptv.util.asTimeLabel
 import kotlinx.coroutines.delay
+import com.safir.iptv.util.cleanVodTitle
 
 /**
  * The film catalogue. Categories on the left, posters on the right, and a sheet
@@ -80,6 +82,10 @@ fun MoviesScreen(
         UnsupportedSource(title = t.movies, message = t.vod.onlyXtream, onBack = onBack)
         return
     }
+
+    // Zurück schließt erst das geöffnete Film-Blatt — vorher ging es dabei
+    // gleich aus den Filmen hinaus.
+    BackHandler(enabled = state.opened != null) { viewModel.close() }
 
     // „Suche“ in der Kopfleiste.
     LaunchedEffect(Unit) {
@@ -313,7 +319,7 @@ private fun MovieSheet(
 
             Column(Modifier.weight(1f).fillMaxHeight()) {
                 Text(
-                    text = movie.name,
+                    text = cleanVodTitle(movie.name),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = Brand.TextPrimary,

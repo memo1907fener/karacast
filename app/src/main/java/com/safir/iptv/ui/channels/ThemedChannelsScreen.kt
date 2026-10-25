@@ -1129,7 +1129,7 @@ private fun ReceiverLayout(ui: LiveUi) {
                     modifier = Modifier.weight(1f, fill = false)
                 )
                 Text(
-                    text = s.nChannels(ui.channels.size),
+                    text = s.nChannels(ui.channels.count { !isSeparatorName(it.name) }),
                     fontSize = 12.sp,
                     color = Brand.TextSecondary,
                     maxLines = 1
@@ -1465,7 +1465,7 @@ private fun ListHeader(ui: LiveUi) {
             modifier = Modifier.weight(1f, fill = false)
         )
         Spacer(Modifier.width(8.dp))
-        Text(text = s.nChannels(ui.channels.size), fontSize = 12.sp, color = Brand.TextSecondary)
+        Text(text = s.nChannels(ui.channels.count { !isSeparatorName(it.name) }), fontSize = 12.sp, color = Brand.TextSecondary)
     }
 }
 

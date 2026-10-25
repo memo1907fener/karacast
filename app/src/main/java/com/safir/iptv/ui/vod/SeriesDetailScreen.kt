@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import kotlinx.coroutines.delay
+import com.safir.iptv.util.cleanVodTitle
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -112,7 +113,7 @@ fun SeriesDetailScreen(
             Spacer(Modifier.width(20.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    text = detail.series.name,
+                    text = cleanVodTitle(detail.series.name),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = Brand.TextPrimary,
