@@ -4,6 +4,7 @@ import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,6 +50,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
@@ -95,7 +97,10 @@ import com.safir.iptv.ui.components.ProgressLine
 import com.safir.iptv.ui.components.TvTextField
 import com.safir.iptv.ui.components.alsoTappable
 import com.safir.iptv.ui.components.asDigit
+import com.safir.iptv.ui.components.rememberFocus
+import com.safir.iptv.ui.components.rememberFocusMemory
 import com.safir.iptv.ui.components.rememberNumberEntry
+import com.safir.iptv.ui.components.restoreFocus
 import com.safir.iptv.ui.components.submitNow
 import com.safir.iptv.ui.i18n.LocalStrings
 import com.safir.iptv.ui.theme.Brand
@@ -583,8 +588,8 @@ private fun KinoLayout(ui: LiveUi) {
                 Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(start = 30.dp, end = 30.dp, top = 4.dp, bottom = 26.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    .padding(start = 24.dp, end = 24.dp, top = 2.dp, bottom = 18.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Column(
                     Modifier
@@ -669,30 +674,30 @@ private fun KinoChannelRow(ui: LiveUi, channel: Channel, modifier: Modifier) {
             )
     ) {
         Row(
-            Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+            Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (ui.showNumbers) {
                 Text(
                     text = channel.number.toString(),
-                    fontSize = 13.sp,
+                    fontSize = 12.sp,
                     color = Brand.TextSecondary,
                     maxLines = 1,
-                    modifier = Modifier.width(36.dp)
+                    modifier = Modifier.width(32.dp)
                 )
             }
             ChannelLogo(
                 url = channel.logoUrl,
                 name = channel.name,
-                modifier = Modifier.size(44.dp, 30.dp),
-                cornerRadius = 7
+                modifier = Modifier.size(40.dp, 26.dp),
+                cornerRadius = 6
             )
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(9.dp))
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = channel.name,
-                        fontSize = 15.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
                         color = if (isPlaying) Brand.AccentSoft else Brand.TextPrimary,
                         maxLines = 1,
@@ -709,7 +714,7 @@ private fun KinoChannelRow(ui: LiveUi, channel: Channel, modifier: Modifier) {
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(3.dp))
                     ProgressLine(
                         progress = now.progressAt(System.currentTimeMillis()),
                         trackColor = Color.White.copy(alpha = 0.14f),
@@ -745,7 +750,7 @@ private fun MosaikLayout(ui: LiveUi) {
                 .fillMaxWidth()
                 .height(48.dp)
                 .then(ui.paneModifier(Pane.GROUPS))
-                .focusRestorer { ui.selectedGroupRequester() },
+                .focusProperties { enter = { ui.selectedGroupRequester() } }.focusGroup(),
             contentPadding = PaddingValues(horizontal = 30.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -860,6 +865,7 @@ private fun ChannelGrid(ui: LiveUi, modifier: Modifier) {
     val s = LocalStrings.current
     val gridState = rememberLazyGridState()
     val jumpRequester = remember { FocusRequester() }
+    val memory = rememberFocusMemory()
 
     // Eine andere Gruppe fängt oben an — außer ein Kanal soll gleich den Fokus
     // bekommen, dann würde der Sprung nach oben nur dagegen arbeiten.
@@ -890,7 +896,7 @@ private fun ChannelGrid(ui: LiveUi, modifier: Modifier) {
         LazyVerticalGrid(
             columns = GridCells.Fixed(4),
             state = gridState,
-            modifier = modifier.focusRestorer(),
+            modifier = modifier.restoreFocus(memory, { gridState.layoutInfo.visibleItemsInfo.map { it.key } }),
             contentPadding = PaddingValues(6.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -899,11 +905,9 @@ private fun ChannelGrid(ui: LiveUi, modifier: Modifier) {
                 MosaikTile(
                     ui = ui,
                     channel = channel,
-                    modifier = if (channel.id == ui.focusTargetId) {
-                        Modifier.focusRequester(jumpRequester)
-                    } else {
-                        Modifier
-                    }
+                    modifier = Modifier
+                        .rememberFocus(memory, channel.id)
+                        .then(if (channel.id == ui.focusTargetId) Modifier.focusRequester(jumpRequester) else Modifier)
                 )
             }
         }
@@ -1226,8 +1230,8 @@ private fun LiveTopBar(ui: LiveUi, searchPill: Boolean, modifier: Modifier = Mod
     Row(
         modifier
             .fillMaxWidth()
-            .height(58.dp)
-            .padding(horizontal = 30.dp),
+            .height(50.dp)
+            .padding(horizontal = 24.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
@@ -1441,8 +1445,10 @@ private fun SearchFieldIfNeeded(ui: LiveUi) {
 private fun GroupList(ui: LiveUi, modifier: Modifier) {
     LazyColumn(
         state = ui.groupsState,
-        modifier = modifier.focusRestorer { ui.selectedGroupRequester() },
-        verticalArrangement = Arrangement.spacedBy(3.dp)
+        // Hinein geht es immer zur gewählten Gruppe. Kein focusRestorer(): der
+        // stürzt ab, wenn die Liste unter ihm wechselt (siehe FocusMemory).
+        modifier = modifier.focusProperties { enter = { ui.selectedGroupRequester() } }.focusGroup(),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         items(ui.categories, key = { it.id }) { category ->
             val selected = category.id == ui.selectedCategoryId
@@ -1491,7 +1497,7 @@ private fun GroupRow(
             .onFocusChanged { if (it.isFocused) onFocused() }
     ) {
         Row(
-            Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+            Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (virtualIcon != null) {
@@ -1528,6 +1534,7 @@ private fun ChannelColumnList(
     val s = LocalStrings.current
     val listState = rememberLazyListState()
     val jumpRequester = remember { FocusRequester() }
+    val memory = rememberFocusMemory()
 
     LaunchedEffect(ui.channels.firstOrNull()?.id) {
         if (ui.focusTargetId == null) listState.scrollToItem(0)
@@ -1555,17 +1562,17 @@ private fun ChannelColumnList(
     } else {
         LazyColumn(
             state = listState,
-            modifier = modifier.focusRestorer(),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            // Der Absturz beim ▶ in die Kanäle nach einem Gruppenwechsel kam von
+            // focusRestorer(); FocusMemory macht dasselbe ohne ihn.
+            modifier = modifier.restoreFocus(memory, { listState.layoutInfo.visibleItemsInfo.map { it.key } }),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             items(ui.channels, key = { it.id }) { channel ->
                 row(
                     channel,
-                    if (channel.id == ui.focusTargetId) {
-                        Modifier.focusRequester(jumpRequester)
-                    } else {
-                        Modifier
-                    }
+                    Modifier
+                        .rememberFocus(memory, channel.id)
+                        .then(if (channel.id == ui.focusTargetId) Modifier.focusRequester(jumpRequester) else Modifier)
                 )
             }
         }
@@ -1641,7 +1648,7 @@ private fun NowInfo(channel: Channel?, nowNext: NowNext?, large: Boolean) {
         val now = nowNext?.now
         Text(
             text = now?.title ?: channel.name,
-            fontSize = if (large) 28.sp else 18.sp,
+            fontSize = if (large) 24.sp else 18.sp,
             fontWeight = FontWeight.Bold,
             color = Brand.TextPrimary,
             maxLines = 2,
