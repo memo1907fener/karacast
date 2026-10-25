@@ -1,6 +1,6 @@
 {
-  "versionCode": 29,
-  "versionName": "1.14.0",
-  "url": "https://github.com/memo1907fener/karacast/releases/download/v1.14.0/KaracastIPTV-1.14.0.apk",
-  "notes": "Kino-Ansicht: kein Absturz mehr beim Wechsel von den Gruppen in die Kanalliste, Listen etwas kompakter."
+  "versionCode": 30,
+  "versionName": "1.14.1",
+  "url": "https://github.com/memo1907fener/karacast/releases/download/v1.14.1/KaracastIPTV-1.14.1.apk",
+  "notes": "Kino-Ansicht: Live-Bild im Rahmen, Vollbild ohne neues Laden. Kategorien nach Land zusammengefasst (abschaltbar unter Einstellungen → Anzeige). Trennzeilen als Überschriften, flüssigere Bedienung."
 }
