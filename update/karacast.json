@@ -1,6 +1,6 @@
 {
-  "versionCode": 30,
-  "versionName": "1.14.1",
-  "url": "https://github.com/memo1907fener/karacast/releases/download/v1.14.1/KaracastIPTV-1.14.1.apk",
-  "notes": "Kino-Ansicht: Live-Bild im Rahmen, Vollbild ohne neues Laden. Kategorien nach Land zusammengefasst (abschaltbar unter Einstellungen → Anzeige). Trennzeilen als Überschriften, flüssigere Bedienung."
+  "versionCode": 32,
+  "versionName": "1.15.1",
+  "url": "https://github.com/memo1907fener/karacast/releases/download/v1.15.1/KaracastIPTV-1.15.1.apk",
+  "notes": "Neue feste Kopfleiste (Live TV, Filme, Serien, Programm). Filme und Serien im Kino-Stil mit großer Vorschau, Handlung und „Weiterschauen“. Saubere Titel, mehr Cover, viele kleine Verbesserungen."
 }
