@@ -1,0 +1,15 @@
+#EXTM3U
+#EXTINF:-1 tvg-id="demo.live1" tvg-name="Karacast Demo Live 1" group-title="[DE] Demo Live",Karacast Demo Live 1
+https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8
+#EXTINF:-1 tvg-id="demo.live2" tvg-name="Karacast Demo Live 2" group-title="[DE] Demo Live",Karacast Demo Live 2
+https://moctobpltc-i.akamaihd.net/hls/live/571329/eight/playlist.m3u8
+#EXTINF:-1 tvg-id="demo.bbb" tvg-name="Big Buck Bunny" group-title="[DE] Demo Filme",Big Buck Bunny
+https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8
+#EXTINF:-1 tvg-id="demo.sintel" tvg-name="Sintel" group-title="[DE] Demo Filme",Sintel
+https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8
+#EXTINF:-1 tvg-id="demo.tos" tvg-name="Tears of Steel" group-title="[DE] Demo Filme",Tears of Steel
+https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8
+#EXTINF:-1 tvg-id="demo.bipbop" tvg-name="Apple Bipbop" group-title="[TR] Demo Test",Apple Bipbop Test
+https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8
+#EXTINF:-1 tvg-id="demo.bipbop2" tvg-name="Apple Bipbop TS" group-title="[TR] Demo Test",Apple Bipbop TS
+https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_4x3/bipbop_4x3_variant.m3u8
