@@ -53,6 +53,11 @@ object LicenseVerifier {
      * prüfen und keine erzeugen. Er ist in einer APK, die jeder öffnen kann, sicher.
      */
     private val PUBLIC_KEYS = listOf(
+        // karacast.de, der Nachfolger — mit ihm unterschreibt das Panel seit
+        // Ende Oktober 2026. Ohne diesen Eintrag lehnte die App jedes neue Ticket
+        // ab: im Panel stand „Frei“, auf dem Fernseher weiter „Testzeit vorbei“.
+        "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEigzHSZ/G+YCS1FngRI5AXr3Aw2+nBotH" +
+            "226aDL16+1DqngqJ+BYmMuLl5i/K12JB0zbUT0QRnPhpy73ShCOE/g==",
         // karacast.de, erzeugt am 17. September 2026. Der zugehörige private Teil
         // ging beim Hochladen verloren — ausgestellte Tickets bleiben damit gültig,
         // neue kommen von seinem Nachfolger.
