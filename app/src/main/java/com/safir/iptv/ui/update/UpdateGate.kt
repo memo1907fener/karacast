@@ -63,16 +63,10 @@ fun UpdateGate(content: @Composable () -> Unit) {
         content()
         return
     }
-    val t = LocalStrings.current
     val context = LocalContext.current
     val settings = remember { (context.applicationContext as IptvApp).container.settings }
-    val scope = rememberCoroutineScope()
 
     var offer by remember { mutableStateOf<UpdateInfo?>(null) }
-    var percent by remember { mutableIntStateOf(-1) }
-    var busy by remember { mutableStateOf(false) }
-    var problem by remember { mutableStateOf<String?>(null) }
-    var needsPermission by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         if (!settings.autoUpdateCheck) return@LaunchedEffect
@@ -97,36 +91,8 @@ fun UpdateGate(content: @Composable () -> Unit) {
         content()
 
         offer?.let { info ->
-            UpdateCard(
+            UpdateOffer(
                 info = info,
-                busy = busy,
-                percent = percent,
-                problem = problem,
-                needsPermission = needsPermission,
-                onInstall = {
-                    problem = null
-                    if (!UpdateInstaller.canInstall(context)) {
-                        needsPermission = true
-                        UpdateInstaller.openInstallPermission(context)
-                        return@UpdateCard
-                    }
-                    busy = true
-                    percent = -1
-                    scope.launch {
-                        runCatching {
-                            val file = UpdateInstaller.download(
-                                context = context,
-                                url = info.downloadUrl,
-                                versionName = info.versionName,
-                                onProgress = { percent = it }
-                            )
-                            UpdateInstaller.install(context, file)
-                        }.onFailure {
-                            problem = t.update.failed
-                        }
-                        busy = false
-                    }
-                },
                 onLater = { offer = null },
                 onSkip = {
                     settings.skippedUpdateCode = info.versionCode
@@ -135,6 +101,131 @@ fun UpdateGate(content: @Composable () -> Unit) {
             )
         }
     }
+}
+
+/**
+ * Das Update-Angebot für den Sperrbildschirm („Testzeit vorbei“, „gesperrt“).
+ *
+ * Der Sperrbildschirm steht vor der ganzen App — auch vor den Einstellungen und
+ * dem Startbildschirm, wo sonst nach Updates gefragt wird. Genau das wurde einmal
+ * zur Falle: Das Panel hatte einen neuen Lizenzschlüssel, nur eine neue App-Fassung
+ * konnte ihn anerkennen, und ausgerechnet die gesperrten Fernseher kamen an kein
+ * Update heran. Seither fragt der Sperrbildschirm selbst:
+ *
+ * - einmal von allein, gleich beim Öffnen — ohne Tagesgrenze und ohne Rücksicht auf
+ *   „Version überspringen“, denn hier kann eine neue Fassung die Lösung sein;
+ * - und jederzeit auf Knopfdruck über [check].
+ *
+ * [content] bekommt die Prüf-Funktion und eine kurze Rückmeldung („neueste
+ * Version“, Fehler) zum Anzeigen.
+ */
+@Composable
+fun LockedUpdateGate(content: @Composable (check: () -> Unit, status: String?) -> Unit) {
+    // Die Play-Fassung aktualisiert der Play Store; dort gibt es keinen Knopf.
+    if (BuildConfig.PLAY_STORE) {
+        content({}, null)
+        return
+    }
+    val t = LocalStrings.current
+    val context = LocalContext.current
+    val settings = remember { (context.applicationContext as IptvApp).container.settings }
+    val scope = rememberCoroutineScope()
+
+    var offer by remember { mutableStateOf<UpdateInfo?>(null) }
+    var status by remember { mutableStateOf<String?>(null) }
+    var checking by remember { mutableStateOf(false) }
+
+    fun check(quiet: Boolean) {
+        if (checking) return
+        // Leer heißt hier nicht „keine Updates“: dann gilt die Adresse aus dem Bau.
+        val url = settings.updateUrl.ifBlank { BuildConfig.UPDATE_URL }
+        if (url.isBlank()) {
+            if (!quiet) status = t.noUpdateAddress
+            return
+        }
+        checking = true
+        if (!quiet) status = t.update.searching
+        scope.launch {
+            val result = runCatching { UpdateChecker.check(url, BuildConfig.VERSION_CODE) }
+            checking = false
+            val found = result.getOrNull()
+            when {
+                found != null -> {
+                    status = null
+                    offer = found
+                }
+                quiet -> status = null
+                result.isFailure -> status = t.update.failed
+                else -> status = t.alreadyLatest
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        delay(2_500)
+        check(quiet = true)
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        content({ check(quiet = false) }, status)
+
+        offer?.let { info ->
+            UpdateOffer(
+                info = info,
+                onLater = { offer = null },
+                // „Überspringen“ ist auf dem Sperrbildschirm dasselbe wie „Später“:
+                // gemerkt wird nichts, sonst wäre der Ausweg beim nächsten Mal zu.
+                onSkip = { offer = null }
+            )
+        }
+    }
+}
+
+/** Die Karte samt Herunterladen und Installieren — für beide Tore dieselbe. */
+@Composable
+private fun UpdateOffer(info: UpdateInfo, onLater: () -> Unit, onSkip: () -> Unit) {
+    val t = LocalStrings.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    var percent by remember { mutableIntStateOf(-1) }
+    var busy by remember { mutableStateOf(false) }
+    var problem by remember { mutableStateOf<String?>(null) }
+    var needsPermission by remember { mutableStateOf(false) }
+
+    UpdateCard(
+        info = info,
+        busy = busy,
+        percent = percent,
+        problem = problem,
+        needsPermission = needsPermission,
+        onInstall = {
+            problem = null
+            if (!UpdateInstaller.canInstall(context)) {
+                needsPermission = true
+                UpdateInstaller.openInstallPermission(context)
+                return@UpdateCard
+            }
+            busy = true
+            percent = -1
+            scope.launch {
+                runCatching {
+                    val file = UpdateInstaller.download(
+                        context = context,
+                        url = info.downloadUrl,
+                        versionName = info.versionName,
+                        onProgress = { percent = it }
+                    )
+                    UpdateInstaller.install(context, file)
+                }.onFailure {
+                    problem = t.update.failed
+                }
+                busy = false
+            }
+        },
+        onLater = onLater,
+        onSkip = onSkip
+    )
 }
 
 @Composable

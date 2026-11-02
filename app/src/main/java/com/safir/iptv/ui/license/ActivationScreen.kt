@@ -35,6 +35,7 @@ import com.safir.iptv.ui.components.TvButton
 import com.safir.iptv.ui.components.TvTextField
 import com.safir.iptv.ui.i18n.LocalStrings
 import com.safir.iptv.ui.theme.Brand
+import com.safir.iptv.ui.update.LockedUpdateGate
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -81,141 +82,161 @@ fun ActivationScreen(
         }
     }
 
-    Row(
-        Modifier
-            .fillMaxSize()
-            .background(Brand.Background)
-            .padding(horizontal = 56.dp, vertical = 40.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.Center) {
-            Text(
-                text = if (blocked) t.license.blockedTitle else t.license.expiredTitle,
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
-                color = Brand.TextPrimary
-            )
-            Spacer(Modifier.height(12.dp))
-            Text(
-                text = if (blocked) t.license.blockedBody else t.license.expiredBody,
-                style = MaterialTheme.typography.bodyLarge,
-                color = Brand.TextSecondary,
-                modifier = Modifier.widthIn(max = 560.dp)
-            )
-
-            if (!blocked) {
-                Spacer(Modifier.height(18.dp))
+    // Um den ganzen Bildschirm, weil das Update-Angebot ihn ganz überdeckt. Der
+    // Sperrbildschirm ist der einzige Ort, den ein gesperrter Fernseher noch sieht —
+    // also muss von hier auch ein Update erreichbar sein.
+    LockedUpdateGate { checkForUpdate, updateStatus ->
+        Row(
+            Modifier
+                .fillMaxSize()
+                .background(Brand.Background)
+                .padding(horizontal = 56.dp, vertical = 40.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.Center) {
                 Text(
-                    text = t.license.price,
-                    style = MaterialTheme.typography.headlineSmall,
+                    text = if (blocked) t.license.blockedTitle else t.license.expiredTitle,
+                    style = MaterialTheme.typography.headlineLarge,
                     fontWeight = FontWeight.Bold,
-                    color = Brand.Accent
+                    color = Brand.TextPrimary
                 )
-            }
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = if (blocked) t.license.blockedBody else t.license.expiredBody,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Brand.TextSecondary,
+                    modifier = Modifier.widthIn(max = 560.dp)
+                )
 
-            Spacer(Modifier.height(24.dp))
-            Text(
-                text = t.license.deviceCode,
-                style = MaterialTheme.typography.labelMedium,
-                color = Brand.TextSecondary
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                // Grouped in pairs and spaced out, because this is the one string on
-                // the screen somebody may have to read down a telephone line.
-                text = com.safir.iptv.util.DeviceIdentity.formatted(state.deviceCode),
-                fontSize = 30.sp,
-                fontWeight = FontWeight.Bold,
-                color = Brand.TextPrimary
-            )
+                if (!blocked) {
+                    Spacer(Modifier.height(18.dp))
+                    Text(
+                        text = t.license.price,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Brand.Accent
+                    )
+                }
 
-            Spacer(Modifier.height(22.dp))
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TvButton(
-                    onClick = {
-                        message = null
-                        scope.launch { licenses.sync() }
-                    },
-                    modifier = Modifier.focusRequester(firstButton)
+                Spacer(Modifier.height(24.dp))
+                Text(
+                    text = t.license.deviceCode,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Brand.TextSecondary
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    // Grouped in pairs and spaced out, because this is the one string on
+                    // the screen somebody may have to read down a telephone line.
+                    text = com.safir.iptv.util.DeviceIdentity.formatted(state.deviceCode),
+                    fontSize = 30.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Brand.TextPrimary
+                )
+
+                Spacer(Modifier.height(22.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(if (state.checking) t.license.waiting else t.license.checkNow)
-                }
-
-                if (BuildConfig.DEBUG) {
-                    TvButton(onClick = { licenses.debugActivate() }) {
-                        Text(t.license.simulateActive)
+                    TvButton(
+                        onClick = {
+                            message = null
+                            scope.launch { licenses.sync() }
+                        },
+                        modifier = Modifier.focusRequester(firstButton)
+                    ) {
+                        Text(if (state.checking) t.license.waiting else t.license.checkNow)
                     }
-                }
-            }
 
-            Spacer(Modifier.height(26.dp))
-            Text(
-                text = t.license.redeemTitle,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                color = Brand.TextPrimary
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = t.license.redeemHint,
-                style = MaterialTheme.typography.bodySmall,
-                color = Brand.TextSecondary
-            )
-            Spacer(Modifier.height(10.dp))
-            Box(Modifier.width(360.dp)) {
-                TvTextField(
-                    value = code,
-                    onValueChange = { code = it.uppercase().take(12) },
-                    label = t.license.redeem
-                )
-            }
-            Spacer(Modifier.height(10.dp))
-            TvButton(
-                onClick = {
-                    scope.launch {
-                        message = if (licenses.redeem(code)) {
-                            t.license.activated
-                        } else {
-                            t.license.failed
+                    if (!BuildConfig.PLAY_STORE) {
+                        TvButton(onClick = checkForUpdate) {
+                            Text(t.update.searchButton)
+                        }
+                    }
+
+                    if (BuildConfig.DEBUG) {
+                        TvButton(onClick = { licenses.debugActivate() }) {
+                            Text(t.license.simulateActive)
                         }
                     }
                 }
-            ) {
-                Text(t.license.redeem)
-            }
 
-            message?.let {
-                Spacer(Modifier.height(12.dp))
+                updateStatus?.let {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Brand.TextSecondary
+                    )
+                }
+
+                Spacer(Modifier.height(26.dp))
                 Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (it == t.license.activated) Brand.Live else Brand.Danger
+                    text = t.license.redeemTitle,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = Brand.TextPrimary
                 )
-            }
-        }
-
-        Spacer(Modifier.width(40.dp))
-
-        if (!blocked) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                QrCode(content = "https://$buyUrl", size = 300.dp)
-                Spacer(Modifier.height(14.dp))
+                Spacer(Modifier.height(4.dp))
                 Text(
-                    text = buyUrl,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Brand.AccentSoft,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text = t.license.howTo,
+                    text = t.license.redeemHint,
                     style = MaterialTheme.typography.bodySmall,
-                    color = Brand.TextSecondary,
-                    modifier = Modifier.widthIn(max = 320.dp)
+                    color = Brand.TextSecondary
                 )
+                Spacer(Modifier.height(10.dp))
+                Box(Modifier.width(360.dp)) {
+                    TvTextField(
+                        value = code,
+                        onValueChange = { code = it.uppercase().take(12) },
+                        label = t.license.redeem
+                    )
+                }
+                Spacer(Modifier.height(10.dp))
+                TvButton(
+                    onClick = {
+                        scope.launch {
+                            message = if (licenses.redeem(code)) {
+                                t.license.activated
+                            } else {
+                                t.license.failed
+                            }
+                        }
+                    }
+                ) {
+                    Text(t.license.redeem)
+                }
+
+                message?.let {
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (it == t.license.activated) Brand.Live else Brand.Danger
+                    )
+                }
+            }
+
+            Spacer(Modifier.width(40.dp))
+
+            if (!blocked) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    QrCode(content = "https://$buyUrl", size = 300.dp)
+                    Spacer(Modifier.height(14.dp))
+                    Text(
+                        text = buyUrl,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Brand.AccentSoft,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        text = t.license.howTo,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Brand.TextSecondary,
+                        modifier = Modifier.widthIn(max = 320.dp)
+                    )
+                }
             }
         }
     }

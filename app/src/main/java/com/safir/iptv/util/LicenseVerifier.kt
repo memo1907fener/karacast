@@ -58,6 +58,13 @@ object LicenseVerifier {
         // ab: im Panel stand „Frei“, auf dem Fernseher weiter „Testzeit vorbei“.
         "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEigzHSZ/G+YCS1FngRI5AXr3Aw2+nBotH" +
             "226aDL16+1DqngqJ+BYmMuLl5i/K12JB0zbUT0QRnPhpy73ShCOE/g==",
+        // Die Reserve, erzeugt im November 2026 auf dem PC des Betreibers. Ihr
+        // privater Teil war nie auf dem Server und nie im Netz — er liegt offline
+        // bereit. Geht der Server-Schlüssel verloren, wird die Reserve als
+        // keys/private.pem eingespielt, und jedes Gerät ab 1.15.3 erkennt die
+        // neuen Tickets sofort, ohne neue App-Fassung (LIZENZ-NOTFALLPLAN.txt).
+        "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE/AMM60n6JP2MArxtDsj8kwXJz08NEoJQ" +
+            "eMi9Ikq6khE6PwNoPEG3m25pabXYA3AFg6BYlJG8NbdP7pCgBaPibg==",
         // karacast.de, erzeugt am 17. September 2026. Der zugehörige private Teil
         // ging beim Hochladen verloren — ausgestellte Tickets bleiben damit gültig,
         // neue kommen von seinem Nachfolger.
