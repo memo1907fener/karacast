@@ -10,6 +10,7 @@ import com.safir.iptv.data.prefs.SettingsStore
 import com.safir.iptv.data.repository.LicenseRepository
 import com.safir.iptv.data.repository.EpgRepository
 import com.safir.iptv.data.repository.PlaylistRepository
+import com.safir.iptv.data.repository.ProfileSwitcher
 import com.safir.iptv.data.repository.SourceSwitcher
 import com.safir.iptv.data.repository.VodRepository
 
@@ -62,6 +63,9 @@ class AppContainer(context: Context) {
 
     /** Moving between saved accesses; see [SourceSwitcher]. */
     val sources = SourceSwitcher(playlistRepository, epgRepository, vodRepository)
+
+    /** Zwischen den Profilen dieses Geräts wechseln; siehe [ProfileSwitcher]. */
+    val profiles = ProfileSwitcher(database, settings, vodRepository)
 
     /** The rows on the television's home screen; see [HomeScreen]. */
     val homeScreen = HomeScreen(context.applicationContext, playlistRepository, settings)

@@ -56,6 +56,7 @@ import com.safir.iptv.ui.settings.GroupChannelsScreen
 import com.safir.iptv.ui.settings.GroupsScreen
 import com.safir.iptv.ui.settings.SettingsScreen
 import com.safir.iptv.ui.update.UpdateGate
+import com.safir.iptv.ui.profiles.ProfilesScreen
 import com.safir.iptv.ui.vod.MoviesScreen
 import com.safir.iptv.ui.vod.SeriesDetailScreen
 import com.safir.iptv.ui.vod.SeriesScreen
@@ -88,6 +89,7 @@ object Routes {
 
     /** The film itself travels in memory, not in the route — see [VodPlayback]. */
     const val VOD_PLAYER = "vodplayer"
+    const val PROFILES = "profiles"
     const val PLAYER = "player/{channelId}/{categoryId}"
     const val ARCHIVE = "archive/{channelId}/{start}/{duration}"
 
@@ -128,6 +130,8 @@ fun AppNavigation(
     // Guarded so it fires once: the channel list stays underneath in the back stack,
     // so Back out of the player lands there instead of quitting the app.
     var resumeHandled by rememberSaveable { mutableStateOf(false) }
+    // „Wer schaut?“ einmal je Start, sobald es mehr als ein Profil gibt.
+    var profileAsked by rememberSaveable { mutableStateOf(false) }
 
     val container = (LocalContext.current.applicationContext as IptvApp).container
     val inPip by PictureInPicture.active.collectAsStateWithLifecycle()
@@ -258,6 +262,14 @@ fun AppNavigation(
                 // "Resume last channel" opens the player, but pushes the channel list
                 // underneath it first so Back walks out the way the user came in.
                 LaunchedEffect(Unit) {
+                    if (!profileAsked) {
+                        profileAsked = true
+                        if (container.settings.profiles.value.size > 1) {
+                            // Erst das Profil, dann (beim Zurückkommen) der letzte Sender.
+                            navController.navigate(Routes.PROFILES)
+                            return@LaunchedEffect
+                        }
+                    }
                     if (!resumeHandled && resumeRoute != null) {
                         resumeHandled = true
                         navController.navigate(Routes.CHANNELS)
@@ -275,6 +287,7 @@ fun AppNavigation(
                         onOpenGuide = { navController.navigate(Routes.GUIDE) },
                         onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                         onAddSource = { navController.navigate(Routes.SETUP_ADD) },
+                        onOpenProfiles = { navController.navigate(Routes.PROFILES) },
                         onResume = { item ->
                             VodPlayback.queue = emptyList()
                             VodPlayback.pending = item.toRequest()
@@ -427,6 +440,10 @@ fun AppNavigation(
 
             composable(Routes.VOD_PLAYER) {
                 VodPlayerScreen(onExit = { navController.popBackStack() })
+            }
+
+            composable(Routes.PROFILES) {
+                ProfilesScreen(onDone = { navController.popBackStack() })
             }
 
             composable(Routes.SETTINGS) {

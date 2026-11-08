@@ -58,6 +58,9 @@ import com.safir.iptv.domain.model.PlaylistSource
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.material.icons.filled.Dns
 import com.safir.iptv.domain.model.Channel
+import com.safir.iptv.domain.model.Profile
+import com.safir.iptv.ui.profiles.ProfileAvatar
+import com.safir.iptv.ui.profiles.displayName
 import com.safir.iptv.domain.model.ContinueItem
 import com.safir.iptv.domain.model.FAVORITES_CATEGORY_ID
 import com.safir.iptv.domain.model.FavoriteItem
@@ -87,6 +90,7 @@ fun DashboardScreen(
     onOpenGuide: () -> Unit,
     onOpenSettings: () -> Unit,
     onAddSource: () -> Unit,
+    onOpenProfiles: () -> Unit = {},
     onResume: (ContinueItem) -> Unit = {},
     onPlayChannel: (Channel, String) -> Unit = { _, _ -> },
     onOpenVodFavorite: (FavoriteItem) -> Unit = {}
@@ -99,6 +103,9 @@ fun DashboardScreen(
     val sources by remember { container.playlistRepository.observeSources() }
         .collectAsStateWithLifecycle(initialValue = emptyList())
     val activeSourceId by container.settings.activeSourceId.collectAsStateWithLifecycle()
+    val profiles by container.settings.profiles.collectAsStateWithLifecycle()
+    val activeProfileId by container.settings.activeProfileId.collectAsStateWithLifecycle()
+    val activeProfile = profiles.firstOrNull { it.id == activeProfileId } ?: profiles.first()
 
     // Die Reihen. Zuletzt gesehen und Favoriten kommen aus der Senderliste,
     // Weiterschauen und die gemerkten Filme aus den Einstellungen.
@@ -160,6 +167,12 @@ fun DashboardScreen(
                     SourceButton(name = active.name, onClick = { sourcesOpen = true })
                     Spacer(Modifier.width(14.dp))
                 }
+                ProfileButton(
+                    profile = activeProfile,
+                    name = displayName(activeProfile, s.profiles.defaultName),
+                    onClick = onOpenProfiles
+                )
+                Spacer(Modifier.width(14.dp))
                 LanguageButton(
                     current = language,
                     onClick = { languageOpen = true }
@@ -304,6 +317,34 @@ fun DashboardScreen(
                 },
                 onDismiss = { languageOpen = false }
             )
+        }
+    }
+}
+
+/** Das aktive Profil oben rechts; führt zu „Wer schaut?“. */
+@Composable
+private fun ProfileButton(profile: Profile, name: String, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = Brand.Surface,
+            focusedContainerColor = Brand.Accent,
+            pressedContainerColor = Brand.Accent,
+            contentColor = Brand.TextPrimary,
+            focusedContentColor = Brand.Background,
+            pressedContentColor = Brand.Background
+        ),
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(20.dp)),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f),
+        modifier = Modifier.alsoTappable(onClick)
+    ) {
+        Row(
+            Modifier.padding(start = 6.dp, end = 14.dp, top = 5.dp, bottom = 5.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ProfileAvatar(profile, name, 26.dp)
+            Spacer(Modifier.width(8.dp))
+            Text(text = name, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1)
         }
     }
 }

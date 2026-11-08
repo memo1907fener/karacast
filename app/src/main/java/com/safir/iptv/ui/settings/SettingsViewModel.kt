@@ -293,7 +293,7 @@ class SettingsViewModel(
                     panelDeviceId = settings.deviceId,
                     panelLastSyncAt = settings.panelLastSyncAt,
                     lastCrash = CrashGuard.lastCrash(),
-                    parentalEnabled = settings.parentalEnabled,
+                    parentalEnabled = settings.parentalSwitchedOn,
                     hasPin = settings.parentalPin.isNotBlank(),
                     parentalKeywords = settings.parentalKeywords
                 )

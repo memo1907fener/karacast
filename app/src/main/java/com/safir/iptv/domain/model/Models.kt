@@ -291,3 +291,17 @@ data class UpdateInfo(
     val downloadUrl: String,
     val notes: String = ""
 )
+
+/**
+ * Ein Profil auf diesem Gerät — eigene Favoriten, eigenes „Weiterschauen“,
+ * eigener Verlauf. [kids] schaltet die Kindersicherung fest ein, solange es aktiv ist.
+ */
+@Serializable
+data class Profile(
+    val id: Int,
+    /** Leer beim ersten Profil, bis es jemand umbenennt: dann zeigt die App „Ich“. */
+    val name: String,
+    /** Index in die Farben der Profilbilder. */
+    val color: Int = 0,
+    val kids: Boolean = false
+)

@@ -173,6 +173,13 @@ interface FavoriteDao {
     /** Channel ids start with their access's id, "3:1234". */
     @Query("DELETE FROM favorites WHERE channelId LIKE :prefix || '%'")
     suspend fun deleteWithPrefix(prefix: String)
+
+    /** Beim Profilwechsel: die Favoriten des bisherigen Profils weg. */
+    @Query("DELETE FROM favorites")
+    suspend fun clear()
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun addAll(items: List<FavoriteEntity>)
 }
 
 @Dao
@@ -183,6 +190,16 @@ interface RecentDao {
 
     @Query("DELETE FROM recents WHERE channelId LIKE :prefix || '%'")
     suspend fun deleteWithPrefix(prefix: String)
+
+    /** Neuester zuerst — so wird der Verlauf eines Profils gesichert. */
+    @Query("SELECT * FROM recents ORDER BY watchedAt DESC")
+    suspend fun all(): List<RecentEntity>
+
+    @Query("DELETE FROM recents")
+    suspend fun clear()
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun markAll(items: List<RecentEntity>)
 }
 
 @Dao

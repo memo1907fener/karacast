@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import com.safir.iptv.util.VodSort
+import com.safir.iptv.domain.model.Profile
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
@@ -44,6 +45,7 @@ class SettingsStore(context: Context) {
     private val stringListSerializer = ListSerializer(String.serializer())
     private val continueSerializer = ListSerializer(ContinueItem.serializer())
     private val favoriteSerializer = ListSerializer(FavoriteItem.serializer())
+    private val profileSerializer = ListSerializer(Profile.serializer())
 
     // ------------------------------------------------------- which access
 
@@ -55,6 +57,105 @@ class SettingsStore(context: Context) {
      */
     private val _activeSourceId = MutableStateFlow(prefs.getLong(KEY_ACTIVE_SOURCE, 1L))
     val activeSourceId: StateFlow<Long> = _activeSourceId.asStateFlow()
+
+    // ------------------------------------------------------------- profiles
+
+    /**
+     * Die Profile dieses Geräts. Es gibt immer mindestens eins — das erste (Id 1)
+     * ist das, was es vor den Profilen schon gab, und lässt sich nicht löschen.
+     * Wie [_activeSourceId] früh deklariert, weil [profileScoped] beim Aufbau
+     * dieses Objekts schon gelesen wird.
+     */
+    private val _profiles = MutableStateFlow(readProfiles())
+    val profiles: StateFlow<List<Profile>> = _profiles.asStateFlow()
+
+    private val _activeProfileId = MutableStateFlow(
+        prefs.getInt(KEY_ACTIVE_PROFILE, 1).takeIf { id -> _profiles.value.any { it.id == id } } ?: 1
+    )
+    val activeProfileId: StateFlow<Int> = _activeProfileId.asStateFlow()
+
+    val activeProfile: Profile
+        get() = _profiles.value.firstOrNull { it.id == _activeProfileId.value } ?: _profiles.value.first()
+
+    private fun readProfiles(): List<Profile> {
+        val stored = prefs.getString(KEY_PROFILES, null)?.let { raw ->
+            runCatching { json.decodeFromString(profileSerializer, raw) }.getOrNull()
+        }.orEmpty()
+        return if (stored.any { it.id == 1 }) stored else listOf(Profile(1, "", 0, false)) + stored
+    }
+
+    private fun writeProfiles(items: List<Profile>) {
+        prefs.edit { putString(KEY_PROFILES, json.encodeToString(profileSerializer, items)) }
+        _profiles.value = items
+        // Kinderprofil geändert? Dann muss die Sperre sofort mitziehen.
+        prefs.edit { putBoolean(KEY_ACTIVE_KIDS, activeProfile.kids) }
+        bumpParental(enabled = prefs.getBoolean(KEY_PARENTAL, false) || activeProfile.kids)
+    }
+
+    /** Legt ein Profil an oder ändert es (gleiche Id). Gibt das gespeicherte zurück. */
+    fun saveProfile(profile: Profile): Profile {
+        val current = _profiles.value
+        val saved = if (profile.id == 0) {
+            profile.copy(id = (current.maxOfOrNull { it.id } ?: 1) + 1)
+        } else {
+            profile
+        }
+        val updated = if (current.any { it.id == saved.id }) {
+            current.map { if (it.id == saved.id) saved else it }
+        } else {
+            current + saved
+        }
+        writeProfiles(updated)
+        return saved
+    }
+
+    /** Entfernt ein Profil samt seiner Favoriten und Fortschritte. Profil 1 bleibt. */
+    fun deleteProfile(id: Int) {
+        if (id == 1) return
+        writeProfiles(_profiles.value.filterNot { it.id == id })
+        val suffix = "#p$id"
+        prefs.edit {
+            prefs.all.keys.filter { it.endsWith(suffix) || it.contains("$suffix@") }.forEach { remove(it) }
+        }
+    }
+
+    /**
+     * Wechselt das Profil. Die Senderfavoriten und „Zuletzt gesehen“ liegen in der
+     * Datenbank und werden vom [com.safir.iptv.data.repository.ProfileSwitcher]
+     * getauscht; hier wechselt, was in diesen Einstellungen je Profil liegt.
+     */
+    fun switchProfile(id: Int) {
+        val target = _profiles.value.firstOrNull { it.id == id } ?: return
+        prefs.edit {
+            putInt(KEY_ACTIVE_PROFILE, target.id)
+            putBoolean(KEY_ACTIVE_KIDS, target.kids)
+        }
+        _activeProfileId.value = target.id
+        _vodFavorites.value = readFavorites()
+        _continueWatching.value = readContinue()
+        bumpParental(enabled = prefs.getBoolean(KEY_PARENTAL, false) || target.kids)
+    }
+
+    /** Senderfavoriten und „Zuletzt gesehen“ eines Profils, solange es nicht aktiv ist. */
+    fun saveProfileChannels(profileId: Int, favorites: List<String>, recents: List<String>) = prefs.edit {
+        putString(KEY_PROFILE_FAVORITES + "#p$profileId", favorites.joinToString("\n"))
+        putString(KEY_PROFILE_RECENTS + "#p$profileId", recents.joinToString("\n"))
+    }
+
+    fun loadProfileChannels(profileId: Int): Pair<List<String>, List<String>> {
+        fun read(key: String) = prefs.getString(key + "#p$profileId", null)
+            ?.split('\n')?.filter { it.isNotBlank() }.orEmpty()
+        return read(KEY_PROFILE_FAVORITES) to read(KEY_PROFILE_RECENTS)
+    }
+
+    /**
+     * Wie [scoped], zusätzlich je Profil. Profil 1 behält die alten Namen, damit
+     * nach dem Update alles da ist, wo es war.
+     */
+    private fun profileScoped(key: String): String {
+        val id = _activeProfileId.value
+        return if (id == 1) scoped(key) else scoped(key) + "#p$id"
+    }
 
     /**
      * Each access keeps its own groups, order, locked categories, film favourites,
@@ -112,8 +213,9 @@ class SettingsStore(context: Context) {
         _channelSort.value = readSort()
         _groupByCountry.value = prefs.getBoolean(KEY_BY_COUNTRY, true)
         _homeScreenRow.value = prefs.getBoolean(KEY_HOME_ROW, true)
+        _profiles.value = readProfiles()
         _parentalRevision.value = ParentalRevision(
-            prefs.getBoolean(KEY_PARENTAL, false),
+            prefs.getBoolean(KEY_PARENTAL, false) || prefs.getBoolean(KEY_ACTIVE_KIDS, false),
             _parentalRevision.value.at + 1
         )
         switchSource(_activeSourceId.value)
@@ -122,7 +224,11 @@ class SettingsStore(context: Context) {
 
     /** Throws away everything an access that is being removed left behind. */
     fun forgetSource(sourceId: Long) = prefs.edit {
-        SCOPED_KEYS.forEach { remove(scoped(it, sourceId)) }
+        SCOPED_KEYS.forEach { key ->
+            val base = scoped(key, sourceId)
+            remove(base)
+            prefs.all.keys.filter { it.startsWith("$base#p") }.forEach { remove(it) }
+        }
     }
 
     // ------------------------------------------------------------- connection
@@ -301,8 +407,13 @@ class SettingsStore(context: Context) {
         get() = _parentalRevision.value.enabled
         set(value) {
             prefs.edit { putBoolean(KEY_PARENTAL, value) }
-            bumpParental(enabled = value)
+            // Im Kinderprofil bleibt die Sperre an, egal was hier eingestellt wird.
+            bumpParental(enabled = value || prefs.getBoolean(KEY_ACTIVE_KIDS, false))
         }
+
+    /** Ob die Sperre in den Einstellungen eingeschaltet ist — ohne das Kinderprofil. */
+    val parentalSwitchedOn: Boolean
+        get() = prefs.getBoolean(KEY_PARENTAL, false)
 
     /**
      * Anything about the lock, as a flow.
@@ -313,7 +424,7 @@ class SettingsStore(context: Context) {
      * lists rebuild; the actual reading is still done by [isBlocked].
      */
     private val _parentalRevision = MutableStateFlow(
-        ParentalRevision(prefs.getBoolean(KEY_PARENTAL, false), 0)
+        ParentalRevision(prefs.getBoolean(KEY_PARENTAL, false) || prefs.getBoolean(KEY_ACTIVE_KIDS, false), 0)
     )
     val parentalRevision: StateFlow<ParentalRevision> = _parentalRevision.asStateFlow()
 
@@ -428,12 +539,12 @@ class SettingsStore(context: Context) {
     }
 
     private fun writeFavorites(items: List<FavoriteItem>) {
-        prefs.edit { putString(scoped(KEY_VOD_FAVORITES), json.encodeToString(favoriteSerializer, items)) }
+        prefs.edit { putString(profileScoped(KEY_VOD_FAVORITES), json.encodeToString(favoriteSerializer, items)) }
         _vodFavorites.value = items
     }
 
     private fun readFavorites(): List<FavoriteItem> {
-        val raw = prefs.getString(scoped(KEY_VOD_FAVORITES), null) ?: return emptyList()
+        val raw = prefs.getString(profileScoped(KEY_VOD_FAVORITES), null) ?: return emptyList()
         return runCatching { json.decodeFromString(favoriteSerializer, raw) }
             .getOrDefault(emptyList())
     }
@@ -498,12 +609,12 @@ class SettingsStore(context: Context) {
         writeContinue(_continueWatching.value.filter { it.isEpisode != episodes })
 
     private fun writeContinue(items: List<ContinueItem>) {
-        prefs.edit { putString(scoped(KEY_CONTINUE), json.encodeToString(continueSerializer, items)) }
+        prefs.edit { putString(profileScoped(KEY_CONTINUE), json.encodeToString(continueSerializer, items)) }
         _continueWatching.value = items
     }
 
     private fun readContinue(): List<ContinueItem> {
-        val raw = prefs.getString(scoped(KEY_CONTINUE), null) ?: return emptyList()
+        val raw = prefs.getString(profileScoped(KEY_CONTINUE), null) ?: return emptyList()
         return runCatching { json.decodeFromString(continueSerializer, raw) }
             .getOrDefault(emptyList())
     }
@@ -663,6 +774,11 @@ class SettingsStore(context: Context) {
         const val KEY_CHANNEL_SORT = "channel_sort"
         const val KEY_BY_COUNTRY = "group_by_country"
         const val KEY_VOD_SORT = "vod_sort"
+        const val KEY_PROFILES = "profiles"
+        const val KEY_ACTIVE_PROFILE = "active_profile"
+        const val KEY_ACTIVE_KIDS = "active_profile_kids"
+        const val KEY_PROFILE_FAVORITES = "profile_channel_favorites"
+        const val KEY_PROFILE_RECENTS = "profile_channel_recents"
         const val KEY_ASPECT = "aspect_mode"
         const val KEY_AUTOSTART = "auto_start_on_boot"
         const val KEY_AUTO_RECOVER = "auto_recover"

@@ -331,6 +331,7 @@ data class Strings(
     val hub: HubStrings = HubStrings(),
     val info: AboutStrings = AboutStrings(),
     val update: UpdateStrings = UpdateStrings(),
+    val profiles: ProfileStrings = ProfileStrings(),
     val panel: PanelStrings = PanelStrings(),
     val license: LicenseStrings = LicenseStrings(),
     val play: PlayStrings = PlayStrings(),
@@ -567,6 +568,30 @@ data class LicenseStrings(
  * skip and should not want to: a television that installs software without anyone
  * agreeing is a television nobody should own.
  */
+data class ProfileStrings(
+    val whoIsWatching: String = "Wer schaut?",
+    val defaultName: String = "Ich",
+    val add: String = "Profil hinzufügen",
+    val manage: String = "Profile verwalten",
+    val done: String = "Fertig",
+    val manageHint: String = "Wähle ein Profil zum Bearbeiten.",
+    val newProfile: String = "Neues Profil",
+    val editProfile: String = "Profil bearbeiten",
+    val name: String = "Name",
+    val color: String = "Farbe",
+    val kids: String = "Kinderprofil",
+    val kidsHint: String = "Gesperrte Kategorien bleiben in diesem Profil immer verborgen — " +
+        "auch wenn die Kindersicherung sonst aus ist.",
+    val kidsBadge: String = "Kinder",
+    val save: String = "Speichern",
+    val delete: String = "Profil löschen",
+    val cancel: String = "Abbrechen",
+    val switchProfile: String = "Profil wechseln",
+    val pinToLeave: String = "Code eingeben, um das Kinderprofil zu verlassen",
+    val wrongPin: String = "Der Code stimmt nicht.",
+    val confirm: String = "OK"
+)
+
 data class UpdateStrings(
     val available: String = "Neue Version verfügbar",
     val installNow: String = "Jetzt aktualisieren",
@@ -1268,6 +1293,29 @@ private val Turkish = Strings(
             "sonrası. Lisans metinleri ve FFmpeg kütüphanelerinin kaynak kodu talep " +
             "üzerine verilir."
     ),
+    profiles = ProfileStrings(
+        whoIsWatching = "Kim izliyor?",
+        defaultName = "Ben",
+        add = "Profil ekle",
+        manage = "Profilleri yönet",
+        done = "Bitti",
+        manageHint = "Düzenlemek için bir profil seç.",
+        newProfile = "Yeni profil",
+        editProfile = "Profili düzenle",
+        name = "Ad",
+        color = "Renk",
+        kids = "Çocuk profili",
+        kidsHint = "Kilitli kategoriler bu profilde her zaman gizli kalır — " +
+            "çocuk kilidi kapalı olsa bile.",
+        kidsBadge = "Çocuk",
+        save = "Kaydet",
+        delete = "Profili sil",
+        cancel = "İptal",
+        switchProfile = "Profil değiştir",
+        pinToLeave = "Çocuk profilinden çıkmak için kodu gir",
+        wrongPin = "Kod yanlış.",
+        confirm = "Tamam"
+    ),
     update = UpdateStrings(
         available = "Yeni sürüm var",
         installNow = "Şimdi güncelle",
@@ -1911,6 +1959,29 @@ private val English = Strings(
             "LGPL 2.1 or later. The licence texts and the source of the FFmpeg libraries " +
             "are available on request."
     ),
+    profiles = ProfileStrings(
+        whoIsWatching = "Who's watching?",
+        defaultName = "Me",
+        add = "Add profile",
+        manage = "Manage profiles",
+        done = "Done",
+        manageHint = "Choose a profile to edit.",
+        newProfile = "New profile",
+        editProfile = "Edit profile",
+        name = "Name",
+        color = "Colour",
+        kids = "Kids profile",
+        kidsHint = "Locked categories always stay hidden in this profile — " +
+            "even when the parental lock is otherwise off.",
+        kidsBadge = "Kids",
+        save = "Save",
+        delete = "Delete profile",
+        cancel = "Cancel",
+        switchProfile = "Switch profile",
+        pinToLeave = "Enter the code to leave the kids profile",
+        wrongPin = "That code is not right.",
+        confirm = "OK"
+    ),
     update = UpdateStrings(
         available = "A newer version is available",
         installNow = "Update now",
@@ -2544,6 +2615,29 @@ private val Arabic = Strings(
             "وJetpack Compose وCompose for TV وRoom وOkHttp وCoil — جميعها برخصة " +
             "Apache 2.0 — إضافة إلى FFmpeg عبر NextLib برخصة LGPL 2.1 أو ما بعدها. " +
             "نصوص الرخص والشيفرة المصدرية لمكتبات FFmpeg متاحة عند الطلب."
+    ),
+    profiles = ProfileStrings(
+        whoIsWatching = "من يشاهد؟",
+        defaultName = "أنا",
+        add = "إضافة ملف",
+        manage = "إدارة الملفات",
+        done = "تم",
+        manageHint = "اختر ملفًا لتعديله.",
+        newProfile = "ملف جديد",
+        editProfile = "تعديل الملف",
+        name = "الاسم",
+        color = "اللون",
+        kids = "ملف للأطفال",
+        kidsHint = "تبقى الفئات المقفلة مخفية دائمًا في هذا الملف — " +
+            "حتى عندما يكون قفل الأطفال متوقفًا.",
+        kidsBadge = "أطفال",
+        save = "حفظ",
+        delete = "حذف الملف",
+        cancel = "إلغاء",
+        switchProfile = "تبديل الملف",
+        pinToLeave = "أدخل الرمز لمغادرة ملف الأطفال",
+        wrongPin = "الرمز غير صحيح.",
+        confirm = "موافق"
     ),
     update = UpdateStrings(
         available = "يتوفّر إصدار أحدث",
