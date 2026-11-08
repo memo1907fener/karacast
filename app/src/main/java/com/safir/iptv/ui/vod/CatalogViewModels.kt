@@ -95,6 +95,11 @@ class MoviesViewModel(
 
     fun clearContinueWatching() = settings.clearContinueWatching(episodes = false)
 
+    /** Wie die Cover geordnet sind — gilt für Filme und Serien gleich. */
+    val sort: StateFlow<com.safir.iptv.util.VodSort> = settings.vodSort
+
+    fun setSort(value: com.safir.iptv.util.VodSort) = settings.setVodSort(value)
+
     private var itemsJob: Job? = null
     private var searchJob: Job? = null
 
@@ -301,6 +306,10 @@ class SeriesViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun clearContinueWatching() = settings.clearContinueWatching(episodes = true)
+
+    val sort: StateFlow<com.safir.iptv.util.VodSort> = settings.vodSort
+
+    fun setSort(value: com.safir.iptv.util.VodSort) = settings.setVodSort(value)
 
     private var itemsJob: Job? = null
     private var searchJob: Job? = null

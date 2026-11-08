@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import kotlinx.coroutines.delay
+import com.safir.iptv.util.Trailer
 import com.safir.iptv.util.cleanVodTitle
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -64,6 +65,7 @@ fun SeriesDetailScreen(
     onBack: () -> Unit
 ) {
     val t = LocalStrings.current
+    val context = androidx.compose.ui.platform.LocalContext.current
     val viewModel: SeriesDetailViewModel = viewModel(factory = AppViewModelFactory)
     LaunchedEffect(seriesId) { viewModel.load(seriesId) }
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -147,6 +149,13 @@ fun SeriesDetailScreen(
             Column(horizontalAlignment = Alignment.End) {
                 TvButton(onClick = viewModel::toggleFavorite) {
                     Text(if (state.isFavorite) t.vod.removeFavorite else t.vod.addFavorite)
+                }
+                val trailer = detail.series.trailer
+                if (Trailer.url(trailer) != null) {
+                    Spacer(Modifier.height(8.dp))
+                    TvButton(onClick = { Trailer.open(context, trailer, t.vod.noTrailerApp) }) {
+                        Text(t.vod.trailer)
+                    }
                 }
                 Spacer(Modifier.height(8.dp))
                 TvButton(onClick = onBack) { Text(t.back) }

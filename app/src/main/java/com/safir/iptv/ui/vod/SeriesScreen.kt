@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.tv.material3.Text
+import com.safir.iptv.util.sortedSeriesFor
 import com.safir.iptv.domain.model.Category
 import com.safir.iptv.domain.model.ContinueItem
 import com.safir.iptv.domain.model.Series
@@ -41,6 +42,9 @@ fun SeriesScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val continueItems by viewModel.continueWatching.collectAsStateWithLifecycle()
     val favorites by viewModel.favorites.collectAsStateWithLifecycle()
+    val sort by viewModel.sort.collectAsStateWithLifecycle()
+    val sortedSeries = remember(state.series, sort) { state.series.sortedSeriesFor(sort) }
+    val sortedResults = remember(state.results, sort) { state.results.sortedSeriesFor(sort) }
 
     if (!state.supported) {
         UnsupportedSource(title = t.series, message = t.vod.onlyXtream, onBack = onBack)
@@ -55,10 +59,10 @@ fun SeriesScreen(
     var focusedSeries by remember { mutableStateOf<Series?>(null) }
     var focusedContinue by remember { mutableStateOf<ContinueItem?>(null) }
     val shown = when (state.selectedCategoryId) {
-        SEARCH_CATEGORY_ID -> state.results
+        SEARCH_CATEGORY_ID -> sortedResults
         VOD_FAVORITES_CATEGORY_ID -> favorites
         VOD_CONTINUE_CATEGORY_ID -> emptyList()
-        else -> state.series
+        else -> sortedSeries
     }
     LaunchedEffect(state.selectedCategoryId) {
         focusedSeries = null
@@ -122,7 +126,7 @@ fun SeriesScreen(
                     error = state.error,
                     resultCount = state.results.size
                 ) {
-                    SeriesGrid(state.results, onOpenSeries, onFocusSeries)
+                    SeriesGrid(sortedResults, onOpenSeries, onFocusSeries)
                 }
 
                 VOD_CONTINUE_CATEGORY_ID -> {
@@ -142,7 +146,9 @@ fun SeriesScreen(
                 }
 
                 else -> {
-                    CatalogHeader(selectedName, state.series.size)
+                    CatalogHeader(selectedName, state.series.size) {
+                        SortButton(sort, viewModel::setSort)
+                    }
                     if (state.series.isEmpty()) {
                         CatalogPlaceholder(
                             loading = state.loadingItems,
@@ -151,7 +157,7 @@ fun SeriesScreen(
                             emptyMessage = t.vod.emptyCategory
                         )
                     } else {
-                        SeriesGrid(state.series, onOpenSeries, onFocusSeries)
+                        SeriesGrid(sortedSeries, onOpenSeries, onFocusSeries)
                     }
                 }
             }

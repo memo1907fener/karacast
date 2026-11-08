@@ -40,8 +40,8 @@ android {
         // (MainActivity.goImmersive) und die Zurück-Taste (Manifest,
         // enableOnBackInvokedCallback).
         targetSdk = 36
-        versionCode = 34
-        versionName = "1.15.3"
+        versionCode = 35
+        versionName = "1.16.0"
         vectorDrawables.useSupportLibrary = true
 
         // Wo die APK-Fassung nach Updates fragt. Steht hier und nicht im Code, weil

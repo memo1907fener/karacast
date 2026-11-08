@@ -97,7 +97,8 @@ class VodRepository(
                 posterUrl = vod.cover,
                 categoryId = vod.categoryId,
                 rating = vod.rating,
-                streamUrl = api.vodUrl(vod.streamId, vod.extension)
+                streamUrl = api.vodUrl(vod.streamId, vod.extension),
+                addedMs = vod.addedMs
             )
         }
         moviesByCategory.put(categoryId, fetched)
@@ -141,7 +142,8 @@ class VodRepository(
                     posterUrl = vod.cover,
                     categoryId = vod.categoryId,
                     rating = vod.rating,
-                    streamUrl = api.vodUrl(vod.streamId, vod.extension)
+                    streamUrl = api.vodUrl(vod.streamId, vod.extension),
+                    addedMs = vod.addedMs
                 )
             }
     }
@@ -189,7 +191,8 @@ class VodRepository(
             released = info?.releaseDate,
             durationSecs = info?.durationSecs,
             rating = info?.rating,
-            posterUrl = info?.cover
+            posterUrl = info?.cover,
+            trailer = info?.trailer
         )
         movieDetails.put(movieId, detail)
         return detail
@@ -230,7 +233,9 @@ class VodRepository(
             fetched.copy(
                 name = known?.name?.takeIf { it.isNotBlank() } ?: fetched.name,
                 posterUrl = known?.posterUrl ?: fetched.posterUrl,
-                categoryId = known?.categoryId ?: fetched.categoryId
+                categoryId = known?.categoryId ?: fetched.categoryId,
+                addedMs = known?.addedMs ?: fetched.addedMs,
+                trailer = fetched.trailer ?: known?.trailer
             )
         } ?: known ?: Series(seriesId, "", null, "")
 
@@ -326,5 +331,7 @@ private fun com.safir.iptv.data.remote.xtream.XtreamSeries.toDomain() = Series(
     rating = rating,
     released = releaseDate,
     cast = cast,
-    director = director
+    director = director,
+    addedMs = addedMs,
+    trailer = trailer
 )

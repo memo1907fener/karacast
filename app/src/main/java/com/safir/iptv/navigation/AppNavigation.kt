@@ -274,7 +274,31 @@ fun AppNavigation(
                         onOpenSearch = { navController.navigate(Routes.CHANNELS_SEARCH) },
                         onOpenGuide = { navController.navigate(Routes.GUIDE) },
                         onOpenSettings = { navController.navigate(Routes.SETTINGS) },
-                        onAddSource = { navController.navigate(Routes.SETUP_ADD) }
+                        onAddSource = { navController.navigate(Routes.SETUP_ADD) },
+                        onResume = { item ->
+                            VodPlayback.queue = emptyList()
+                            VodPlayback.pending = item.toRequest()
+                            navController.navigate(Routes.VOD_PLAYER)
+                        },
+                        onPlayChannel = { channel, categoryId ->
+                            navController.navigate(Routes.player(channel.id, categoryId))
+                        },
+                        onOpenVodFavorite = { favorite ->
+                            if (favorite.isSeries) {
+                                navController.navigate(Routes.seriesDetail(favorite.seriesId))
+                            } else {
+                                VodPlayback.queue = emptyList()
+                                VodPlayback.pending = VodPlayback.Request(
+                                    title = favorite.title,
+                                    subtitle = "",
+                                    url = favorite.streamUrl,
+                                    resumeKey = favorite.key,
+                                    startMs = container.settings.playbackPosition(favorite.key),
+                                    posterUrl = favorite.posterUrl
+                                )
+                                navController.navigate(Routes.VOD_PLAYER)
+                            }
+                        }
                     )
                 }
             }

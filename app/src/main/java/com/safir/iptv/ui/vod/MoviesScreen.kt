@@ -44,6 +44,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
+import androidx.compose.ui.platform.LocalContext
+import com.safir.iptv.util.Trailer
+import com.safir.iptv.util.sortedFor
 import com.safir.iptv.domain.model.Category
 import com.safir.iptv.domain.model.ContinueItem
 import com.safir.iptv.domain.model.Movie
@@ -77,6 +80,9 @@ fun MoviesScreen(
     val continueItems by viewModel.continueWatching.collectAsStateWithLifecycle()
     val favorites by viewModel.favorites.collectAsStateWithLifecycle()
     val preview by viewModel.preview.collectAsStateWithLifecycle()
+    val sort by viewModel.sort.collectAsStateWithLifecycle()
+    val sortedMovies = remember(state.movies, sort) { state.movies.sortedFor(sort) }
+    val sortedResults = remember(state.results, sort) { state.results.sortedFor(sort) }
 
     if (!state.supported) {
         UnsupportedSource(title = t.movies, message = t.vod.onlyXtream, onBack = onBack)
@@ -97,10 +103,10 @@ fun MoviesScreen(
     var focusedMovie by remember { mutableStateOf<Movie?>(null) }
     var focusedContinue by remember { mutableStateOf<ContinueItem?>(null) }
     val shown = when (state.selectedCategoryId) {
-        SEARCH_CATEGORY_ID -> state.results
+        SEARCH_CATEGORY_ID -> sortedResults
         VOD_FAVORITES_CATEGORY_ID -> favorites
         VOD_CONTINUE_CATEGORY_ID -> emptyList()
-        else -> state.movies
+        else -> sortedMovies
     }
     LaunchedEffect(state.selectedCategoryId) {
         focusedMovie = null
@@ -169,7 +175,7 @@ fun MoviesScreen(
                     error = state.error,
                     resultCount = state.results.size
                 ) {
-                    MovieGrid(state.results, viewModel::open, onFocusMovie)
+                    MovieGrid(sortedResults, viewModel::open, onFocusMovie)
                 }
 
                 VOD_CONTINUE_CATEGORY_ID -> {
@@ -189,7 +195,9 @@ fun MoviesScreen(
                 }
 
                 else -> {
-                    CatalogHeader(selectedName, state.movies.size)
+                    CatalogHeader(selectedName, state.movies.size) {
+                        SortButton(sort, viewModel::setSort)
+                    }
                     if (state.movies.isEmpty()) {
                         CatalogPlaceholder(
                             loading = state.loadingItems,
@@ -198,7 +206,7 @@ fun MoviesScreen(
                             emptyMessage = t.vod.emptyCategory
                         )
                     } else {
-                        MovieGrid(state.movies, viewModel::open, onFocusMovie)
+                        MovieGrid(sortedMovies, viewModel::open, onFocusMovie)
                     }
                 }
             }
@@ -267,6 +275,7 @@ private fun MovieSheet(
     onDismiss: () -> Unit
 ) {
     val t = LocalStrings.current
+    val context = LocalContext.current
     val firstButton = remember { FocusRequester() }
 
     LaunchedEffect(movie.id) {
@@ -361,6 +370,11 @@ private fun MovieSheet(
                             modifier = Modifier.focusRequester(firstButton)
                         ) {
                             Text(t.vod.play)
+                        }
+                    }
+                    if (Trailer.url(detail?.trailer) != null) {
+                        TvButton(onClick = { Trailer.open(context, detail?.trailer, t.vod.noTrailerApp) }) {
+                            Text(t.vod.trailer)
                         }
                     }
                     TvButton(onClick = onToggleFavorite) {

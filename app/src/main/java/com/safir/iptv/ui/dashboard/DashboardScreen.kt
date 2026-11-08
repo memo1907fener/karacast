@@ -57,6 +57,11 @@ import com.safir.iptv.IptvApp
 import com.safir.iptv.domain.model.PlaylistSource
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.material.icons.filled.Dns
+import com.safir.iptv.domain.model.Channel
+import com.safir.iptv.domain.model.ContinueItem
+import com.safir.iptv.domain.model.FAVORITES_CATEGORY_ID
+import com.safir.iptv.domain.model.FavoriteItem
+import com.safir.iptv.domain.model.RECENT_CATEGORY_ID
 import androidx.compose.foundation.layout.widthIn
 import kotlinx.coroutines.launch
 import com.safir.iptv.ui.i18n.AppLanguage
@@ -81,7 +86,10 @@ fun DashboardScreen(
     onOpenSearch: () -> Unit,
     onOpenGuide: () -> Unit,
     onOpenSettings: () -> Unit,
-    onAddSource: () -> Unit
+    onAddSource: () -> Unit,
+    onResume: (ContinueItem) -> Unit = {},
+    onPlayChannel: (Channel, String) -> Unit = { _, _ -> },
+    onOpenVodFavorite: (FavoriteItem) -> Unit = {}
 ) {
     val s = LocalStrings.current
     val context = LocalContext.current
@@ -91,13 +99,29 @@ fun DashboardScreen(
     val sources by remember { container.playlistRepository.observeSources() }
         .collectAsStateWithLifecycle(initialValue = emptyList())
     val activeSourceId by container.settings.activeSourceId.collectAsStateWithLifecycle()
+
+    // Die Reihen. Zuletzt gesehen und Favoriten kommen aus der Senderliste,
+    // Weiterschauen und die gemerkten Filme aus den Einstellungen.
+    val continueItems by container.settings.continueWatching.collectAsStateWithLifecycle()
+    val vodFavorites by container.settings.vodFavorites.collectAsStateWithLifecycle()
+    val recent by remember(activeSourceId) {
+        container.playlistRepository.observeChannels(RECENT_CATEGORY_ID)
+    }.collectAsStateWithLifecycle(initialValue = emptyList())
+    val favoriteChannels by remember(activeSourceId) {
+        container.playlistRepository.observeChannels(FAVORITES_CATEGORY_ID)
+    }.collectAsStateWithLifecycle(initialValue = emptyList())
+    val hasRows = continueItems.isNotEmpty() || recent.isNotEmpty() ||
+        favoriteChannels.isNotEmpty() || vodFavorites.isNotEmpty()
     val scope = rememberCoroutineScope()
 
     val liveFocus = remember { FocusRequester() }
     var languageOpen by remember { mutableStateOf(false) }
     var sourcesOpen by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
+    // Auch nach dem Wechsel zwischen den beiden Aufteilungen: die Reihen kommen
+    // einen Moment nach dem ersten Bild aus der Datenbank, und mit der alten
+    // Kachel ginge sonst der Fokus verloren.
+    LaunchedEffect(hasRows) {
         delay(120)
         runCatching { liveFocus.requestFocus() }
     }
@@ -144,81 +168,112 @@ fun DashboardScreen(
                 DashboardClock()
             }
 
-            // ------------------------------------------------------- three tiles
-            Row(
-                Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(horizontal = 48.dp),
-                horizontalArrangement = Arrangement.spacedBy(20.dp)
-            ) {
-                Tile(
-                    icon = Icons.Default.LiveTv,
-                    label = s.liveTv,
-                    caption = s.liveTvCaption,
-                    iconSize = 64.dp,
-                    labelSize = 28.sp,
-                    captionSize = 13.sp,
-                    contentPadding = 16.dp,
-                    onClick = onOpenLive,
-                    modifier = Modifier
-                        .weight(1.9f)
-                        .fillMaxHeight()
-                        .focusRequester(liveFocus)
+            if (hasRows) {
+                // Mit Reihen: die Bereiche als schmale Leiste oben, darunter das,
+                // womit man weitermachen will.
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(112.dp)
+                        .padding(horizontal = 48.dp),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    CompactTile(Icons.Default.LiveTv, s.liveTv, onOpenLive,
+                        Modifier.weight(1.5f).fillMaxHeight().focusRequester(liveFocus))
+                    CompactTile(Icons.Default.Movie, s.movies, onOpenMovies, Modifier.weight(1f).fillMaxHeight())
+                    CompactTile(Icons.Default.Theaters, s.series, onOpenSeries, Modifier.weight(1f).fillMaxHeight())
+                    CompactTile(Icons.Default.Tv, s.guide, onOpenGuide, Modifier.weight(1f).fillMaxHeight())
+                    CompactTile(Icons.Default.Search, s.search, onOpenSearch, Modifier.weight(1f).fillMaxHeight())
+                    CompactTile(Icons.Default.Settings, s.settings, onOpenSettings, Modifier.weight(1f).fillMaxHeight())
+                }
+                Spacer(Modifier.height(18.dp))
+                HomeRows(
+                    continueItems = continueItems,
+                    recent = recent,
+                    favoriteChannels = favoriteChannels,
+                    vodFavorites = vodFavorites,
+                    onResume = onResume,
+                    onPlayChannel = onPlayChannel,
+                    onOpenVodFavorite = onOpenVodFavorite,
+                    modifier = Modifier.weight(1f).fillMaxWidth()
                 )
-
-                Column(
-                    Modifier.weight(1f).fillMaxHeight(),
-                    verticalArrangement = Arrangement.spacedBy(20.dp)
+            } else {
+                // ------------------------------------------------------- three tiles
+                Row(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(horizontal = 48.dp),
+                    horizontalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
                     Tile(
-                        icon = Icons.Default.Theaters,
-                        label = s.series,
-                        caption = s.vod.seriesCaption,
-                        iconSize = 28.dp,
-                        labelSize = 18.sp,
-                        captionSize = 11.sp,
-                        contentPadding = 6.dp,
-                        onClick = onOpenSeries,
-                        modifier = Modifier.weight(1f).fillMaxWidth()
+                        icon = Icons.Default.LiveTv,
+                        label = s.liveTv,
+                        caption = s.liveTvCaption,
+                        iconSize = 64.dp,
+                        labelSize = 28.sp,
+                        captionSize = 13.sp,
+                        contentPadding = 16.dp,
+                        onClick = onOpenLive,
+                        modifier = Modifier
+                            .weight(1.9f)
+                            .fillMaxHeight()
+                            .focusRequester(liveFocus)
                     )
-                    Tile(
-                        icon = Icons.Default.Movie,
-                        label = s.movies,
-                        caption = s.vod.moviesCaption,
-                        iconSize = 28.dp,
-                        labelSize = 18.sp,
-                        captionSize = 11.sp,
-                        contentPadding = 6.dp,
-                        onClick = onOpenMovies,
-                        modifier = Modifier.weight(1f).fillMaxWidth()
+
+                    Column(
+                        Modifier.weight(1f).fillMaxHeight(),
+                        verticalArrangement = Arrangement.spacedBy(20.dp)
+                    ) {
+                        Tile(
+                            icon = Icons.Default.Theaters,
+                            label = s.series,
+                            caption = s.vod.seriesCaption,
+                            iconSize = 28.dp,
+                            labelSize = 18.sp,
+                            captionSize = 11.sp,
+                            contentPadding = 6.dp,
+                            onClick = onOpenSeries,
+                            modifier = Modifier.weight(1f).fillMaxWidth()
+                        )
+                        Tile(
+                            icon = Icons.Default.Movie,
+                            label = s.movies,
+                            caption = s.vod.moviesCaption,
+                            iconSize = 28.dp,
+                            labelSize = 18.sp,
+                            captionSize = 11.sp,
+                            contentPadding = 6.dp,
+                            onClick = onOpenMovies,
+                            modifier = Modifier.weight(1f).fillMaxWidth()
+                        )
+                    }
+                }
+
+                // ------------------------------------------------------- bottom row
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 48.dp, vertical = 22.dp),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    SmallAction(
+                        icon = Icons.Default.Search,
+                        label = s.search,
+                        onClick = onOpenSearch,
+                        modifier = Modifier.weight(1f)
+                    )
+                    SmallAction(
+                        icon = Icons.Default.Tv,
+                        label = s.guide,
+                        onClick = onOpenGuide,
+                        modifier = Modifier.weight(1f)
+                    )
+                    SmallAction(
+                        icon = Icons.Default.Settings,
+                        label = s.settings,
+                        onClick = onOpenSettings,
+                        modifier = Modifier.weight(1f)
                     )
                 }
-            }
-
-            // ------------------------------------------------------- bottom row
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 48.dp, vertical = 22.dp),
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                SmallAction(
-                    icon = Icons.Default.Search,
-                    label = s.search,
-                    onClick = onOpenSearch,
-                    modifier = Modifier.weight(1f)
-                )
-                SmallAction(
-                    icon = Icons.Default.Tv,
-                    label = s.guide,
-                    onClick = onOpenGuide,
-                    modifier = Modifier.weight(1f)
-                )
-                SmallAction(
-                    icon = Icons.Default.Settings,
-                    label = s.settings,
-                    onClick = onOpenSettings,
-                    modifier = Modifier.weight(1f)
-                )
             }
         }
 
@@ -248,6 +303,50 @@ fun DashboardScreen(
                     languageOpen = false
                 },
                 onDismiss = { languageOpen = false }
+            )
+        }
+    }
+}
+
+/** Eine Kachel der schmalen Leiste über den Reihen: Symbol und Name. */
+@Composable
+private fun CompactTile(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val shape = RoundedCornerShape(14.dp)
+    Surface(
+        onClick = onClick,
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = Brand.SurfaceHigh,
+            focusedContainerColor = Brand.Accent,
+            pressedContainerColor = Brand.Accent,
+            contentColor = Brand.TextPrimary,
+            focusedContentColor = Brand.Background,
+            pressedContentColor = Brand.Background
+        ),
+        shape = ClickableSurfaceDefaults.shape(shape),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f),
+        border = ClickableSurfaceDefaults.border(
+            focusedBorder = Border(border = BorderStroke(3.dp, Brand.AccentSoft), shape = shape)
+        ),
+        modifier = modifier.alsoTappable(onClick)
+    ) {
+        Column(
+            Modifier.fillMaxSize().padding(8.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(30.dp))
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = label,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }

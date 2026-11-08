@@ -68,7 +68,8 @@ data class XtreamVodInfo(
     val releaseDate: String?,
     val durationSecs: Int?,
     val rating: String?,
-    val cover: String?
+    val cover: String?,
+    val trailer: String? = null
 )
 
 data class XtreamSeries(
@@ -81,7 +82,9 @@ data class XtreamSeries(
     val rating: String?,
     val releaseDate: String?,
     val cast: String?,
-    val director: String?
+    val director: String?,
+    val addedMs: Long? = null,
+    val trailer: String? = null
 )
 
 data class XtreamEpisode(
@@ -233,7 +236,8 @@ class XtreamClient(
             releaseDate = info.str("releasedate", "releaseDate", "release_date"),
             durationSecs = durationSecondsOf(info),
             rating = info.str("rating"),
-            cover = info.str("movie_image", "cover_big")
+            cover = info.str("movie_image", "cover_big"),
+            trailer = info.str("youtube_trailer", "trailer")
         )
     }
 
@@ -276,7 +280,8 @@ class XtreamClient(
                     rating = obj.str("rating"),
                     releaseDate = obj.str("releaseDate", "releasedate", "release_date"),
                     cast = obj.str("cast", "actors"),
-                    director = obj.str("director")
+                    director = obj.str("director"),
+                    trailer = obj.str("youtube_trailer", "trailer")
                 )
             }
 
@@ -341,7 +346,9 @@ class XtreamClient(
             rating = obj.str("rating"),
             releaseDate = obj.str("releaseDate", "releasedate", "release_date"),
             cast = obj.str("cast", "actors"),
-            director = obj.str("director")
+            director = obj.str("director"),
+            addedMs = obj.long("last_modified")?.times(1000L),
+            trailer = obj.str("youtube_trailer", "trailer")
         )
     }
 

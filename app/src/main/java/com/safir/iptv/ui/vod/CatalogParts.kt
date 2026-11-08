@@ -66,6 +66,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
+import com.safir.iptv.util.VodSort
 import coil.compose.AsyncImagePainter
 import com.safir.iptv.domain.model.Category
 import com.safir.iptv.domain.model.ContinueItem
@@ -204,6 +205,25 @@ fun CatalogHeader(name: String, count: Int?, action: (@Composable () -> Unit)? =
         }
         Spacer(Modifier.weight(1f))
         action?.invoke()
+    }
+}
+
+/**
+ * Der Sortier-Knopf über den Covern. Jeder Druck schaltet zum nächsten Modus —
+ * mit der Fernbedienung schneller als ein Menü, und man sieht sofort, was gilt.
+ */
+@Composable
+fun SortButton(sort: VodSort, onChange: (VodSort) -> Unit) {
+    val t = LocalStrings.current
+    val label = when (sort) {
+        VodSort.DEFAULT -> t.vod.sortDefault
+        VodSort.NEWEST -> t.vod.sortNewest
+        VodSort.AZ -> t.vod.sortAz
+        VodSort.RATING -> t.vod.sortRating
+        VodSort.YEAR -> t.vod.sortYear
+    }
+    TvButton(onClick = { onChange(sort.next()) }) {
+        Text(t.vod.sortLabel(label), fontSize = 12.sp, maxLines = 1)
     }
 }
 

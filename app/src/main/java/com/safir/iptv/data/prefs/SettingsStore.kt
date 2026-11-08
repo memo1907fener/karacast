@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import com.safir.iptv.util.VodSort
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
@@ -437,6 +438,17 @@ class SettingsStore(context: Context) {
             .getOrDefault(emptyList())
     }
 
+    // ------------------------------------------------------- Filme sortieren
+
+    /** Wie Filme und Serien geordnet sind. Für alle Kategorien und Zugänge gleich. */
+    private val _vodSort = MutableStateFlow(VodSort.of(prefs.getString(KEY_VOD_SORT, null)))
+    val vodSort: StateFlow<VodSort> = _vodSort.asStateFlow()
+
+    fun setVodSort(value: VodSort) {
+        prefs.edit { putString(KEY_VOD_SORT, value.name) }
+        _vodSort.value = value
+    }
+
     // ----------------------------------------------------- where a film stopped
 
     /**
@@ -650,6 +662,7 @@ class SettingsStore(context: Context) {
         const val KEY_LIVE_DIRECT = "live_direct_category"
         const val KEY_CHANNEL_SORT = "channel_sort"
         const val KEY_BY_COUNTRY = "group_by_country"
+        const val KEY_VOD_SORT = "vod_sort"
         const val KEY_ASPECT = "aspect_mode"
         const val KEY_AUTOSTART = "auto_start_on_boot"
         const val KEY_AUTO_RECOVER = "auto_recover"

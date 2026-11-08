@@ -131,7 +131,9 @@ data class Movie(
     val posterUrl: String?,
     val categoryId: String,
     val rating: String?,
-    val streamUrl: String
+    val streamUrl: String,
+    /** Wann der Anbieter den Film aufgenommen hat — für „Neueste zuerst“. */
+    val addedMs: Long? = null
 ) {
     /** Where the viewer's position is filed. Stable across catalogue refreshes. */
     val resumeKey: String get() = "movie:$id"
@@ -146,7 +148,9 @@ data class MovieDetail(
     val released: String? = null,
     val durationSecs: Int? = null,
     val rating: String? = null,
-    val posterUrl: String? = null
+    val posterUrl: String? = null,
+    /** YouTube-Kennung oder -Adresse des Trailers, wenn der Anbieter eine kennt. */
+    val trailer: String? = null
 )
 
 data class Series(
@@ -159,7 +163,11 @@ data class Series(
     val rating: String? = null,
     val released: String? = null,
     val cast: String? = null,
-    val director: String? = null
+    val director: String? = null,
+    /** Zuletzt geändert beim Anbieter (meist: neue Folge) — für „Neueste zuerst“. */
+    val addedMs: Long? = null,
+    /** YouTube-Kennung oder -Adresse des Trailers. */
+    val trailer: String? = null
 )
 
 data class Episode(
