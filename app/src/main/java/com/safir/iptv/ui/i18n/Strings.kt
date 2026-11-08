@@ -332,6 +332,7 @@ data class Strings(
     val info: AboutStrings = AboutStrings(),
     val update: UpdateStrings = UpdateStrings(),
     val profiles: ProfileStrings = ProfileStrings(),
+    val multiview: MultiviewStrings = MultiviewStrings(),
     val panel: PanelStrings = PanelStrings(),
     val license: LicenseStrings = LicenseStrings(),
     val play: PlayStrings = PlayStrings(),
@@ -568,6 +569,21 @@ data class LicenseStrings(
  * skip and should not want to: a television that installs software without anyone
  * agreeing is a television nobody should own.
  */
+data class MultiviewStrings(
+    val title: String = "Multiview",
+    val two: String = "2 Sender",
+    val four: String = "4 Sender",
+    val pick: String = "Sender wählen",
+    val change: String = "Sender wechseln",
+    val fullscreen: String = "Vollbild",
+    val remove: String = "Entfernen",
+    val back: String = "Zurück",
+    val cannotPlay: String = "Startet nicht",
+    val hint: String = "Ton kommt vom ausgewählten Bild. Jeder Sender braucht eine eigene " +
+        "Verbindung beim Anbieter.",
+    val categories: String = "Gruppen"
+)
+
 data class ProfileStrings(
     val whoIsWatching: String = "Wer schaut?",
     val defaultName: String = "Ich",
@@ -1293,6 +1309,19 @@ private val Turkish = Strings(
             "sonrası. Lisans metinleri ve FFmpeg kütüphanelerinin kaynak kodu talep " +
             "üzerine verilir."
     ),
+    multiview = MultiviewStrings(
+        title = "Çoklu izleme",
+        two = "2 kanal",
+        four = "4 kanal",
+        pick = "Kanal seç",
+        change = "Kanalı değiştir",
+        fullscreen = "Tam ekran",
+        remove = "Kaldır",
+        back = "Geri",
+        cannotPlay = "Başlamıyor",
+        hint = "Ses seçili görüntüden gelir. Her kanal sağlayıcıda ayrı bir bağlantı kullanır.",
+        categories = "Gruplar"
+    ),
     profiles = ProfileStrings(
         whoIsWatching = "Kim izliyor?",
         defaultName = "Ben",
@@ -1959,6 +1988,19 @@ private val English = Strings(
             "LGPL 2.1 or later. The licence texts and the source of the FFmpeg libraries " +
             "are available on request."
     ),
+    multiview = MultiviewStrings(
+        title = "Multiview",
+        two = "2 channels",
+        four = "4 channels",
+        pick = "Choose channel",
+        change = "Change channel",
+        fullscreen = "Fullscreen",
+        remove = "Remove",
+        back = "Back",
+        cannotPlay = "Won't start",
+        hint = "Sound comes from the selected picture. Each channel uses its own connection at the provider.",
+        categories = "Groups"
+    ),
     profiles = ProfileStrings(
         whoIsWatching = "Who's watching?",
         defaultName = "Me",
@@ -2615,6 +2657,19 @@ private val Arabic = Strings(
             "وJetpack Compose وCompose for TV وRoom وOkHttp وCoil — جميعها برخصة " +
             "Apache 2.0 — إضافة إلى FFmpeg عبر NextLib برخصة LGPL 2.1 أو ما بعدها. " +
             "نصوص الرخص والشيفرة المصدرية لمكتبات FFmpeg متاحة عند الطلب."
+    ),
+    multiview = MultiviewStrings(
+        title = "مشاهدة متعددة",
+        two = "قناتان",
+        four = "4 قنوات",
+        pick = "اختر قناة",
+        change = "تغيير القناة",
+        fullscreen = "ملء الشاشة",
+        remove = "إزالة",
+        back = "رجوع",
+        cannotPlay = "لا تبدأ",
+        hint = "يأتي الصوت من الصورة المحددة. كل قناة تستخدم اتصالًا منفصلًا لدى المزوّد.",
+        categories = "المجموعات"
     ),
     profiles = ProfileStrings(
         whoIsWatching = "من يشاهد؟",

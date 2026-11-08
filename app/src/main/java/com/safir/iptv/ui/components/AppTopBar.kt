@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Tv
 import androidx.compose.foundation.focusGroup
@@ -55,6 +56,7 @@ fun AppTopBar(
     onTab: (TopTab) -> Unit,
     onSearch: () -> Unit,
     onSettings: () -> Unit,
+    onMultiview: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val s = LocalStrings.current
@@ -80,6 +82,7 @@ fun AppTopBar(
         TopTabButton(s.series, active == TopTab.SERIES, activeRequester) { onTab(TopTab.SERIES) }
         TopTabButton(s.guide, active == TopTab.GUIDE, activeRequester) { onTab(TopTab.GUIDE) }
         Spacer(Modifier.weight(1f))
+        TopIcon(Icons.Default.GridView, s.multiview.title, onMultiview)
         TopIcon(Icons.Default.Search, s.search, onSearch)
         TopIcon(Icons.Default.Settings, s.settings, onSettings)
         Spacer(Modifier.width(8.dp))

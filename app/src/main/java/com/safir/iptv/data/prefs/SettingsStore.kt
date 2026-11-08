@@ -549,6 +549,18 @@ class SettingsStore(context: Context) {
             .getOrDefault(emptyList())
     }
 
+    // ------------------------------------------------------------- Multiview
+
+    /** Die Sender in den Multiview-Feldern, je Zugang. Leerer Eintrag = leeres Feld. */
+    var multiviewChannels: List<String>
+        get() = prefs.getString(scoped(KEY_MULTIVIEW), null)?.split('\n') ?: emptyList()
+        set(value) = prefs.edit { putString(scoped(KEY_MULTIVIEW), value.joinToString("\n")) }
+
+    /** 2 oder 4 Felder. */
+    var multiviewSlots: Int
+        get() = if (prefs.getInt(KEY_MULTIVIEW_SLOTS, 2) == 4) 4 else 2
+        set(value) = prefs.edit { putInt(KEY_MULTIVIEW_SLOTS, if (value == 4) 4 else 2) }
+
     // ------------------------------------------------------- Filme sortieren
 
     /** Wie Filme und Serien geordnet sind. Für alle Kategorien und Zugänge gleich. */
@@ -775,6 +787,8 @@ class SettingsStore(context: Context) {
         const val KEY_BY_COUNTRY = "group_by_country"
         const val KEY_VOD_SORT = "vod_sort"
         const val KEY_PROFILES = "profiles"
+        const val KEY_MULTIVIEW = "multiview_channels"
+        const val KEY_MULTIVIEW_SLOTS = "multiview_slots"
         const val KEY_ACTIVE_PROFILE = "active_profile"
         const val KEY_ACTIVE_KIDS = "active_profile_kids"
         const val KEY_PROFILE_FAVORITES = "profile_channel_favorites"

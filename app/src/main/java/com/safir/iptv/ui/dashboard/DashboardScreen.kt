@@ -57,6 +57,7 @@ import com.safir.iptv.IptvApp
 import com.safir.iptv.domain.model.PlaylistSource
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.GridView
 import com.safir.iptv.domain.model.Channel
 import com.safir.iptv.domain.model.Profile
 import com.safir.iptv.ui.profiles.ProfileAvatar
@@ -91,6 +92,7 @@ fun DashboardScreen(
     onOpenSettings: () -> Unit,
     onAddSource: () -> Unit,
     onOpenProfiles: () -> Unit = {},
+    onOpenMultiview: () -> Unit = {},
     onResume: (ContinueItem) -> Unit = {},
     onPlayChannel: (Channel, String) -> Unit = { _, _ -> },
     onOpenVodFavorite: (FavoriteItem) -> Unit = {}
@@ -196,6 +198,7 @@ fun DashboardScreen(
                     CompactTile(Icons.Default.Movie, s.movies, onOpenMovies, Modifier.weight(1f).fillMaxHeight())
                     CompactTile(Icons.Default.Theaters, s.series, onOpenSeries, Modifier.weight(1f).fillMaxHeight())
                     CompactTile(Icons.Default.Tv, s.guide, onOpenGuide, Modifier.weight(1f).fillMaxHeight())
+                    CompactTile(Icons.Default.GridView, s.multiview.title, onOpenMultiview, Modifier.weight(1f).fillMaxHeight())
                     CompactTile(Icons.Default.Search, s.search, onOpenSearch, Modifier.weight(1f).fillMaxHeight())
                     CompactTile(Icons.Default.Settings, s.settings, onOpenSettings, Modifier.weight(1f).fillMaxHeight())
                 }
@@ -278,6 +281,12 @@ fun DashboardScreen(
                         icon = Icons.Default.Tv,
                         label = s.guide,
                         onClick = onOpenGuide,
+                        modifier = Modifier.weight(1f)
+                    )
+                    SmallAction(
+                        icon = Icons.Default.GridView,
+                        label = s.multiview.title,
+                        onClick = onOpenMultiview,
                         modifier = Modifier.weight(1f)
                     )
                     SmallAction(

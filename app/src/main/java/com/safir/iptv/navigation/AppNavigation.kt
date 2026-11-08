@@ -57,6 +57,7 @@ import com.safir.iptv.ui.settings.GroupsScreen
 import com.safir.iptv.ui.settings.SettingsScreen
 import com.safir.iptv.ui.update.UpdateGate
 import com.safir.iptv.ui.profiles.ProfilesScreen
+import com.safir.iptv.ui.multiview.MultiviewScreen
 import com.safir.iptv.ui.vod.MoviesScreen
 import com.safir.iptv.ui.vod.SeriesDetailScreen
 import com.safir.iptv.ui.vod.SeriesScreen
@@ -90,6 +91,7 @@ object Routes {
     /** The film itself travels in memory, not in the route — see [VodPlayback]. */
     const val VOD_PLAYER = "vodplayer"
     const val PROFILES = "profiles"
+    const val MULTIVIEW = "multiview"
     const val PLAYER = "player/{channelId}/{categoryId}"
     const val ARCHIVE = "archive/{channelId}/{start}/{duration}"
 
@@ -200,7 +202,8 @@ fun AppNavigation(
                         TopBarSearch.requests.tryEmit(Unit)
                     }
                 },
-                onSettings = { navController.navigate(Routes.SETTINGS) }
+                onSettings = { navController.navigate(Routes.SETTINGS) },
+                onMultiview = { navController.navigate(Routes.MULTIVIEW) }
             )
         }
         NavHost(
@@ -288,6 +291,7 @@ fun AppNavigation(
                         onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                         onAddSource = { navController.navigate(Routes.SETUP_ADD) },
                         onOpenProfiles = { navController.navigate(Routes.PROFILES) },
+                        onOpenMultiview = { navController.navigate(Routes.MULTIVIEW) },
                         onResume = { item ->
                             VodPlayback.queue = emptyList()
                             VodPlayback.pending = item.toRequest()
@@ -440,6 +444,15 @@ fun AppNavigation(
 
             composable(Routes.VOD_PLAYER) {
                 VodPlayerScreen(onExit = { navController.popBackStack() })
+            }
+
+            composable(Routes.MULTIVIEW) {
+                MultiviewScreen(
+                    onBack = { navController.popBackStack() },
+                    onFullscreen = { channel ->
+                        navController.navigate(Routes.player(channel.id, channel.categoryId))
+                    }
+                )
             }
 
             composable(Routes.PROFILES) {
