@@ -1,6 +1,6 @@
 {
-  "versionCode": 38,
-  "versionName": "1.18.1",
-  "url": "https://github.com/memo1907fener/karacast/releases/download/v1.18.1/KaracastIPTV-1.18.1.apk",
-  "notes": "Karacast läuft jetzt auch auf dem Handy – immer im Querformat."
+  "versionCode": 39,
+  "versionName": "1.18.2",
+  "url": "https://github.com/memo1907fener/karacast/releases/download/v1.18.2/KaracastIPTV-1.18.2.apk",
+  "notes": "Neue, aufgeräumte Startseite mit Reihen (Weiterschauen, zuletzt gesehen, Favoriten) – in den Einstellungen unter Anzeige wählbar: Modern oder Klassisch."
 }
