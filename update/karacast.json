@@ -1,6 +1,6 @@
 {
-  "versionCode": 34,
-  "versionName": "1.15.3",
-  "url": "https://github.com/memo1907fener/karacast/releases/download/v1.15.3/KaracastIPTV-1.15.3.apk",
-  "notes": "Gesperrte Fernseher können jetzt selbst nach Updates suchen. Dazu ein Reserve-Lizenzschlüssel, damit Freischaltungen auch im Notfall sofort wirken."
+  "versionCode": 37,
+  "versionName": "1.18.0",
+  "url": "https://github.com/memo1907fener/karacast/releases/download/v1.18.0/KaracastIPTV-1.18.0.apk",
+  "notes": "Neue Startseite mit Reihen (Weiterschauen, zuletzt gesehen, Favoriten). Profile mit Kinderprofil. Multiview: 2 oder 4 Sender gleichzeitig. Filme und Serien sortieren, Trailer-Knopf."
 }
