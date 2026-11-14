@@ -338,7 +338,8 @@ private fun ChannelCard(
         }
         Spacer(Modifier.height(5.dp))
         Text(
-            channel.name,
+            // „[DE] ZDF HD“ → „ZDF HD“: das Land steht in jeder Karte gleich da.
+            cleanVodTitle(channel.name).ifBlank { channel.name },
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
             color = Brand.TextPrimary,
