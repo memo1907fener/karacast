@@ -549,6 +549,20 @@ class SettingsStore(context: Context) {
             .getOrDefault(emptyList())
     }
 
+    // ------------------------------------------------------------ Startseite
+
+    /**
+     * Die Startseite: mit Reihen (Weiterschauen, Sender, Favoriten) oder
+     * klassisch mit den drei großen Kacheln wie bis 1.15.
+     */
+    private val _homeRows = MutableStateFlow(prefs.getBoolean(KEY_HOME_ROWS, true))
+    val homeRows: StateFlow<Boolean> = _homeRows.asStateFlow()
+
+    fun setHomeRows(value: Boolean) {
+        prefs.edit { putBoolean(KEY_HOME_ROWS, value) }
+        _homeRows.value = value
+    }
+
     // ------------------------------------------------------------- Multiview
 
     /** Die Sender in den Multiview-Feldern, je Zugang. Leerer Eintrag = leeres Feld. */
@@ -788,6 +802,7 @@ class SettingsStore(context: Context) {
         const val KEY_VOD_SORT = "vod_sort"
         const val KEY_PROFILES = "profiles"
         const val KEY_MULTIVIEW = "multiview_channels"
+        const val KEY_HOME_ROWS = "home_rows"
         const val KEY_MULTIVIEW_SLOTS = "multiview_slots"
         const val KEY_ACTIVE_PROFILE = "active_profile"
         const val KEY_ACTIVE_KIDS = "active_profile_kids"

@@ -57,7 +57,11 @@ fun AppTopBar(
     onSearch: () -> Unit,
     onSettings: () -> Unit,
     onMultiview: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** Zusätzliche Knöpfe vor der Uhr — die Startseite setzt hier Profil, Zugang, Sprache ein. */
+    extra: (@Composable () -> Unit)? = null,
+    /** Schmal (Handy): ohne Schriftzug, damit die Reiter Platz haben. */
+    compact: Boolean = false
 ) {
     val s = LocalStrings.current
     // Wer von unten in die Leiste springt, landet auf dem aktiven Reiter — nicht
@@ -74,8 +78,8 @@ fun AppTopBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        BrandMark()
-        Spacer(Modifier.width(14.dp))
+        BrandMark(showName = !compact)
+        Spacer(Modifier.width(if (compact) 6.dp else 14.dp))
         TopTabButton(s.home, active == TopTab.HOME, activeRequester) { onTab(TopTab.HOME) }
         TopTabButton(s.liveTv, active == TopTab.LIVE, activeRequester) { onTab(TopTab.LIVE) }
         TopTabButton(s.movies, active == TopTab.MOVIES, activeRequester) { onTab(TopTab.MOVIES) }
@@ -85,13 +89,14 @@ fun AppTopBar(
         TopIcon(Icons.Default.GridView, s.multiview.title, onMultiview)
         TopIcon(Icons.Default.Search, s.search, onSearch)
         TopIcon(Icons.Default.Settings, s.settings, onSettings)
+        extra?.invoke()
         Spacer(Modifier.width(8.dp))
-        Clock(large = true)
+        Clock(large = !compact)
     }
 }
 
 @Composable
-private fun BrandMark() {
+private fun BrandMark(showName: Boolean = true) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
             Modifier
@@ -102,8 +107,10 @@ private fun BrandMark() {
         ) {
             Icon(Icons.Default.Tv, contentDescription = null, tint = Brand.Background, modifier = Modifier.size(16.dp))
         }
-        Spacer(Modifier.width(8.dp))
-        Text(text = "Karacast", fontSize = 17.sp, fontWeight = FontWeight.Black, color = Brand.TextPrimary, maxLines = 1)
+        if (showName) {
+            Spacer(Modifier.width(8.dp))
+            Text(text = "Karacast", fontSize = 17.sp, fontWeight = FontWeight.Black, color = Brand.TextPrimary, maxLines = 1)
+        }
     }
 }
 

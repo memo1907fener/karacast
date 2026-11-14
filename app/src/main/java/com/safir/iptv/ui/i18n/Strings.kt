@@ -368,6 +368,12 @@ data class DeviceStrings(
  * im Arabischen ist die Ansicht gespiegelt, dort stehen sie deshalb andersherum.
  */
 data class LayoutStrings(
+    val homeTitle: String = "Startseite",
+    val homeHint: String = "Wie die Startseite aussieht.",
+    val homeRows: String = "Modern",
+    val homeRowsHint: String = "Weiterschauen, zuletzt gesehene Sender und Favoriten direkt auf der Startseite",
+    val homeClassic: String = "Klassisch",
+    val homeClassicHint: String = "Die großen Kacheln Live TV, Serien und Filme — wie früher",
     val settingTitle: String = "Live-TV-Ansicht",
     val settingHint: String = "In Kino, Mosaik und Receiver stehen Gruppen und Kanäle " +
         "nebeneinander: OK spielt einen Kanal in der Vorschau ab, ein zweites OK auf " +
@@ -1434,6 +1440,12 @@ private val Turkish = Strings(
             "altında – uygulamayı açmadan."
     ),
     layout = LayoutStrings(
+        homeTitle = "Ana sayfa",
+        homeHint = "Ana sayfanın görünümü.",
+        homeRows = "Modern",
+        homeRowsHint = "İzlemeye devam et, son izlenen kanallar ve favoriler doğrudan ana sayfada",
+        homeClassic = "Klasik",
+        homeClassicHint = "Büyük Canlı TV, Dizi ve Film kutuları — eskisi gibi",
         settingTitle = "Canlı TV görünümü",
         settingHint = "Sinema, Mozaik ve Alıcı görünümlerinde gruplar ve kanallar yan yana " +
             "durur: OK kanalı önizlemede oynatır, aynı kanalda ikinci OK tam ekranı açar.",
@@ -2115,6 +2127,12 @@ private val English = Strings(
             "watching” – without opening the app."
     ),
     layout = LayoutStrings(
+        homeTitle = "Home screen",
+        homeHint = "How the home screen looks.",
+        homeRows = "Modern",
+        homeRowsHint = "Keep watching, recent channels and favourites right on the home screen",
+        homeClassic = "Classic",
+        homeClassicHint = "The big Live TV, Series and Films tiles — as before",
         settingTitle = "Live TV view",
         settingHint = "In Cinema, Mosaic and Receiver, groups and channels sit side by side: " +
             "OK plays a channel in the preview, a second OK on the same channel opens full screen.",
@@ -2777,6 +2795,12 @@ private val Arabic = Strings(
         hint = "المفضلة كصف خاص، والأفلام غير المكتملة تحت «متابعة المشاهدة» – دون فتح التطبيق."
     ),
     layout = LayoutStrings(
+        homeTitle = "الشاشة الرئيسية",
+        homeHint = "شكل الشاشة الرئيسية.",
+        homeRows = "حديث",
+        homeRowsHint = "متابعة المشاهدة والقنوات الأخيرة والمفضلة مباشرة على الشاشة الرئيسية",
+        homeClassic = "كلاسيكي",
+        homeClassicHint = "مربعات البث المباشر والمسلسلات والأفلام الكبيرة — كما كانت",
         settingTitle = "عرض البث المباشر",
         settingHint = "في عروض السينما والفسيفساء والمستقبِل تظهر المجموعات والقنوات جنباً إلى " +
             "جنب: OK يشغّل القناة في المعاينة، وضغطة OK ثانية على القناة نفسها تفتح ملء الشاشة.",

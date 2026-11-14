@@ -51,6 +51,7 @@ data class SettingsUiState(
     val resumeLastChannel: Boolean = false,
     val previewEnabled: Boolean = true,
     val liveLayout: LiveLayout = LiveLayout.CLASSIC,
+    val homeRows: Boolean = true,
     val groupByCountry: Boolean = true,
     val previewMuted: Boolean = false,
     val groupCount: Int = 0,
@@ -207,6 +208,11 @@ class SettingsViewModel(
         _state.update { it.copy(groupByCountry = value) }
     }
 
+    fun setHomeRows(value: Boolean) {
+        settings.setHomeRows(value)
+        _state.update { it.copy(homeRows = value) }
+    }
+
     fun setLiveLayout(value: LiveLayout) {
         settings.liveLayout = value
         _state.update { it.copy(liveLayout = value) }
@@ -278,6 +284,7 @@ class SettingsViewModel(
                     resumeLastChannel = settings.resumeLastChannel,
                     previewEnabled = settings.previewEnabled,
                     liveLayout = settings.liveLayout,
+                    homeRows = settings.homeRows.value,
                     groupByCountry = settings.groupByCountry.value,
                     previewMuted = settings.previewMuted,
                     groupCount = settings.groups.value.size,

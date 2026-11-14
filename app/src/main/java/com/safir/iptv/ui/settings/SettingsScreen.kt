@@ -634,6 +634,33 @@ private fun DisplaySection(state: SettingsUiState, viewModel: SettingsViewModel)
             onToggle = { viewModel.setGroupByCountry(!state.groupByCountry) }
         )
         Spacer(Modifier.height(12.dp))
+        // Die Startseite: modern mit Reihen oder klassisch mit den großen Kacheln.
+        Text(
+            text = t.layout.homeTitle,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = Brand.TextPrimary
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = t.layout.homeHint,
+            style = MaterialTheme.typography.labelSmall,
+            color = Brand.TextSecondary
+        )
+        Spacer(Modifier.height(8.dp))
+        listOf(
+            Triple(true, t.layout.homeRows, t.layout.homeRowsHint),
+            Triple(false, t.layout.homeClassic, t.layout.homeClassicHint)
+        ).forEach { (rows, name, hint) ->
+            ChoiceRow(
+                title = name,
+                detail = hint,
+                selected = state.homeRows == rows,
+                onSelect = { viewModel.setHomeRows(rows) }
+            )
+            Spacer(Modifier.height(5.dp))
+        }
+        Spacer(Modifier.height(12.dp))
         // Vier Ansichten für Live TV — eine Auswahl, kein Schalter.
         Text(
             text = t.layout.settingTitle,

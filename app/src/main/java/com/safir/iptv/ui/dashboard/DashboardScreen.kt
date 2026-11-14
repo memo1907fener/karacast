@@ -57,6 +57,9 @@ import com.safir.iptv.IptvApp
 import com.safir.iptv.domain.model.PlaylistSource
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.material.icons.filled.Dns
+import androidx.compose.ui.platform.LocalConfiguration
+import com.safir.iptv.ui.components.AppTopBar
+import com.safir.iptv.ui.components.TopTab
 import androidx.compose.material.icons.filled.GridView
 import com.safir.iptv.domain.model.Channel
 import com.safir.iptv.domain.model.Profile
@@ -119,8 +122,10 @@ fun DashboardScreen(
     val favoriteChannels by remember(activeSourceId) {
         container.playlistRepository.observeChannels(FAVORITES_CATEGORY_ID)
     }.collectAsStateWithLifecycle(initialValue = emptyList())
-    val hasRows = continueItems.isNotEmpty() || recent.isNotEmpty() ||
-        favoriteChannels.isNotEmpty() || vodFavorites.isNotEmpty()
+    // In den Einstellungen wählbar: modern mit Reihen oder klassisch mit Kacheln.
+    val rowsWanted by container.settings.homeRows.collectAsStateWithLifecycle()
+    val hasRows = rowsWanted && (continueItems.isNotEmpty() || recent.isNotEmpty() ||
+        favoriteChannels.isNotEmpty() || vodFavorites.isNotEmpty())
     val scope = rememberCoroutineScope()
 
     val liveFocus = remember { FocusRequester() }
@@ -138,71 +143,43 @@ fun DashboardScreen(
     Box(Modifier.fillMaxSize().background(Brand.Background)) {
         Column(Modifier.fillMaxSize()) {
 
-            // ------------------------------------------------------------ header
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 48.dp, vertical = 24.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    Modifier
-                        .size(36.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Brand.Accent),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Default.Tv,
-                        contentDescription = null,
-                        tint = Brand.Background,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-                Spacer(Modifier.width(14.dp))
-                Text(
-                    "Karacast IPTV",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = Brand.TextPrimary
-                )
-                Spacer(Modifier.weight(1f))
-                sources.firstOrNull { it.id == activeSourceId }?.let { active ->
-                    SourceButton(name = active.name, onClick = { sourcesOpen = true })
-                    Spacer(Modifier.width(14.dp))
-                }
-                ProfileButton(
-                    profile = activeProfile,
-                    name = displayName(activeProfile, s.profiles.defaultName),
-                    onClick = onOpenProfiles
-                )
-                Spacer(Modifier.width(14.dp))
-                LanguageButton(
-                    current = language,
-                    onClick = { languageOpen = true }
-                )
-                Spacer(Modifier.width(20.dp))
-                DashboardClock()
-            }
-
             if (hasRows) {
-                // Mit Reihen: die Bereiche als schmale Leiste oben, darunter das,
-                // womit man weitermachen will.
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(112.dp)
-                        .padding(horizontal = 48.dp),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    CompactTile(Icons.Default.LiveTv, s.liveTv, onOpenLive,
-                        Modifier.weight(1.5f).fillMaxHeight().focusRequester(liveFocus))
-                    CompactTile(Icons.Default.Movie, s.movies, onOpenMovies, Modifier.weight(1f).fillMaxHeight())
-                    CompactTile(Icons.Default.Theaters, s.series, onOpenSeries, Modifier.weight(1f).fillMaxHeight())
-                    CompactTile(Icons.Default.Tv, s.guide, onOpenGuide, Modifier.weight(1f).fillMaxHeight())
-                    CompactTile(Icons.Default.GridView, s.multiview.title, onOpenMultiview, Modifier.weight(1f).fillMaxHeight())
-                    CompactTile(Icons.Default.Search, s.search, onOpenSearch, Modifier.weight(1f).fillMaxHeight())
-                    CompactTile(Icons.Default.Settings, s.settings, onOpenSettings, Modifier.weight(1f).fillMaxHeight())
-                }
-                Spacer(Modifier.height(18.dp))
+                // Modern: dieselbe Kopfleiste wie in Live TV, Filmen und Serien —
+                // mit Profil, Zugang und Sprache rechts — und darunter die Reihen.
+                val compact = LocalConfiguration.current.screenHeightDp < 480
+                AppTopBar(
+                    active = TopTab.HOME,
+                    onTab = { tab ->
+                        when (tab) {
+                            TopTab.HOME -> Unit
+                            TopTab.LIVE -> onOpenLive()
+                            TopTab.MOVIES -> onOpenMovies()
+                            TopTab.SERIES -> onOpenSeries()
+                            TopTab.GUIDE -> onOpenGuide()
+                        }
+                    },
+                    onSearch = onOpenSearch,
+                    onSettings = onOpenSettings,
+                    onMultiview = onOpenMultiview,
+                    compact = compact,
+                    extra = {
+                        if (sources.size > 1) {
+                            HeaderIcon(Icons.Default.Dns, onClick = { sourcesOpen = true })
+                        }
+                        HeaderIcon(null, onClick = onOpenProfiles) {
+                            ProfileAvatar(
+                                activeProfile,
+                                displayName(activeProfile, s.profiles.defaultName),
+                                22.dp
+                            )
+                        }
+                        HeaderIcon(null, onClick = { languageOpen = true }) {
+                            Text(language.flag, fontSize = 16.sp)
+                        }
+                    },
+                    modifier = Modifier.padding(top = if (compact) 4.dp else 12.dp)
+                )
+                Spacer(Modifier.height(if (compact) 6.dp else 16.dp))
                 HomeRows(
                     continueItems = continueItems,
                     recent = recent,
@@ -211,9 +188,55 @@ fun DashboardScreen(
                     onResume = onResume,
                     onPlayChannel = onPlayChannel,
                     onOpenVodFavorite = onOpenVodFavorite,
+                    firstFocus = liveFocus,
                     modifier = Modifier.weight(1f).fillMaxWidth()
                 )
             } else {
+                // ------------------------------------------------------------ header
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 48.dp, vertical = 24.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        Modifier
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Brand.Accent),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.Tv,
+                            contentDescription = null,
+                            tint = Brand.Background,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(14.dp))
+                    Text(
+                        "Karacast IPTV",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Brand.TextPrimary
+                    )
+                    Spacer(Modifier.weight(1f))
+                    sources.firstOrNull { it.id == activeSourceId }?.let { active ->
+                        SourceButton(name = active.name, onClick = { sourcesOpen = true })
+                        Spacer(Modifier.width(14.dp))
+                    }
+                    ProfileButton(
+                        profile = activeProfile,
+                        name = displayName(activeProfile, s.profiles.defaultName),
+                        onClick = onOpenProfiles
+                    )
+                    Spacer(Modifier.width(14.dp))
+                    LanguageButton(
+                        current = language,
+                        onClick = { languageOpen = true }
+                    )
+                    Spacer(Modifier.width(20.dp))
+                    DashboardClock()
+                }
+
                 // ------------------------------------------------------- three tiles
                 Row(
                     Modifier
@@ -326,6 +349,37 @@ fun DashboardScreen(
                 },
                 onDismiss = { languageOpen = false }
             )
+        }
+    }
+}
+
+/** Ein runder Knopf in der Kopfleiste der modernen Startseite. */
+@Composable
+private fun HeaderIcon(
+    icon: ImageVector?,
+    onClick: () -> Unit,
+    content: (@Composable () -> Unit)? = null
+) {
+    Surface(
+        onClick = onClick,
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = Color.White.copy(alpha = 0.08f),
+            focusedContainerColor = Brand.Accent,
+            pressedContainerColor = Brand.Accent,
+            contentColor = Brand.TextSecondary,
+            focusedContentColor = Brand.Background,
+            pressedContentColor = Brand.Background
+        ),
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(16.dp)),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
+        modifier = Modifier.padding(start = 6.dp).size(32.dp).alsoTappable(onClick)
+    ) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            if (content != null) {
+                content()
+            } else if (icon != null) {
+                Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
+            }
         }
     }
 }
