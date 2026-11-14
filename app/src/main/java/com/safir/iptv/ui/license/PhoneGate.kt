@@ -35,22 +35,25 @@ import com.safir.iptv.ui.i18n.LocalStrings
 import com.safir.iptv.ui.theme.Brand
 import com.safir.iptv.util.CompanionApps
 import com.safir.iptv.util.CompanionInstall
+import com.safir.iptv.BuildConfig
 import com.safir.iptv.util.DeviceKind
 import kotlinx.coroutines.launch
 
 /**
- * Die TV-App auf einem Handy: statt der Oberfläche ein Hinweis auf Karacast Mobil.
+ * Die TV-App auf einem Handy.
  *
- * Im Play Store kommt es dazu gar nicht erst, dort ist die TV-App für Handys
- * ausgeblendet. Eine APK aber lässt sich überallhin legen — und eine Oberfläche,
- * die für drei Meter Abstand und eine Fernbedienung gebaut ist, macht auf einem
- * Handy niemanden glücklich. Tablets sind ausdrücklich willkommen.
+ * Die GitHub-Fassung (APK) läuft auch auf Handys — im Querformat, siehe
+ * screenOrientation im Manifest; bedienen lässt sie sich per Touch wie per
+ * Fernbedienung. Nur die Play-Fassung zeigt auf einem Handy statt der Oberfläche
+ * den Weg zu Karacast Mobil: Im Play Store ist sie für Handys ohnehin
+ * ausgeblendet, und wer sie trotzdem dorthin kopiert, bekommt die App, die dort
+ * hingehört.
  */
 @Composable
 fun PhoneGate(content: @Composable () -> Unit) {
     val context = LocalContext.current
     val onPhone = remember { DeviceKind.isPhone(context) }
-    if (!onPhone) {
+    if (!onPhone || !BuildConfig.PLAY_STORE) {
         content()
         return
     }
