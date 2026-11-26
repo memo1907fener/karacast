@@ -38,6 +38,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -185,6 +186,15 @@ fun PlayerScreen(
                 viewModel.onBuffering(playbackState == Player.STATE_BUFFERING)
             }
 
+            // Sobald Bild kommt, ist das Laden vorbei — egal, was vorher gemeldet wurde.
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                if (isPlaying) viewModel.onBuffering(false)
+            }
+
+            override fun onRenderedFirstFrame() {
+                viewModel.onBuffering(false)
+            }
+
             override fun onTracksChanged(tracks: Tracks) {
                 // Picture but no sound: switch to a track this box can decode.
                 runCatching { exoPlayer.repairSilentAudio() }
@@ -211,6 +221,29 @@ fun PlayerScreen(
         onDispose { exoPlayer.removeListener(listener) }
     }
 
+    // Der Ladekreis: erst nach einer knappen Sekunde, damit er beim schnellen
+    // Umschalten nicht nur aufblitzt — und nie über einem Bild, das schon läuft.
+    // Der Player selbst ist die Wahrheit: läuft er, ist der Kreis weg, auch wenn
+    // irgendwo ein „lädt“ hängen geblieben ist.
+    var showSpinner by remember { mutableStateOf(false) }
+    LaunchedEffect(state.isBuffering) {
+        if (!state.isBuffering) {
+            showSpinner = false
+            return@LaunchedEffect
+        }
+        delay(800L)
+        while (true) {
+            val running = exoPlayer.isPlaying || exoPlayer.playbackState == Player.STATE_READY
+            if (running) {
+                showSpinner = false
+                viewModel.onBuffering(false)
+                return@LaunchedEffect
+            }
+            showSpinner = true
+            delay(400L)
+        }
+    }
+
     // Re-preparing is debounced: rapid zapping cancels the previous effect before
     // it ever opens a connection, so the box does not queue up dead streams.
     val streamUrl = state.channel?.streamUrl
@@ -220,6 +253,10 @@ fun PlayerScreen(
             skipFirstLoad[0] = false
             if (handed?.channel?.streamUrl == url && exoPlayer.currentMediaItem != null) {
                 exoPlayer.play()
+                // Der übernommene Player läuft schon und meldet keinen neuen Zustand.
+                // Ohne das bliebe der Ladekreis stehen, den das Umschalten eben
+                // gesetzt hat — minutenlang über einem laufenden Bild.
+                viewModel.onBuffering(exoPlayer.playbackState == Player.STATE_BUFFERING)
                 return@LaunchedEffect
             }
         }
@@ -475,7 +512,7 @@ fun PlayerScreen(
         // In the small window there is room for the picture and nothing else.
         if (inPip) return@Box
 
-        if (state.isBuffering && state.error == null) {
+        if (showSpinner && state.error == null) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = Brand.Accent)
             }
